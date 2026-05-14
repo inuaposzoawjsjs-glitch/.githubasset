@@ -6836,7 +6836,7 @@ Tabs.Premium:AddButton({
     Title = "Apply Accessory",
     Callback = function()
         if _G.SavedID then
-            local success, code = pcall(game.HttpGet, game, "https://raw.githubusercontent.com/twinkilya0-jpg/Fluent-Modded/refs/heads/master/SkinExtensions/SkinChanger.lua")
+            local success, code = pcall(game.HttpGet, game, "https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/SkinsChangers/SkinChanger.txt")
             if success then
                 local func = loadstring(code)
                 if func then
@@ -7374,7 +7374,7 @@ Tabs.Extension:AddButton({
     Title = "AngelicWings",
     Description = "",
     Callback = function()
-       loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/Fluent-mod/refs/heads/master/Skins/AngelicWings.lua"))()
+       loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/SkinsChangers/AngelicWing.txt"))()
     end
 })
 
@@ -7383,7 +7383,7 @@ Tabs.Extension:AddButton({
     Title = "PoisonousHorns",
     Description = "",
     Callback = function()
-   loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/Fluent-mod/refs/heads/master/Skins/ToxicHorn.lua"))()
+   loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/SkinsChangers/ToxicHorn.txt"))()
     end
 })
 
@@ -7391,7 +7391,7 @@ Tabs.Extension:AddButton({
     Title = "FrozenHorn",
     Description = "",
     Callback = function()
-   loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/Fluent-mod/refs/heads/master/Skins/FrozenHorn.lua"))()
+   loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/SkinsChangers/FrozenHorn.txt"))()
     end
 })
 
@@ -7399,7 +7399,7 @@ Tabs.Extension:AddButton({
     Title = "FireHorn",
     Description = "",
     Callback = function()
-   loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/Fluent-mod/refs/heads/master/Skins/FireHorn.lua"))()
+   loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/SkinsChangers/FireHorn.txt"))()
     end
 })
 
@@ -7417,7 +7417,7 @@ Tabs.Extension:AddButton({
         Title = "sensitivity",
         Description = "",
         Callback = function()
-loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/Fluent-mod/refs/heads/master/Others/Sensitivity.lua"))()
+loadstring(game:HttpGet("https://pastebin.com/raw/RkgRJhck"))()
         end
     }
 )
