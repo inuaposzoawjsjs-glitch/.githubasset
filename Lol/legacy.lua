@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm-Hub-X - Evade Legacy│Mobile",
-    SubTitle = "v2.10.1 Made By Carey",
+    SubTitle = "v2.14.2 Made By Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(540, 390),
     Acrylic = false,
@@ -1762,13 +1762,16 @@ Tabs.Main:AddInput("RespawnButtonSize", {
     end
 })
 
+local respawnEvent = game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Respawn")
+
 Tabs.Main:AddButton({
     Title = "Force Respawn",
     Description = "",
-    Callback = function()
-        game:GetService("ReplicatedStorage").Events.Respawn:FireServer()
+    Callback = function()   
+        respawnEvent:FireServer()
     end
 })
+
 
 local Dropdown = Tabs.Main:AddDropdown("RespawnType", {
         Title = "Respawn Type",
@@ -2029,15 +2032,46 @@ local function flyLoop()
     end
 end
 
-local Toggle = Tabs.Main:AddToggle("FlyToggle", { Title = "Fly Toggle", Default = false })
+local FlyButtonToggle = Tabs.Main:AddToggle("FlyButtonToggle", {Title = "Fly (Button)", Default = false})
 
-Toggle:OnChanged(function(Value)
-    local player = LocalPlayer
-    _G.Fly = Value
-    toggleFly(player, Value)
+FlyButtonToggle:OnChanged(function(State)
+    if State then
+        local currentScale = DConfiguration.Settings.GuiScale.Fly or 0
+        DFunctions.CreateButton("FlyButton", "Fly: OFF", 0.15 + currentScale, 0.1 + currentScale, function(btn)
+            _G.Fly = not _G.Fly
+            toggleFly(LocalPlayer, _G.Fly)
+            
+            if _G.Fly then
+                btn.Text = "Fly: ON"
+            else
+                btn.Text = "Fly: OFF"
+            end
+        end)
+    else
+        DFunctions.DestroyButton("FlyButton")
+        _G.Fly = false
+        toggleFly(LocalPlayer, false)
+    end
 end)
 
-Options.FlyToggle:SetValue(false)
+Tabs.Main:AddInput("FlyButtonSize", {
+    Title = "Fly Gui Size",
+    Default = tostring(DConfiguration.Settings.GuiScale.Fly or 0),
+    Placeholder = "0",
+    Numeric = true, 
+    Finished = false, 
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num then
+            DConfiguration.Settings.GuiScale.Fly = num * 0.01
+        else
+            DConfiguration.Settings.GuiScale.Fly = 0
+        end
+        
+        local currentScale = DConfiguration.Settings.GuiScale.Fly or 0
+        DFunctions.UpdateButton("FlyButton", 0.15 + currentScale, 0.1 + currentScale)
+    end
+})
 
 _G.flySpeed = 20 
 
@@ -2053,8 +2087,221 @@ local FlySpeedInput = Tabs.Main:AddInput("FlySpeedInput", {
 })
 
 spawn(flyLoop)
+
     
 wait(Duration)
+
+_G.TAS_Data = _G.TAS_Data or {
+    Run = false,
+    Playing = false,
+    Mode = "Single",
+    Frames = {},
+    Start = 0,
+    LP = game:GetService("Players").LocalPlayer
+}
+
+_G.TAS_Lib = {}
+
+_G.TAS_Lib.GetChar = function()
+    return _G.TAS_Data.LP.Character or _G.TAS_Data.LP.CharacterAdded:Wait()
+end
+
+_G.TAS_Lib.StartRec = function()
+    _G.TAS_Data.Playing = false
+    _G.TAS_Data.Frames = {}
+    _G.TAS_Data.Run = true
+    _G.TAS_Data.Start = tick()
+    task.spawn(function()
+        while _G.TAS_Data.Run do
+            local c = _G.TAS_Lib.GetChar()
+            if c and c:FindFirstChild("HumanoidRootPart") then
+                table.insert(_G.TAS_Data.Frames, {
+                    c.HumanoidRootPart.CFrame,
+                    c.Humanoid:GetState().Value,
+                    tick() - _G.TAS_Data.Start
+                })
+            end
+            game:GetService("RunService").Heartbeat:Wait()
+        end
+    end)
+end
+
+_G.TAS_Lib.Play = function()
+    local c = _G.TAS_Lib.GetChar()
+    local f = _G.TAS_Data.Frames
+    if #f == 0 then return end
+    
+    _G.TAS_Data.Run = false
+    _G.TAS_Data.Playing = true
+    
+    task.spawn(function()
+        while _G.TAS_Data.Playing do
+            local tp = tick()
+            local old = 1
+            local finished = false
+            
+            local conn
+            conn = game:GetService("RunService").Heartbeat:Connect(function()
+                if not _G.TAS_Data.Playing then 
+                    conn:Disconnect() 
+                    return 
+                end
+                
+                local cur = tick() - tp
+                if cur >= f[#f][3] then 
+                    finished = true
+                    conn:Disconnect() 
+                    return 
+                end
+                
+                for i = old, math.min(old + 60, #f) do
+                    if f[i] and f[i][3] <= cur then
+                        old = i
+                        c.HumanoidRootPart.CFrame = f[i][1]
+                        c.Humanoid:ChangeState(f[i][2])
+                    end
+                end
+            end)
+            
+            repeat task.wait() until finished or not _G.TAS_Data.Playing
+            
+            if _G.TAS_Data.Mode == "Single" then
+                _G.TAS_Data.Playing = false
+            end
+        end
+    end)
+end
+
+local TasSec = Tabs.Main:AddSection("TAS")
+
+TasSec:AddDropdown("TASMode", {
+    Title = "Play Mode",
+    Values = {"Single", "Loop"},
+    Default = "Single",
+    Callback = function(Value)
+        _G.TAS_Data.Mode = Value
+    end
+})
+
+local RecToggle = TasSec:AddToggle("RecButtonToggle", {Title = "Show Rec Button", Default = false})
+RecToggle:OnChanged(function(State)
+    if State then
+        local s = DConfiguration.Settings.GuiScale.TAS_Rec or 0
+        DFunctions.CreateButton("TAS_Rec", "Rec: OFF", 0.15 + s, 0.1 + s, function(btn)
+            if not _G.TAS_Data.Run then
+                _G.TAS_Lib.StartRec()
+                btn.Text = "Rec: ON"
+                btn.TextColor3 = Color3.fromRGB(255, 100, 100)
+            else
+                _G.TAS_Data.Run = false
+                btn.Text = "Rec: OFF"
+                btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            end
+        end)
+    else
+        DFunctions.DestroyButton("TAS_Rec")
+    end
+end)
+
+TasSec:AddInput("TASRecSize", {
+    Title = "Rec Button Size",
+    Default = tostring(DConfiguration.Settings.GuiScale.TAS_Rec or 0),
+    Placeholder = "0",
+    Numeric = true,
+    Finished = false,
+    Callback = function(Value)
+        local num = tonumber(Value) or 0
+        DConfiguration.Settings.GuiScale.TAS_Rec = num * 0.01
+        local s = DConfiguration.Settings.GuiScale.TAS_Rec
+        DFunctions.UpdateButton("TAS_Rec", 0.15 + s, 0.1 + s)
+    end
+})
+
+local ClearToggle = TasSec:AddToggle("ClearButtonToggle", {Title = "Show Clear Button", Default = false})
+ClearToggle:OnChanged(function(State)
+    if State then
+        local s = DConfiguration.Settings.GuiScale.TAS_Clear or 0
+        DFunctions.CreateButton("TAS_Clear", "Clear", 0.15 + s, 0.1 + s, function(btn) 
+            _G.TAS_Data.Run = false 
+            _G.TAS_Data.Playing = false
+            _G.TAS_Data.Frames = {}
+            
+            btn.Text = "Cleared!"
+            btn.TextColor3 = Color3.fromRGB(255, 200, 0)
+            
+            local pg = game:GetService("Players").LocalPlayer.PlayerGui
+            local recGui = pg:FindFirstChild("TAS_Rec")
+            if recGui then 
+                local b = recGui:FindFirstChild("TAS_Rec"):FindFirstChildOfClass("TextButton")
+                if b then b.Text = "Rec: OFF" b.TextColor3 = Color3.fromRGB(255, 255, 255) end
+            end
+            local playGui = pg:FindFirstChild("TAS_Play")
+            if playGui then 
+                local b = playGui:FindFirstChild("TAS_Play"):FindFirstChildOfClass("TextButton")
+                if b then b.Text = "Play: OFF" b.TextColor3 = Color3.fromRGB(255, 255, 255) end
+            end
+            
+            task.wait(1)
+            btn.Text = "Clear"
+            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        end)
+    else
+        DFunctions.DestroyButton("TAS_Clear")
+    end
+end)
+
+TasSec:AddInput("TASClearSize", {
+    Title = "Clear Button Size",
+    Default = tostring(DConfiguration.Settings.GuiScale.TAS_Clear or 0),
+    Placeholder = "0",
+    Numeric = true,
+    Finished = false,
+    Callback = function(Value)
+        local num = tonumber(Value) or 0
+        DConfiguration.Settings.GuiScale.TAS_Clear = num * 0.01
+        local s = DConfiguration.Settings.GuiScale.TAS_Clear
+        DFunctions.UpdateButton("TAS_Clear", 0.15 + s, 0.1 + s)
+    end
+})
+
+local PlayToggle = TasSec:AddToggle("PlayButtonToggle", {Title = "Show Play Button", Default = false})
+PlayToggle:OnChanged(function(State)
+    if State then
+        local s = DConfiguration.Settings.GuiScale.TAS_Play or 0
+        DFunctions.CreateButton("TAS_Play", "Play: OFF", 0.15 + s, 0.1 + s, function(btn)
+            if _G.TAS_Data.Playing then
+                _G.TAS_Data.Playing = false
+                btn.Text = "Play: OFF"
+                btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            else
+                btn.Text = "Play: ON"
+                btn.TextColor3 = Color3.fromRGB(100, 255, 100)
+                _G.TAS_Lib.Play()
+                task.spawn(function()
+                    while _G.TAS_Data.Playing do task.wait(0.1) end
+                    btn.Text = "Play: OFF"
+                    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                end)
+            end
+        end)
+    else
+        DFunctions.DestroyButton("TAS_Play")
+    end
+end)
+
+TasSec:AddInput("TASPlaySize", {
+    Title = "Play Button Size",
+    Default = tostring(DConfiguration.Settings.GuiScale.TAS_Play or 0),
+    Placeholder = "0",
+    Numeric = true,
+    Finished = false,
+    Callback = function(Value)
+        local num = tonumber(Value) or 0
+        DConfiguration.Settings.GuiScale.TAS_Play = num * 0.01
+        local s = DConfiguration.Settings.GuiScale.TAS_Play
+        DFunctions.UpdateButton("TAS_Play", 0.15 + s, 0.1 + s)
+    end
+})
 
 -- Combat
 
@@ -2367,6 +2614,162 @@ Tabs.Misc:AddInput("MacroButton2Size", {
     
 Tabs.Misc:AddSection("Movement Modification")
 
+-- Timp Legacy
+
+local LP = game.Players.LocalPlayer
+local RS = game:GetService("RunService")
+local Debris = game:GetService("Debris")
+local Cam = workspace.CurrentCamera
+
+getgenv().EasyTrimp = getgenv().EasyTrimp or {
+    Enabled = false,
+    BaseSpeed = 50,
+    ExtraSpeed = 100
+}
+
+local ET = getgenv().EasyTrimp
+
+local state = {
+    speed = ET.BaseSpeed,
+    last = tick(),
+    airTick = 0,
+    airSum = 0,
+    airborne = false,
+    bv = nil
+}
+
+local function getMeter()
+    local ok, v = pcall(function()
+        return LP.PlayerGui.Shared.HUD.Overlay.Default.CharacterInfo.Item.Speedometer.Players
+    end)
+    return ok and v or nil
+end
+
+local function cut(n) return math.floor(n * 10) / 10 end
+
+RS.RenderStepped:Connect(function()
+    local dt = tick() - state.last
+    state.last = tick()
+
+    local ch = LP.Character
+    local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
+    local hum = ch and ch:FindFirstChild("Humanoid")
+    if not hrp or not hum then return end
+
+    local inAir = hum.FloorMaterial == Enum.Material.Air
+    local spdUI = getMeter()
+
+    if state.airborne and not inAir then
+        state.speed = math.max(ET.BaseSpeed, state.speed - 10)
+        if ET.Enabled and spdUI then spdUI.Text = cut(state.speed) end
+        state.airSum = 0
+    end
+    state.airborne = inAir
+
+    if ET.Enabled then
+        if inAir then
+            state.airSum = state.airSum + dt
+            state.airTick = state.airTick + dt
+            while state.airTick >= 0.04 do
+                state.airTick = state.airTick - 0.04
+                state.speed = math.min(ET.BaseSpeed + ET.ExtraSpeed, state.speed + 0.1)
+            end
+        else
+            state.airTick, state.airSum = 0, 0
+            state.speed = math.max(ET.BaseSpeed, state.speed - (2.5 * dt))
+        end
+
+        if state.bv then state.bv:Destroy() end
+        local moveDir = Cam.CFrame.LookVector
+        moveDir = Vector3.new(moveDir.X, 0, moveDir.Z).Unit
+
+        local bv = Instance.new("BodyVelocity")
+        bv.Velocity = moveDir * state.speed
+        bv.MaxForce = Vector3.new(4e5, 0, 4e5)
+        bv.Parent = hrp
+        Debris:AddItem(bv, 0.1)
+        state.bv = bv
+
+        if spdUI then spdUI.Text = cut(state.speed) end
+    else
+        if state.bv then 
+            state.bv:Destroy() 
+            state.bv = nil 
+        end
+        state.speed = ET.BaseSpeed
+    end
+end)
+
+do
+    Tabs.Misc:AddToggle("ET_Master", {
+        Title = "Easy Trimp", 
+        Default = ET.Enabled, 
+        Callback = function(v) 
+            ET.Enabled = v 
+        end
+    })
+
+    Tabs.Misc:AddInput("ET_Base", {
+        Title = "Base Speed", 
+        Default = tostring(ET.BaseSpeed), 
+        Numeric = true, 
+        Finished = true, 
+        Callback = function(v) 
+            ET.BaseSpeed = tonumber(v) or 50 
+            state.speed = ET.BaseSpeed
+        end
+    })
+
+    Tabs.Misc:AddInput("ET_Extra", {
+        Title = "Extra Speed (Boost)", 
+        Default = tostring(ET.ExtraSpeed), 
+        Numeric = true, 
+        Finished = true, 
+        Callback = function(v) 
+            ET.ExtraSpeed = tonumber(v) or 100 
+        end
+    })
+
+    DConfiguration.Settings.GuiScale = DConfiguration.Settings.GuiScale or {}
+    DConfiguration.Settings.GuiScale.EasyTrimp = DConfiguration.Settings.GuiScale.EasyTrimp or 0
+
+    Tabs.Misc:AddToggle("ET_BtnShow", {
+        Title = "Easy Trimp (Button)", 
+        Default = false
+    }):OnChanged(function(s)
+        if s then 
+            local offset = DConfiguration.Settings.GuiScale.EasyTrimp
+            DFunctions.CreateButton("ET_Btn", ET.Enabled and "TRIMP: ON" or "TRIMP: OFF", 0.15 + offset, 0.1 + offset, function(btn) 
+                ET.Enabled = not ET.Enabled 
+                if btn and btn.Text then
+                    btn.Text = ET.Enabled and "TRIMP: ON" or "TRIMP: OFF"
+                end
+            end)
+        else 
+            ET.Enabled = false
+            DFunctions.DestroyButton("ET_Btn") 
+        end
+    end)
+
+    Tabs.Misc:AddInput("ET_ButtonSize", {
+        Title = "Easy Trimp (Button Size)",
+        Default = tostring(DConfiguration.Settings.GuiScale.EasyTrimp / 0.01), 
+        Placeholder = "0",
+        Numeric = true, 
+        Finished = false, 
+        Callback = function(Value)
+            local num = tonumber(Value)
+            DConfiguration.Settings.GuiScale.EasyTrimp = (num or 0) * 0.01
+            DFunctions.UpdateButton("ET_Btn", 0.15 + DConfiguration.Settings.GuiScale.EasyTrimp, 0.1 + DConfiguration.Settings.GuiScale.EasyTrimp)
+        end
+    })
+end
+
+Tabs.Misc:AddParagraph({
+    Title = "​ ",
+    Content = ""
+})
+
 local Toggle = Tabs.Misc:AddToggle("SprintEmoteDash", {Title = "Aggressive Emote Dash", Default = false })
 
 Toggle:OnChanged(function(State)
@@ -2399,6 +2802,8 @@ local Dropdown = Tabs.Misc:AddDropdown("SprintEmoteType", {
             DConfiguration.Misc.MovementModification.EmoteModification.AggressiveEmoteDash.Speed = tonumber(Value) or 2000
         end
     })
+    
+    
     
 Tabs.Misc:AddInput("CrouchSpeed", {
         Title = "Aggressive Emote Acceleration (Negative Only)",
@@ -2631,7 +3036,8 @@ local Dropdown = Tabs.Misc:AddDropdown("JumpType", {
     end)
     
 Tabs.Misc:AddInput("BHOPAcceleration", {
-        Title = "BHOP Acceleration (Negative Only)",
+        Title = "BHOP Acceleration",
+        Description = "Negative Only",
         Default = "-0.1",
         Placeholder = "-1",
         Numeric = false, -- Only allows numbers
@@ -2640,6 +3046,8 @@ Tabs.Misc:AddInput("BHOPAcceleration", {
             DConfiguration.Misc.MovementModification.BHOP.Acceleration = tonumber(Value) or -0.1
         end
     })
+    
+    
     
 Tabs.Misc:AddParagraph({
         Title = " ",
@@ -2727,15 +3135,6 @@ Tabs.Premium:AddButton({
     end
 })
 
-local FakeSection = Tabs.Premium:AddSection("Timer Gui Settings")
- 
- Tabs.Premium:AddParagraph({
-        Title = "Coming Soon...",
-        Content = " "
-    })
- 
- 
- 
  local FakeSection = Tabs.Premium:AddSection("Visual Effects")
  
  do
@@ -3128,17 +3527,17 @@ Tabs.Info:AddButton({
 
 Tabs.Info:AddParagraph({
     Title = "PhantomWyrm-Hub-X",
-    Content = "Made By Carey"
+    Content = "Made By Carey",
 })
 
 Tabs.Info:AddParagraph({
         Title = "Premium",
-        Content = "Made By Carey"
+        Content = "Made By Carey",
     })
 
 Tabs.Info:AddParagraph({
     Title = "Fluent UI",
-    Content = "By dawid-scripts"
+    Content = "By dawid-scripts",
 })
    
 -- Settings
@@ -3840,90 +4239,66 @@ Tabs.Extension:AddButton(
     }
 )
 
-Tabs.Extension:AddSection("CustomSky")
+task.spawn(function()
+    local L = game:GetService("Lighting")
+    local skyData = {
+        ["Default"] = "",
+        ["BloodMoon"] = "rbxassetid://133864307965574",
+        ["Moon"] = "rbxassetid://9013498676",
+        ["Retro"] = "rbxassetid://6778075657",
+        ["Anime"] = "rbxassetid://10341849875",
+        ["Akashi"] = "rbxassetid://13827251876",
+        ["Dragon"] = "rbxassetid://6256634884"
+    }
+
+    local skyNames = {}
+    for n in pairs(skyData) do table.insert(skyNames, n) end
+    table.sort(skyNames)
+
+    Tabs.Extension:AddDropdown("SkyboxChanger", {
+        Title = "Skybox Selection",
+        Values = skyNames,
+        Default = "Default",
+        Callback = function(v)
+            local id = skyData[v]
+            local oldSky = L:FindFirstChild("CustomSkybox")
+            if oldSky then oldSky:Destroy() end
+
+            if v ~= "Default" and id and id ~= "" then 
+                local newCs = Instance.new("Sky")
+                newCs.Name = "CustomSkybox"
+                local s = {"SkyboxBk", "SkyboxDn", "SkyboxFt", "SkyboxLf", "SkyboxRt", "SkyboxUp"}
+                for _, side in ipairs(s) do newCs[side] = id end
+                newCs.Parent = L
+            end
+        end
+    })
+    
+    DFunctions.rbConn = nil
+
+    Tabs.Extension:AddToggle("RainbowAmbient", {
+        Title = "Rainbow Ambient",
+        Default = false,
+        Callback = function(Value)
+            if DFunctions.rbConn then DFunctions.rbConn:Disconnect() end
+            if Value then
+                DFunctions.rbConn = game:GetService("RunService").RenderStepped:Connect(function()
+                    local c = Color3.fromHSV((tick() * 0.2) % 1, 0.8, 1)
+                    L.Ambient = c
+                    L.OutdoorAmbient = c
+                end)
+            else
+                L.Ambient = Color3.fromRGB(127, 127, 127)
+                L.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
+            end
+        end
+    })
+end)
+
+        
+Tabs.Extension:AddSection("Lightning Extension")
 
 local Lighting = game:GetService("Lighting")
-local customSky = Lighting:FindFirstChild("CustomSkybox") or Instance.new("Sky")
-customSky.Name = "CustomSkybox"
-
-local skyData = {
-    ["Default"] = "",
-    ["BloodMoon"] = "rbxassetid://133864307965574",
-    ["Moon/Girl"] = "rbxassetid://75602740574152",
-    ["Retro"] = "rbxassetid://96591310555978",
-    ["SUS"] = "rbxassetid://12242838336",
-    ["Anime"] = "rbxassetid://6159452397",
-    ["Akashi"] = "rbxassetid://89247058104034",
-    ["Dragon"] = "rbxassetid://7999214852"
-}
-
-local sortedNames = {}
-for name in pairs(skyData) do
-    table.insert(sortedNames, name)
-end
-table.sort(sortedNames)
-
-Tabs.Extension:AddDropdown("SkyboxChanger", {
-    Title = "Skybox Selection",
-    Values = sortedNames,
-    Default = "Default",
-    Callback = function(Value)
-        local id = skyData[Value]
-        if Value == "Default" or id == "" or id == "rbxassetid://" then
-            customSky.Parent = nil
-        else
-            if id and id ~= "" then
-                customSky.SkyboxBk = id
-                customSky.SkyboxDn = id
-                customSky.SkyboxFt = id
-                customSky.SkyboxLf = id
-                customSky.SkyboxRt = id
-                customSky.SkyboxUp = id
-                customSky.Parent = Lighting
-            end
-        end
-    end
-})
-
-local RunService = game:GetService("RunService")
-local rainbowConnection = nil
-local hue = 0
-
-Tabs.Extension:AddToggle("RainbowAmbient", {
-    Title = "Rainbow Ambient",
-    Description = "",
-    Default = false,
-    Callback = function(Value)
-        if Value then
-            rainbowConnection = RunService.RenderStepped:Connect(function(delta)
-                hue = (hue + (Options.RainbowSpeed.Value / 100) * delta) % 1
-                local color = Color3.fromHSV(hue, 0.8, 1) -- 0.8 это насыщенность
-                
-                Lighting.Ambient = color
-                Lighting.OutdoorAmbient = color
-            end)
-        else
-            if rainbowConnection then
-                rainbowConnection:Disconnect()
-                rainbowConnection = nil
-            end
-            Lighting.Ambient = Color3.fromRGB(127, 127, 127)
-            Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
-        end
-    end
-})
-
-Tabs.Extension:AddSlider("RainbowSpeed", {
-    Title = "Rainbow Speed",
-    Description = "",
-    Default = 10,
-    Min = 1,
-    Max = 50,
-    Rounding = 1,
-    Callback = function() end
-})
-
-Tabs.Extension:AddSection("Lightning Extension")
 
 local normalLighting = {
     Ambient = Lighting.Ambient,
@@ -3936,39 +4311,81 @@ local normalLighting = {
     Brightness = Lighting.Brightness
 }
 
-local function applyFullBright()
-    Lighting.Ambient = Color3.new(1, 1, 1)
-    Lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
-    Lighting.ColorShift_Top = Color3.new(1, 1, 1)
-    Lighting.FogEnd = 100000
-    Lighting.FogStart = 0
-    Lighting.GlobalShadows = false
-    Lighting.ClockTime = 14
-    Lighting.Brightness = 2
-end
+local Toggle = Tabs.Extension:AddToggle("FullBright", {
+    Title = "Full Bright", 
+    Default = false
+})
 
-local function restoreLighting()
-    for prop, value in pairs(normalLighting) do
-        Lighting[prop] = value
+Toggle:OnChanged(function(state)
+    if state then
+        Lighting.Ambient = Color3.new(1, 1, 1)
+        Lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
+        Lighting.ColorShift_Top = Color3.new(1, 1, 1)
+        Lighting.FogEnd = 100000
+        Lighting.GlobalShadows = false
+        Lighting.ClockTime = 14
+        Lighting.Brightness = 2
+    else
+        Lighting.Ambient = normalLighting.Ambient
+        Lighting.ColorShift_Bottom = normalLighting.ColorShift_Bottom
+        Lighting.ColorShift_Top = normalLighting.ColorShift_Top
+        Lighting.FogEnd = normalLighting.FogEnd
+        Lighting.GlobalShadows = normalLighting.GlobalShadows
+        Lighting.ClockTime = normalLighting.ClockTime
+        Lighting.Brightness = normalLighting.Brightness
     end
-end
+end)
 
-local Fullbrighting = false
-
-local Toggle = Tabs.Extension:AddToggle("FullBright", {Title = "Full Bright", Default = false})
-
-Toggle:OnChanged(
-    function(state)
-        Fullbrighting = state
-        if Fullbrighting then
-            applyFullBright()
-        else
-            restoreLighting()
-        end
-    end
-)
 
 Options.FullBright:SetValue(false)
+
+local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
+
+local OriginalFogEnd, OriginalDensity, OriginalGlare, OriginalHaze
+local FogLoop
+
+local NoFogToggle = Tabs.Extension:AddToggle("NoFogToggle", {
+    Title = "Disable Fog",
+    Default = false
+})
+
+NoFogToggle:OnChanged(function(Value)
+    if FogLoop then FogLoop:Disconnect() end
+    
+    if Value then
+       
+        OriginalFogEnd = Lighting.FogEnd
+        local Atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+        if Atmosphere then
+            OriginalDensity = Atmosphere.Density
+            OriginalGlare = Atmosphere.Glare
+            OriginalHaze = Atmosphere.Haze
+        end
+
+        
+        FogLoop = RunService.RenderStepped:Connect(function()
+            Lighting.FogEnd = 100000
+            local A = Lighting:FindFirstChildOfClass("Atmosphere")
+            if A then
+                A.Density = 0
+                A.Glare = 0
+                A.Haze = 0
+            end
+        end)
+    else
+        
+        if FogLoop then FogLoop:Disconnect() end
+        
+        Lighting.FogEnd = OriginalFogEnd or 1000
+        local A = Lighting:FindFirstChildOfClass("Atmosphere")
+        if A and OriginalDensity then
+            A.Density = OriginalDensity
+            A.Glare = OriginalGlare
+            A.Haze = OriginalHaze
+        end
+    end
+end)
 
 Tabs.Extension:AddSection("Anti Lags Extension")
 
