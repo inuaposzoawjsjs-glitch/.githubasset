@@ -3128,10 +3128,13 @@ Tabs.Info:AddButton({
 
 Tabs.Info:AddParagraph({
     Title = "PhantomWyrm-Hub-X",
-    Content = "Made By Carryxkn2"
+    Content = "Made By Carey"
 })
 
-
+Tabs.Info:AddParagraph({
+        Title = "Premium",
+        Content = "Made By Carey"
+    })
 
 Tabs.Info:AddParagraph({
     Title = "Fluent UI",
