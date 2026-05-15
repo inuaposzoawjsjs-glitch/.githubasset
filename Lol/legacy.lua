@@ -229,7 +229,7 @@ local function playSound(soundId)
 end
 
 mainopen.MouseButton1Click:Connect(function()
-    local sounds = { "7127123605", "137566474343039", "438666542" }
+    local sounds = { "7127123605", "137566474343039", "438666542", "257001341", "257000833", "7127123554", "131607746976396", "97325669841459", "109312518223078" }
     playSound(sounds[math.random(#sounds)])
     Window:Minimize()
 
