@@ -7066,12 +7066,12 @@ Tabs.Info:AddButton({
 
 Tabs.Info:AddParagraph({
     Title = "PhantomWyrm-Hub-X",
-    Content = "Made By Carryxkn2"
+    Content = "Made By Carey"
 })
 
 Tabs.Info:AddParagraph({
     Title = "Premium Functions",
-    Content = "Made by Carryxkn2"
+    Content = "Made by Carey"
 })
 
 Tabs.Info:AddParagraph({
