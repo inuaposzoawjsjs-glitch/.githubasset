@@ -1,7 +1,7 @@
-local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/Fluent-mod/refs/heads/master/Modded-Fluent/main.lua"))()
-local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/Fluent-mod/refs/heads/master/Modded-Fluent/SaveManager.lua"))()
-local FBM = loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/Fluent-mod/refs/heads/master/Modded-Fluent/FBM.lua"))()
-local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/Fluent-mod/refs/heads/master/Modded-Fluent/InterfaceManager.lua"))()
+local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/Addons/MinifyMain.txt"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/Addons/SaveManager.txt"))()
+local FBM = loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/Addons/FBM.txt"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/Addons/InterfaceManager.txt"))()
 
 if not Fluent or not SaveManager or not InterfaceManager or not FBM then return game.Players.LocalPlayer:Kick("Error: Interface didn't load") end
 
@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm-Hub-X - Evade Legacy│Mobile",
-    SubTitle = "v2.5.7 Made By Carryxkn2",
+    SubTitle = "v2.5.8 Made By Carryxkn2",
     TabWidth = 160,
     Size = UDim2.fromOffset(540, 390),
     Acrylic = false,
@@ -2701,7 +2701,7 @@ Tabs.Premium:AddButton({
     Title = "Apply Accessory",
     Callback = function()
         if _G.SavedID then
-            local success, code = pcall(game.HttpGet, game, "https://raw.githubusercontent.com/twinkilya0-jpg/Fluent-Modded/refs/heads/master/SkinExtensions/SkinChanger.lua")
+            local success, code = pcall(game.HttpGet, game, "https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/SkinsChangers/SkinChanger.lua")
             if success then
                 local func = loadstring(code)
                 if func then
@@ -3368,38 +3368,90 @@ Tabs.Extension:AddButton(
     }
 )
 
-Tabs.Extension:AddButton({
-    Title = "AngelicWings",
-    Description = "",
-    Callback = function()
-       loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/SkinsChangers/AngelicWing.txt"))()
+_G.Players = game:GetService("Players")
+_G.LPlayer = _G.Players.LocalPlayer
+
+_G.ExtStates = {
+    Wings = false,
+    Poison = false,
+    Frozen = false,
+    Fire = false
+}
+
+_G.ApplySingleExt = function(id, name, state)
+    if not state then
+        if _G.LPlayer.Character and _G.LPlayer.Character:FindFirstChild(name) then
+            _G.LPlayer.Character[name]:Destroy()
+        end
+        return
+    end
+    
+    if not _G.LPlayer.Character or _G.LPlayer.Character:FindFirstChild(name) then return end
+    
+    local s, obj = pcall(function() return game:GetObjects("rbxassetid://" .. id)[1] end)
+    if s and obj then
+        obj.Name = name
+        obj.Parent = _G.LPlayer.Character
+        local h = obj:FindFirstChild("Handle")
+        if h then
+            local w = Instance.new("Weld", h)
+            w.Part0 = h
+            w.Part1 = _G.LPlayer.Character:FindFirstChild("Head")
+            w.C0 = obj.AttachmentPoint
+            w.C1 = CFrame.new(0, 0.5, 0)
+            w.Parent = h
+        end
+    end
+end
+
+_G.RefreshExts = function()
+    if _G.ExtStates.Wings then _G.ApplySingleExt(192557913, "Wings_Acc", true) end
+    if _G.ExtStates.Poison then _G.ApplySingleExt(1744060292, "Poison_Acc", true) end
+    if _G.ExtStates.Frozen then _G.ApplySingleExt(74891470, "Frozen_Acc", true) end
+    if _G.ExtStates.Fire then _G.ApplySingleExt(215718515, "Fire_Acc", true) end
+end
+
+_G.LPlayer.CharacterAdded:Connect(function()
+    task.wait(1.5) 
+    _G.RefreshExts()
+end)
+
+Tabs.Extension:AddToggle("TogWings", {
+    Title = "Angelic Wings",
+    Default = false,
+    Callback = function(state) 
+        _G.ExtStates.Wings = state 
+        _G.ApplySingleExt(192557913, "Wings_Acc", state) 
     end
 })
 
-
-Tabs.Extension:AddButton({
-    Title = "PoisonousHorns",
-    Description = "",
-    Callback = function()
-   loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/SkinsChangers/ToxicHorn.txt"))()
+Tabs.Extension:AddToggle("TogPoison", {
+    Title = "Poisonous Horns",
+    Default = false,
+    Callback = function(state) 
+        _G.ExtStates.Poison = state 
+        _G.ApplySingleExt(1744060292, "Poison_Acc", state) 
     end
 })
 
-Tabs.Extension:AddButton({
-    Title = "FrozenHorn",
-    Description = "",
-    Callback = function()
-   loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/SkinsChangers/FrozenHorn.txt"))()
+Tabs.Extension:AddToggle("TogFrozen", {
+    Title = "Frozen Horn",
+    Default = false,
+    Callback = function(state) 
+        _G.ExtStates.Frozen = state 
+        _G.ApplySingleExt(74891470, "Frozen_Acc", state) 
     end
 })
 
-Tabs.Extension:AddButton({
-    Title = "FireHorn",
-    Description = "",
-    Callback = function()
-   loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/SkinsChangers/FireHorn.txt"))()
+Tabs.Extension:AddToggle("TogFire", {
+    Title = "Fire Horn",
+    Default = false,
+    Callback = function(state) 
+        _G.ExtStates.Fire = state 
+        _G.ApplySingleExt(215718515, "Fire_Acc", state) 
     end
 })
+
 
 Tabs.Extension:AddButton({
     Title = "AvatarChanger",
