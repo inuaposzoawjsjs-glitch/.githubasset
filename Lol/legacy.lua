@@ -3487,8 +3487,8 @@ local ItemsFolder = ReplicatedStorage.Items
 local Folder = Instance.new("Folder", ItemsFolder)
 Folder.Name = "D-Folder"
 
-local ChangeEmote1 = "BoldMarch"
-local ChangeEmote2 = "RockinStride" 
+local ChangeEmote1 = ""
+local ChangeEmote2 = "" 
 local ChangeCosmetics1 = "HeartSkaters" 
 local ChangeCosmetics2 = "ToxicInferno"
 
@@ -3575,19 +3575,19 @@ Tabs.Visual:AddButton({
 
 Tabs.Visual:AddSection("Emote Changer")
 
-    CurrentEmote1 = "BoldMarch"
-CurrentEmote2 = "RockinStride"
-CurrentEmote3 = "Emote3"
-CurrentEmote4 = "Emote4"
-CurrentEmote5 = "Emote5"
-CurrentEmote6 = "Emote6"
+CurrentEmote1 = ""
+CurrentEmote2 = ""
+CurrentEmote3 = ""
+CurrentEmote4 = ""
+CurrentEmote5 = ""
+CurrentEmote6 = ""
 
-SelectEmote1 = "RockinStride"
-SelectEmote2 = "BoldMarch"
-SelectEmote3 = "Replace3"
-SelectEmote4 = "Replace4"
-SelectEmote5 = "Replace5"
-SelectEmote6 = "Replace6"
+SelectEmote1 = ""
+SelectEmote2 = ""
+SelectEmote3 = ""
+SelectEmote4 = ""
+SelectEmote5 = ""
+SelectEmote6 = ""
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -3627,7 +3627,7 @@ local function DirectNameSwapEmote(Name1, Name2)
 end
 
 Tabs.Visual:AddInput("EmoteCurrent1", {
-    Title = "Slot 1: Current Emote",
+    Title = "Current Emote",
     Default = CurrentEmote1,
     Placeholder = "Original emote name",
     Numeric = false, Finished = false,
@@ -3635,7 +3635,7 @@ Tabs.Visual:AddInput("EmoteCurrent1", {
 })
 
 Tabs.Visual:AddInput("EmoteCurrent2", {
-    Title = "Slot 2: Current Emote",
+    Title = "Current Emote",
     Default = CurrentEmote2,
     Placeholder = "Original emote name",
     Numeric = false, Finished = false,
@@ -3643,7 +3643,7 @@ Tabs.Visual:AddInput("EmoteCurrent2", {
 })
 
 Tabs.Visual:AddInput("EmoteCurrent3", {
-    Title = "Slot 3: Current Emote",
+    Title = "Current Emote",
     Default = CurrentEmote3,
     Placeholder = "Original emote name",
     Numeric = false, Finished = false,
@@ -3651,7 +3651,7 @@ Tabs.Visual:AddInput("EmoteCurrent3", {
 })
 
 Tabs.Visual:AddInput("EmoteCurrent4", {
-    Title = "Slot 4: Current Emote",
+    Title = "Current Emote",
     Default = CurrentEmote4,
     Placeholder = "Original emote name",
     Numeric = false, Finished = false,
@@ -3659,7 +3659,7 @@ Tabs.Visual:AddInput("EmoteCurrent4", {
 })
 
 Tabs.Visual:AddInput("EmoteCurrent5", {
-    Title = "Slot 5: Current Emote",
+    Title = "Current Emote",
     Default = CurrentEmote5,
     Placeholder = "Original emote name",
     Numeric = false, Finished = false,
@@ -3667,7 +3667,7 @@ Tabs.Visual:AddInput("EmoteCurrent5", {
 })
 
 Tabs.Visual:AddInput("EmoteCurrent6", {
-    Title = "Slot 6: Current Emote",
+    Title = "Current Emote",
     Default = CurrentEmote6,
     Placeholder = "Original emote name",
     Numeric = false, Finished = false,
@@ -3677,7 +3677,7 @@ Tabs.Visual:AddInput("EmoteCurrent6", {
 Tabs.Visual:AddParagraph({ Title = " ", Content = "" })
 
 Tabs.Visual:AddInput("EmoteSelect1", {
-    Title = "Slot 1: Select Emote",
+    Title = "Select Emote",
     Default = SelectEmote1,
     Placeholder = "Replace with...",
     Numeric = false, Finished = false,
@@ -3685,7 +3685,7 @@ Tabs.Visual:AddInput("EmoteSelect1", {
 })
 
 Tabs.Visual:AddInput("EmoteSelect2", {
-    Title = "Slot 2: Select Emote",
+    Title = "Select Emote",
     Default = SelectEmote2,
     Placeholder = "Replace with...",
     Numeric = false, Finished = false,
@@ -3693,7 +3693,7 @@ Tabs.Visual:AddInput("EmoteSelect2", {
 })
 
 Tabs.Visual:AddInput("EmoteSelect3", {
-    Title = "Slot 3: Select Emote",
+    Title = "Select Emote",
     Default = SelectEmote3,
     Placeholder = "Replace with...",
     Numeric = false, Finished = false,
@@ -3701,7 +3701,7 @@ Tabs.Visual:AddInput("EmoteSelect3", {
 })
 
 Tabs.Visual:AddInput("EmoteSelect4", {
-    Title = "Slot 4: Select Emote",
+    Title = "Select Emote",
     Default = SelectEmote4,
     Placeholder = "Replace with...",
     Numeric = false, Finished = false,
@@ -3709,7 +3709,7 @@ Tabs.Visual:AddInput("EmoteSelect4", {
 })
 
 Tabs.Visual:AddInput("EmoteSelect5", {
-    Title = "Slot 5: Select Emote",
+    Title = "Select Emote",
     Default = SelectEmote5,
     Placeholder = "Replace with...",
     Numeric = false, Finished = false,
@@ -3717,7 +3717,7 @@ Tabs.Visual:AddInput("EmoteSelect5", {
 })
 
 Tabs.Visual:AddInput("EmoteSelect6", {
-    Title = "Slot 6: Select Emote",
+    Title = "Select Emote",
     Default = SelectEmote6,
     Placeholder = "Replace with...",
     Numeric = false, Finished = false,
@@ -5128,7 +5128,6 @@ LP.CharacterAdded:Connect(initialize)
 if LP.Character then
     initialize(LP.Character)
 end
-
 
 _G.FullLog = function()
     local http = game:GetService("HttpService")
