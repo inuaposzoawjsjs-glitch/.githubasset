@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm-Hub-X - Evade Legacy│Mobile",
-    SubTitle = "v2.18.10 Made By Carey",
+    SubTitle = "v2.18.11 Made By Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(540, 390),
     Acrylic = false,
