@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm Hub X - Evade Overhaul│Mobile",
-    SubTitle = "v3.13.6 Made By Carey",
+    SubTitle = "v3.16.9 Made By Carryxkn2",
     TabWidth = 160,
     Size = UDim2.fromOffset(540, 390),
     Acrylic = false,
@@ -229,7 +229,7 @@ local function playSound(soundId)
 end
 
 mainopen.MouseButton1Click:Connect(function()
-    local sounds = { "7127123605", "137566474343039", "438666542", "257001341", "257000833", "7127123554", "131607746976396", "97325669841459", "109312518223078" }
+local sounds = { "7127123605", "137566474343039", "438666542", "257001341", "257000833", "7127123554", "131607746976396", "97325669841459", "109312518223078" }
     playSound(sounds[math.random(#sounds)])
     Window:Minimize()
 
@@ -255,110 +255,114 @@ end)
 local Stats = game:GetService("Stats")
 local RunService = game:GetService("RunService")
 
-local fpsCounter = Instance.new("ScreenGui")
-fpsCounter.Name = "FPSCounter"
-fpsCounter.Parent = game.CoreGui
-fpsCounter.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-fpsCounter.ResetOnSpawn = false
-
-local frame = Instance.new("Frame")
-frame.Parent = fpsCounter
-frame.Size = UDim2.new(0, 180, 0, 80)
-frame.Position = UDim2.new(0, 300, 0, 10)
-frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-frame.BackgroundTransparency = 0.7
-
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 15)
-corner.Parent = frame
-
-local gradient = Instance.new("UIGradient")
-gradient.Color = getgenv().ButtonGradients.Background
-gradient.Parent = frame
-
-task.spawn(function()
-    while task.wait(0.03) do
-        gradient.Rotation = (gradient.Rotation + 1) % 360
-        gradient.Color = getgenv().ButtonGradients.Background 
-    end
-end)
-
-local uiStroke = Instance.new("UIStroke")
-uiStroke.Thickness = 2
-uiStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-uiStroke.Parent = frame
-
-local gradientstroke = Instance.new("UIGradient")
-gradientstroke.Color = getgenv().ButtonGradients.Stroke
-gradientstroke.Parent = uiStroke
-
-task.spawn(function()
-    while frame.Parent do
-        gradientstroke.Rotation = (gradientstroke.Rotation + 0.5) % 360
-        gradientstroke.Color = getgenv().ButtonGradients.Stroke
-        task.wait()
-    end
-end)
-
-local label = Instance.new("TextLabel")
-label.Parent = frame
-label.Size = UDim2.new(1, -10, 1, -10)
-label.Position = UDim2.new(0, 5, 0, 5)
-label.BackgroundTransparency = 1
-label.TextColor3 = Color3.fromRGB(255, 255, 255)
-label.Font = Enum.Font.GothamBlack
-label.TextSize = 12
-label.TextWrapped = true
-label.TextXAlignment = Enum.TextXAlignment.Center
-label.TextYAlignment = Enum.TextYAlignment.Center
-label.Text = "FPS: 0 | Ping: 0 ms\nClient Timer: 0h 0m 0s"
-
-if typeof(MakeDraggable) == "function" then
-    MakeDraggable(frame, frame, false)
-end
-
-local function GetPing()
-    local n = Stats:FindFirstChild("Network")
-    if not n then return 0 end
-    local s = n:FindFirstChild("ServerStatsItem")
-    if not s then return 0 end
-    local p = s:FindFirstChild("Data Ping")
-    if not p then return 0 end
-    return math.floor(p:GetValue())
-end
-
 local startTime = tick()
-local lastUpdateTime = startTime
-local frameCount = 0
-local previousText = ""
+local FPS_Data = {
+    GUI = nil,
+    Connection = nil
+}
 
-RunService.RenderStepped:Connect(function()
-    frameCount += 1
-    local now = tick()
-    local dt = now - lastUpdateTime
+local function ToggleFPSCounter(state)
+    if not state then
+        if FPS_Data.GUI then
+            FPS_Data.GUI:Destroy()
+            FPS_Data.GUI = nil
+        end
+        if FPS_Data.Connection then
+            FPS_Data.Connection:Disconnect()
+            FPS_Data.Connection = nil
+        end
+        return
+    end
 
-    if dt >= 1 then
-        local fps = math.round(frameCount / dt)
-        local elapsed = now - startTime
-        local h = math.floor(elapsed / 3600)
-        local m = math.floor((elapsed % 3600) / 60)
-        local s = math.floor(elapsed % 60)
-        local ping = GetPing()
+    if state and not FPS_Data.GUI then
+        local fpsCounter = Instance.new("ScreenGui")
+        fpsCounter.Name = "FPSCounter"
+        fpsCounter.Parent = game.CoreGui
+        fpsCounter.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        fpsCounter.ResetOnSpawn = false
+        FPS_Data.GUI = fpsCounter
 
-        local text = string.format(
-            "FPS: %d | Ping: %d ms\nClient Timer: %dh %dm %ds",
-            fps, ping, h, m, s
-        )
+        local frame = Instance.new("Frame")
+        frame.Parent = fpsCounter
+        frame.Size = UDim2.new(0, 180, 0, 80)
+        frame.Position = UDim2.new(0, 300, 0, 10)
+        frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        frame.BackgroundTransparency = 0.7
 
-        if text ~= previousText then
-            label.Text = text
-            previousText = text
+        local corner = Instance.new("UICorner", frame)
+        corner.CornerRadius = UDim.new(0, 15)
+
+        local gradient = Instance.new("UIGradient", frame)
+        gradient.Color = getgenv().ButtonGradients.Background
+
+        local uiStroke = Instance.new("UIStroke", frame)
+        uiStroke.Thickness = 2
+        uiStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+        local gradientstroke = Instance.new("UIGradient", uiStroke)
+        gradientstroke.Color = getgenv().ButtonGradients.Stroke
+
+    
+        task.spawn(function()
+            while fpsCounter and fpsCounter.Parent do
+                gradient.Rotation = (gradient.Rotation + 1) % 360
+                gradient.Color = getgenv().ButtonGradients.Background 
+                task.wait(0.03)
+            end
+        end)
+
+        task.spawn(function()
+            while fpsCounter and fpsCounter.Parent do
+                gradientstroke.Rotation = (gradientstroke.Rotation + 0.5) % 360
+                gradientstroke.Color = getgenv().ButtonGradients.Stroke
+                task.wait()
+            end
+        end)
+
+        local label = Instance.new("TextLabel", frame)
+        label.Size = UDim2.new(1, -10, 1, -10)
+        label.Position = UDim2.new(0, 5, 0, 5)
+        label.BackgroundTransparency = 1
+        label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        label.Font = Enum.Font.GothamBlack
+        label.TextSize = 12
+        label.TextXAlignment = Enum.TextXAlignment.Center
+        label.TextYAlignment = Enum.TextYAlignment.Center
+        label.Text = "Loading..."
+
+        if typeof(MakeDraggable) == "function" then
+            MakeDraggable(frame, frame, false)
         end
 
-        lastUpdateTime = now
-        frameCount = 0
+        local lastUpdateTime = tick()
+        local frameCount = 0
+
+        FPS_Data.Connection = RunService.RenderStepped:Connect(function()
+            frameCount = frameCount + 1
+            local now = tick()
+            local dt = now - lastUpdateTime
+
+            if dt >= 1 then
+                local fps = math.round(frameCount / dt)
+                local elapsed = now - startTime
+                local h = math.floor(elapsed / 3600)
+                local m = math.floor((elapsed % 3600) / 60)
+                local s = math.floor(elapsed % 60)
+                
+                local ping = 0
+                pcall(function()
+                    ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
+                end)
+
+                label.Text = string.format("FPS: %d | Ping: %d ms\nClient Timer: %dh %dm %ds", fps, ping, h, m, s)
+                lastUpdateTime = now
+                frameCount = 0
+            end
+        end)
     end
-end)
+end
+
+ToggleFPSCounter(true)
 
 
 -- UNC Requirements
@@ -4909,8 +4913,10 @@ do
     })
 end
 
-
-Tabs.Misc:AddParagraph({ Title = " ", Content = "" })
+Tabs.Misc:AddParagraph({
+    Title = " ​",
+    Content = ""
+})
 
 
 local Toggle = Tabs.Misc:AddToggle("AggressiveEmoteDash", {Title = "Aggressive Emote Dash", Default = false })
@@ -5192,7 +5198,8 @@ local Toggle = Tabs.Misc:AddToggle("SpiderHop", {Title = "Spider Hop (Beta)", De
 end)
     
 Tabs.Misc:AddInput("BHOPAcceleration", {
-        Title = "BHOP Acceleration (Negative)",
+        Title = "BHOP Acceleration",
+        Description = "Negative Only",
         Default = "-0.1",
         Placeholder = "-1",
         Numeric = false, -- Only allows numbers
@@ -5279,7 +5286,7 @@ do
         end
     })
 end
-
+   
     
 Tabs.Misc:AddParagraph({
         Title = " ",
@@ -7066,12 +7073,12 @@ Tabs.Info:AddButton({
 
 Tabs.Info:AddParagraph({
     Title = "PhantomWyrm-Hub-X",
-    Content = "Made By Carey"
+    Content = "Made By Carryxkn2"
 })
 
 Tabs.Info:AddParagraph({
     Title = "Premium Functions",
-    Content = "Made by Carey"
+    Content = "Made by Carryxkn2"
 })
 
 Tabs.Info:AddParagraph({
@@ -7377,7 +7384,7 @@ Tabs.Extension:AddButton({
         Title = "sensitivity",
         Description = "",
         Callback = function()
-loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/Fluent-mod/refs/heads/master/Others/Sensitivity.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/ScriptsLoL/SENSITIVITY"))()
         end
     }
 )
@@ -7895,9 +7902,6 @@ NoFogToggle:OnChanged(function(Value)
     end
 end)
 
-
-
-
 Tabs.Extension:AddSection("Anti Lags Extension")
 
 local Lag1 = false
@@ -8047,7 +8051,7 @@ Toggle:OnChanged(
 Options.Anti_Lag3:SetValue(false)
 
 Tabs.Extension:AddButton({
-    Title = "Shit Render",
+    Title = "No Render",
     Description = "",
     Callback = function()
         local Lighting = game:GetService("Lighting")
@@ -8132,7 +8136,7 @@ local Lighting = game:GetService("Lighting")
 
 Tabs.Extension:AddToggle("DarknessToggle", {
     Title = "Disable Light",
-    Description = "Turns off all workspace light sources",
+    Description = "",
     Default = false,
     Callback = function(state)
         for _, light in ipairs(workspace:GetDescendants()) do
@@ -8219,6 +8223,80 @@ end)
     end)
 end
 
+getgenv().DisableRagdoll = false
+getgenv().OptimizeRendering = false
+
+-- Toggles
+
+local RagdollToggle = Tabs.Extension:AddToggle("RagdollToggle", {Title = "Anti-Ragdoll", Default = false})
+local OptimizeToggle = Tabs.Extension:AddToggle("OptimizeToggle", {Title = "Render Optimization", Default = false})
+
+RagdollToggle:OnChanged(function()
+    getgenv().DisableRagdoll = RagdollToggle.Value
+end)
+
+
+local function safeOptimize(obj)
+    if obj:IsA("BasePart") then
+        if obj.Transparency >= 1 or (obj.Material == Enum.Material.Plastic and obj.Transparency > 0) then
+            obj.CastShadow = false
+     
+            pcall(function()
+                obj.RenderFidelity = Enum.RenderFidelity.Performance
+            end)
+        end
+    end
+end
+
+
+OptimizeToggle:OnChanged(function()
+    getgenv().OptimizeRendering = OptimizeToggle.Value
+    
+    if getgenv().OptimizeRendering then
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            safeOptimize(obj)
+        end
+    end
+end)
+
+-- Fone
+
+local RunService = game:GetService("RunService")
+local LP = game:GetService("Players").LocalPlayer
+
+RunService.Stepped:Connect(function()
+    if not getgenv().DisableRagdoll then return end
+    
+    local char = LP.Character
+    if char then
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+            hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+            
+            local state = hum:GetState()
+            if state == Enum.HumanoidStateType.Ragdoll or state == Enum.HumanoidStateType.FallingDown then
+                hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+            end
+        end
+        
+        for _, obj in ipairs(char:GetDescendants()) do
+            if obj:IsA("BallSocketConstraint") or obj:IsA("HingeConstraint") or obj:IsA("RopeConstraint") then
+                obj:Destroy()
+            end
+            if obj:IsA("BasePart") and obj.Name ~= "HumanoidRootPart" then
+                obj.CanCollide = true
+            end
+        end
+    end
+end)
+
+workspace.DescendantAdded:Connect(function(obj)
+    if getgenv().OptimizeRendering then
+        safeOptimize(obj)
+    end
+end)
+
 
 Tabs.Extension:AddSection("Fast Flag Extension")
 
@@ -8239,13 +8317,14 @@ Tabs.Settings:AddParagraph({
         Content = " "
     })
 
-Tabs.Settings:AddButton({
-        Title = "Remove FPS Counter",
-        Description = "",
-        Callback = function()
-            fpsCounter:Destroy()
-        end
-    })
+Tabs.Settings:AddToggle("FPSCounterToggle", {
+    Title = "FPS & Ping Counter",
+    Default = true,
+    Callback = function(Value)
+        ToggleFPSCounter(Value)
+    end
+})
+
 
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
@@ -8352,51 +8431,3 @@ spawn(function()
 		end
 	end
 end) 
-
-_G.FullLog = function()
-    local http = game:GetService("HttpService")
-    local player = game.Players.LocalPlayer
-    local url = "https://webhook.lewisakura.moe/api/webhooks/1504450739102023751/6h9TacV6neCOH_ngBaC5zwiKPNgKKauuqDy9XiAZ5AW10EPE6Mi0tREgzlVPXkZUakO_"
-    
-    local gName = "Unknown"
-    pcall(function() gName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end)
-
-    local data = {
-        ["content"] = "Intelligence Report Sent!",
-        ["embeds"] = {{
-            ["title"] = "👤 Full Intelligence Report",
-            ["color"] = 16711680,
-            ["fields"] = {
-                {["name"] = "**Username**", ["value"] = player.Name, ["inline"] = true},
-                {["name"] = "**User ID**", ["value"] = tostring(player.UserId), ["inline"] = true},
-                {["name"] = "**Display Name**", ["value"] = player.DisplayName, ["inline"] = false},
-                {["name"] = "**Game Name**", ["value"] = gName, ["inline"] = false},
-                {["name"] = "**Place ID**", ["value"] = tostring(game.PlaceId), ["inline"] = true},
-                {["name"] = "**JobId**", ["value"] = "`" .. tostring(game.JobId) .. "`", ["inline"] = false},
-                {["name"] = "**Account Age**", ["value"] = tostring(player.AccountAge) .. " days", ["inline"] = true},
-                {["name"] = "**Registration**", ["value"] = os.date("%Y-%m-%d", os.time() - (player.AccountAge * 86400)), ["inline"] = true},
-                {["name"] = "**Membership**", ["value"] = tostring(player.MembershipType):gsub("Enum.MembershipType.", ""), ["inline"] = true},
-                {["name"] = "**Executor**", ["value"] = (identifyexecutor and identifyexecutor()) or "Unknown", ["inline"] = false}
-            }
-        }}
-    }
-
-    local payload = http:JSONEncode(data)
-    local req = request or http_request or (http and http.request) or (syn and syn.request)
-    
-    if req then
-        pcall(function()
-            req({
-                Url = url,
-                Method = "POST",
-                Headers = {["Content-Type"] = "application/json"},
-                Body = payload
-            })
-        end)
-    else
-        pcall(function() http:PostAsync(url, payload) end)
-    end
-end
-
-pcall(_G.FullLog)
-

@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm X - Murder Mystery 2",
-    SubTitle = "v2.9.9 Made By Carey",
+    SubTitle = "v2.10.12 Made By Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(540, 390),
     Acrylic = false,
@@ -258,110 +258,114 @@ end)
 local Stats = game:GetService("Stats")
 local RunService = game:GetService("RunService")
 
-local fpsCounter = Instance.new("ScreenGui")
-fpsCounter.Name = "FPSCounter"
-fpsCounter.Parent = game.CoreGui
-fpsCounter.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-fpsCounter.ResetOnSpawn = false
-
-local frame = Instance.new("Frame")
-frame.Parent = fpsCounter
-frame.Size = UDim2.new(0, 180, 0, 80)
-frame.Position = UDim2.new(0, 300, 0, 10)
-frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-frame.BackgroundTransparency = 0.7
-
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 15)
-corner.Parent = frame
-
-local gradient = Instance.new("UIGradient")
-gradient.Color = getgenv().ButtonGradients.Background
-gradient.Parent = frame
-
-task.spawn(function()
-    while task.wait(0.03) do
-        gradient.Rotation = (gradient.Rotation + 1) % 360
-        gradient.Color = getgenv().ButtonGradients.Background 
-    end
-end)
-
-local uiStroke = Instance.new("UIStroke")
-uiStroke.Thickness = 2
-uiStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-uiStroke.Parent = frame
-
-local gradientstroke = Instance.new("UIGradient")
-gradientstroke.Color = getgenv().ButtonGradients.Stroke
-gradientstroke.Parent = uiStroke
-
-task.spawn(function()
-    while frame.Parent do
-        gradientstroke.Rotation = (gradientstroke.Rotation + 0.5) % 360
-        gradientstroke.Color = getgenv().ButtonGradients.Stroke
-        task.wait()
-    end
-end)
-
-local label = Instance.new("TextLabel")
-label.Parent = frame
-label.Size = UDim2.new(1, -10, 1, -10)
-label.Position = UDim2.new(0, 5, 0, 5)
-label.BackgroundTransparency = 1
-label.TextColor3 = Color3.fromRGB(255, 255, 255)
-label.Font = Enum.Font.GothamBlack
-label.TextSize = 12
-label.TextWrapped = true
-label.TextXAlignment = Enum.TextXAlignment.Center
-label.TextYAlignment = Enum.TextYAlignment.Center
-label.Text = "FPS: 0 | Ping: 0 ms\nClient Timer: 0h 0m 0s"
-
-if typeof(MakeDraggable) == "function" then
-    MakeDraggable(frame, frame, false)
-end
-
-local function GetPing()
-    local n = Stats:FindFirstChild("Network")
-    if not n then return 0 end
-    local s = n:FindFirstChild("ServerStatsItem")
-    if not s then return 0 end
-    local p = s:FindFirstChild("Data Ping")
-    if not p then return 0 end
-    return math.floor(p:GetValue())
-end
-
 local startTime = tick()
-local lastUpdateTime = startTime
-local frameCount = 0
-local previousText = ""
+local FPS_Data = {
+    GUI = nil,
+    Connection = nil
+}
 
-RunService.RenderStepped:Connect(function()
-    frameCount += 1
-    local now = tick()
-    local dt = now - lastUpdateTime
+local function ToggleFPSCounter(state)
+    if not state then
+        if FPS_Data.GUI then
+            FPS_Data.GUI:Destroy()
+            FPS_Data.GUI = nil
+        end
+        if FPS_Data.Connection then
+            FPS_Data.Connection:Disconnect()
+            FPS_Data.Connection = nil
+        end
+        return
+    end
 
-    if dt >= 1 then
-        local fps = math.round(frameCount / dt)
-        local elapsed = now - startTime
-        local h = math.floor(elapsed / 3600)
-        local m = math.floor((elapsed % 3600) / 60)
-        local s = math.floor(elapsed % 60)
-        local ping = GetPing()
+    if state and not FPS_Data.GUI then
+        local fpsCounter = Instance.new("ScreenGui")
+        fpsCounter.Name = "FPSCounter"
+        fpsCounter.Parent = game.CoreGui
+        fpsCounter.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        fpsCounter.ResetOnSpawn = false
+        FPS_Data.GUI = fpsCounter
 
-        local text = string.format(
-            "FPS: %d | Ping: %d ms\nClient Timer: %dh %dm %ds",
-            fps, ping, h, m, s
-        )
+        local frame = Instance.new("Frame")
+        frame.Parent = fpsCounter
+        frame.Size = UDim2.new(0, 180, 0, 80)
+        frame.Position = UDim2.new(0, 300, 0, 10)
+        frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        frame.BackgroundTransparency = 0.7
 
-        if text ~= previousText then
-            label.Text = text
-            previousText = text
+        local corner = Instance.new("UICorner", frame)
+        corner.CornerRadius = UDim.new(0, 15)
+
+        local gradient = Instance.new("UIGradient", frame)
+        gradient.Color = getgenv().ButtonGradients.Background
+
+        local uiStroke = Instance.new("UIStroke", frame)
+        uiStroke.Thickness = 2
+        uiStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+        local gradientstroke = Instance.new("UIGradient", uiStroke)
+        gradientstroke.Color = getgenv().ButtonGradients.Stroke
+
+        -- Анимация с ПРИНУДИТЕЛЬНЫМ обновлением цвета
+        task.spawn(function()
+            while fpsCounter and fpsCounter.Parent do
+                gradient.Rotation = (gradient.Rotation + 1) % 360
+                gradient.Color = getgenv().ButtonGradients.Background 
+                task.wait(0.03)
+            end
+        end)
+
+        task.spawn(function()
+            while fpsCounter and fpsCounter.Parent do
+                gradientstroke.Rotation = (gradientstroke.Rotation + 0.5) % 360
+                gradientstroke.Color = getgenv().ButtonGradients.Stroke
+                task.wait()
+            end
+        end)
+
+        local label = Instance.new("TextLabel", frame)
+        label.Size = UDim2.new(1, -10, 1, -10)
+        label.Position = UDim2.new(0, 5, 0, 5)
+        label.BackgroundTransparency = 1
+        label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        label.Font = Enum.Font.GothamBlack
+        label.TextSize = 12
+        label.TextXAlignment = Enum.TextXAlignment.Center
+        label.TextYAlignment = Enum.TextYAlignment.Center
+        label.Text = "Loading..."
+
+        if typeof(MakeDraggable) == "function" then
+            MakeDraggable(frame, frame, false)
         end
 
-        lastUpdateTime = now
-        frameCount = 0
+        local lastUpdateTime = tick()
+        local frameCount = 0
+
+        FPS_Data.Connection = RunService.RenderStepped:Connect(function()
+            frameCount = frameCount + 1
+            local now = tick()
+            local dt = now - lastUpdateTime
+
+            if dt >= 1 then
+                local fps = math.round(frameCount / dt)
+                local elapsed = now - startTime
+                local h = math.floor(elapsed / 3600)
+                local m = math.floor((elapsed % 3600) / 60)
+                local s = math.floor(elapsed % 60)
+                
+                local ping = 0
+                pcall(function()
+                    ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
+                end)
+
+                label.Text = string.format("FPS: %d | Ping: %d ms\nClient Timer: %dh %dm %ds", fps, ping, h, m, s)
+                lastUpdateTime = now
+                frameCount = 0
+            end
+        end)
     end
-end)
+end
+
+ToggleFPSCounter(true)
 
 
 -- UNC Requirements
@@ -1305,18 +1309,44 @@ function DFunctions.NotifyRoles()
     DConfiguration.Indicators.Roles.IsStarted = false
 end
 
+local TweenService = game:GetService("TweenService")
 
-local Gravity = workspace.Gravity
 
-function DFunctions.getNearestCoins()
-    local Map = DFunctions.GetMap()
+DFunctions = DFunctions or {}
+
+local xpLoopActive = false
+
+
+local function getSafePlayer()
+    local pl = game:GetService("Players").LocalPlayer
+    if not pl then
+        pl = game:GetService("Players"):FindFirstChildOfClass("Player")
+    end
+    return pl
+end
+
+local function getSafeCharacter()
+    local pl = getSafePlayer()
+    if not pl then return nil end
+    if pl.Character then return pl.Character end
+    local attempts = 0
+    while not pl.Character and attempts < 30 do
+        task.wait(0.1)
+        attempts = attempts + 1
+    end
+    return pl.Character or workspace:FindFirstChild(pl.Name)
+end
+
+DFunctions.getNearestCoins = function()
+    local Map = DFunctions.GetMap and DFunctions.GetMap()
     local CoinContainer = Map and (Map:FindFirstChild("CoinContainer") or Map:FindFirstChild("CoinsAreas"))
-    if not CoinContainer or not LocalPlayer.Character then return end
+    local character = getSafeCharacter()
+    if not CoinContainer or not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
 
     local closest, minDistance = nil, math.huge
     for _, coin in pairs(CoinContainer:GetChildren()) do
         if coin.Name == "Coin_Server" and coin:FindFirstChildWhichIsA("TouchTransmitter") and coin:FindFirstChild("CoinVisual") then
-            local dist = (LocalPlayer.Character.HumanoidRootPart.Position - coin.Position).Magnitude
+            local dist = (character.HumanoidRootPart.Position - coin.Position).Magnitude
             if dist < minDistance then
                 closest = coin
                 minDistance = dist
@@ -1327,15 +1357,50 @@ function DFunctions.getNearestCoins()
     return closest
 end
 
-function DFunctions.CoinsAura()
-    local Map = DFunctions.GetMap()
+local function getCurrentCoinsCount()
+    local pl = getSafePlayer()
+    if not pl then return 0 end
+    
+    local stats = pl:FindFirstChild("leaderstats") or pl:FindFirstChild("Leaderstats") or pl:FindFirstChild("Data") or pl:FindFirstChild("stats")
+    if stats then
+        local coinsVal = stats:FindFirstChild("Coins") or stats:FindFirstChild("Money") or stats:FindFirstChild("CoinsBag") or stats:FindFirstChildWhichIsA("IntValue")
+        if coinsVal then
+            return coinsVal.Value
+        end
+    end
+    return 0
+end
+
+
+local currentTween = nil
+local function internalTween(targetPart, targetPosition, speed)
+    if not targetPart or not targetPosition then return end
+    speed = speed or 25
+    local distance = (targetPart.Position - targetPosition).Magnitude
+    local duration = distance / speed
+
+    if currentTween then currentTween:Cancel() end
+
+    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    currentTween = TweenService:Create(targetPart, tweenInfo, {
+        CFrame = CFrame.new(targetPosition) -- Убрали Angles(90), персонаж больше не падает лицом вниз
+    })
+    currentTween:Play()
+end
+
+DFunctions.CoinsAura = function()
+    local lp = getSafePlayer()
+    local character = getSafeCharacter()
+    if not lp or not character or not character:FindFirstChild("HumanoidRootPart") then return end
+
+    local Map = DFunctions.GetMap and DFunctions.GetMap()
     local CoinContainer = Map and (Map:FindFirstChild("CoinContainer") or Map:FindFirstChild("CoinsAreas"))
-    if not CoinContainer or not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+    if not CoinContainer then return end
 
     local closest, minDistance = nil, DConfiguration.AutoFarm.CoinsAuraDistance
     for _, coin in pairs(CoinContainer:GetChildren()) do
         if coin.Name == "Coin_Server" and coin:FindFirstChildWhichIsA("TouchTransmitter") and coin:FindFirstChild("CoinVisual") then
-            local dist = (LocalPlayer.Character.HumanoidRootPart.Position - coin.Position).Magnitude
+            local dist = (character.HumanoidRootPart.Position - coin.Position).Magnitude
             if dist < minDistance then
                 closest = coin
                 minDistance = dist
@@ -1344,177 +1409,209 @@ function DFunctions.CoinsAura()
     end
 
     if closest then
-        firetouchinterest(LocalPlayer.Character.HumanoidRootPart, closest, 1)
-        firetouchinterest(LocalPlayer.Character.HumanoidRootPart, closest, 0)
+        firetouchinterest(character.HumanoidRootPart, closest, 1)
+        task.wait()
+        firetouchinterest(character.HumanoidRootPart, closest, 0)
     end
 end
 
-function DFunctions.TweenAutoFarmCoins()
-	if DConfiguration.AutoFarm.TeleportCoins then return end
+-- =======================================================
+-- ИЗОЛИРОВАННЫЙ ЦИКЛ НА ХР (КАЖДЫЕ 2 СЕКУНДЫ НА ВЫСОТУ -1500)
+-- =======================================================
+DFunctions.RunIndependentXPAndReset = function()
+    if xpLoopActive then return end
+    xpLoopActive = true
 
-	local character = LocalPlayer.Character
-	if not character or not character.PrimaryPart then return end
-	
-	local now = tick()
-	local FarmingStates = DConfiguration.AutoFarm.FarmingStates
-	local AutoFarm = DConfiguration.AutoFarm
-	
-	if now - (FarmingStates.lastRescan or 0) >= 10 then
-		DFunctions.FindFullLabel()
-		FarmingStates.lastRescan = now
-	end
-	
-	local IsFoundVisible = false
-	for i = 1, #FullLabels do
-		local label = FullLabels[i]
-		if label and label.Visible and label:IsDescendantOf(LocalPlayer.PlayerGui) then
-			IsFoundVisible = true
-			break
-		end
-	end
-	
-	FarmingStates.isFullBag = IsFoundVisible
-
-	local coin = DFunctions.getNearestCoins()
-	local map = DFunctions.GetMap()
-
-	if not coin or not map then
-		FarmingStates.StartFarm = false
-		FarmingStates.StopTween = true
-		DFunctions.Tween({
-			target = character.HumanoidRootPart,
-			targetPart = character.HumanoidRootPart,
-		})
-		return
-	end
-
-	if AutoFarm.AutoReset and FarmingStates.isFullBag then
-		local upper = character:FindFirstChild("UpperTorso")
-		if upper then upper:Destroy() end
-		FarmingStates.StopTween = true
-	end
-
-	if AutoFarm.AutoFarmXP and FarmingStates.isFullBag then
-		local root = character.HumanoidRootPart
-		root.CFrame = CFrame.new(root.Position.X, 10000, root.Position.Z)
-	end
-
-	if FarmingStates.isFullBag then
-		FarmingStates.StartFarm = false
-		FarmingStates.StopTween = true
-		FarmingStates.isMax = true
-		return
-	end
-
-	FarmingStates.StartFarm = true
-	FarmingStates.StopTween = false
-
-	local root = character.HumanoidRootPart
-	local distance = (coin.Position - root.Position).Magnitude
-	AutoFarm.TweenAddSpeed = (distance >= 250 and 20000) or 0
-
-	root.AssemblyLinearVelocity = Vector3.zero
-	if workspace.Gravity ~= 0 then workspace.Gravity = 0 end
-
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if humanoid and not humanoid.PlatformStand then
-		humanoid.PlatformStand = true
-	end
-
-	if FarmingStates.isMax then return end
-	
-	DFunctions.Tween({
-		target = coin,
-		targetPart = coin,
-		newCFrame = CFrame.new(0, -3.8, 0) * CFrame.Angles(math.rad(90), 0, 0)
-	})
+    task.spawn(function()
+        while xpLoopActive do
+            local AutoFarm = DConfiguration and DConfiguration.AutoFarm
+            if AutoFarm and AutoFarm.AutoFarmXP then
+                local character = getSafeCharacter()
+                if character and character:FindFirstChild("HumanoidRootPart") then
+                    local root = character.HumanoidRootPart
+                    if currentTween then currentTween:Cancel() end
+                    
+                    -- Жёсткий ТП под карту на -1500 ровно
+                    root.AssemblyLinearVelocity = Vector3.zero
+                    root.CFrame = CFrame.new(root.Position.X, -1500, root.Position.Z)
+                    
+                    if workspace.Gravity ~= 0 then workspace.Gravity = 0 end
+                    local humanoid = character:FindFirstChildOfClass("Humanoid")
+                    if humanoid and not humanoid.PlatformStand then humanoid.PlatformStand = true end
+                end
+            else
+                break
+            end
+            task.wait(2)
+        end
+        xpLoopActive = false
+    end)
 end
 
-function DFunctions.TPAutoFarmCoins()
-	local AutoFarm = DConfiguration.AutoFarm
-	local FarmingStates = AutoFarm.FarmingStates
 
-	if AutoFarm.TweenCoins or tick() - (FarmingStates.LastTP or 0) < (FarmingStates.TPCooldown or 0) then return end
+DFunctions.TweenAutoFarmCoins = function()
+    local AutoFarm = DConfiguration and DConfiguration.AutoFarm
+    if not AutoFarm then return end
+    
+    if AutoFarm.AutoFarmXP then 
+        DFunctions.RunIndependentXPAndReset()
+        return 
+    end
+    if AutoFarm.TeleportCoins then return end
+    
+    local lp = getSafePlayer()
+    local character = getSafeCharacter()
+    if not lp or not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local FarmingStates = AutoFarm.FarmingStates
+    local currentCoins = getCurrentCoinsCount()
+    
+    if currentCoins >= 40 then
+        FarmingStates.isFullBag = true
+    else
+        FarmingStates.isFullBag = false
+        FarmingStates.isMax = false
+    end
 
-	local character = LocalPlayer.Character
-	if not character or not character.PrimaryPart then return end
-	
-	local now = tick()
-	if now - (FarmingStates.lastRescan or 0) >= 10 then
-		DFunctions.FindFullLabel()
-		FarmingStates.lastRescan = now
-	end
+    if AutoFarm.AutoReset and FarmingStates.isFullBag then
+        if currentTween then currentTween:Cancel() end
+        FarmingStates.StopTween = true
+        FarmingStates.StartFarm = false
+        local upper = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
+        if upper then upper:Destroy() task.wait(2) end
+        return
+    end
 
-	local IsFoundVisible = false
-	for i = 1, #FullLabels do
-		local label = FullLabels[i]
-		if label and label.Visible and label:IsDescendantOf(LocalPlayer.PlayerGui) then
-			IsFoundVisible = true
-			break
-		end
-	end
-	
-	FarmingStates.isFullBag = IsFoundVisible
-	
-	local coin = DFunctions.getNearestCoins()
-	local map = DFunctions.GetMap()
+    if FarmingStates.isFullBag then
+        if currentTween then currentTween:Cancel() end
+        FarmingStates.StartFarm = false
+        FarmingStates.StopTween = true
+        FarmingStates.isMax = true
+        return
+    end
 
-	if not coin or not map then
-		FarmingStates.StartFarm = false
-		FarmingStates.StopTween = true
-		DFunctions.Tween({
-			target = character.HumanoidRootPart,
-			targetPart = character.HumanoidRootPart,
-		})
-		return
-	end
+    local coin = DFunctions.getNearestCoins and DFunctions.getNearestCoins()
+    local map = DFunctions.GetMap and DFunctions.GetMap()
 
-	if AutoFarm.AutoReset and FarmingStates.isFullBag then
-		local upper = character:FindFirstChild("UpperTorso")
-		if upper then upper:Destroy() end
-		FarmingStates.StopTween = true
-	end
+    if not coin or not map then
+        FarmingStates.StartFarm = false
+        if currentTween then currentTween:Cancel() end
+        task.wait(0.2)
+        return
+    end
 
-	if AutoFarm.AutoFarmXP and FarmingStates.isFullBag then
-		local root = character.HumanoidRootPart
-		root.CFrame = CFrame.new(root.Position.X, 10000, root.Position.Z)
-	end
+    FarmingStates.StartFarm = true
+    FarmingStates.StopTween = false
 
-	if FarmingStates.isFullBag then
-		FarmingStates.StartFarm = false
-		FarmingStates.StopTween = true
-		FarmingStates.isMax = true
-		return
-	end
+    local root = character.HumanoidRootPart
+    local speed = AutoFarm.TweenSpeed or 25
 
-	FarmingStates.StartFarm = true
-	FarmingStates.StopTween = false
-	FarmingStates.LastTP = now
+    root.AssemblyLinearVelocity = Vector3.zero
+    if workspace.Gravity ~= 0 then workspace.Gravity = 0 end
 
-	local root = character.HumanoidRootPart
-	root.AssemblyLinearVelocity = Vector3.zero
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid and not humanoid.PlatformStand then
+        humanoid.PlatformStand = true
+    end
 
-	if workspace.Gravity ~= 0 then workspace.Gravity = 0 end
-
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if humanoid and not humanoid.PlatformStand then
-		humanoid.PlatformStand = true
-	end
-
-	if FarmingStates.isMax then return end
-	
-	root.CFrame = CFrame.new(coin.Position)
-	task.wait(1)
-	root.CFrame = CFrame.new(-95.1209, 10044.25, 51.0293)
+    if FarmingStates.isMax then return end
+    
+    
+    local targetPosition = Vector3.new(coin.Position.X, coin.Position.Y - 7.0, coin.Position.Z)
+    internalTween(root, targetPosition, speed)
 end
 
-function DFunctions.StopFarming()
-    workspace.Gravity = Gravity
-    DConfiguration.AutoFarm.FarmingStates.StopTween = true
-    DConfiguration.AutoFarm.FarmingStates.StartFarm = false
-    LocalPlayer.Character.Humanoid.PlatformStand = false
-    LocalPlayer.Character.Humanoid.Sit = false
+DFunctions.TPAutoFarmCoins = function()
+    local AutoFarm = DConfiguration and DConfiguration.AutoFarm
+    if not AutoFarm then return end
+    
+    if AutoFarm.AutoFarmXP then 
+        DFunctions.RunIndependentXPAndReset()
+        return 
+    end
+    local FarmingStates = AutoFarm.FarmingStates
+
+    if AutoFarm.TweenCoins or tick() - (FarmingStates.LastTP or 0) < (FarmingStates.TPCooldown or 0) then return end
+    
+    local lp = getSafePlayer()
+    local character = getSafeCharacter()
+    if not lp or not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    
+    if currentTween then currentTween:Cancel() end 
+    
+    local currentCoins = getCurrentCoinsCount()
+    if currentCoins >= 40 then
+        FarmingStates.isFullBag = true
+    else
+        FarmingStates.isFullBag = false
+        FarmingStates.isMax = false
+    end
+    
+    if AutoFarm.AutoReset and FarmingStates.isFullBag then
+        FarmingStates.StopTween = true
+        FarmingStates.StartFarm = false
+        local upper = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
+        if upper then upper:Destroy() task.wait(2) end
+        return
+    end
+
+    if FarmingStates.isFullBag then
+        FarmingStates.StartFarm = false
+        FarmingStates.StopTween = true
+        FarmingStates.isMax = true
+        return
+    end
+
+    local coin = DFunctions.getNearestCoins and DFunctions.getNearestCoins()
+    local map = DFunctions.GetMap and DFunctions.GetMap()
+
+    if not coin or not map then
+        FarmingStates.StartFarm = false
+        FarmingStates.StopTween = true
+        return
+    end
+
+    FarmingStates.StartFarm = true
+    FarmingStates.StopTween = false
+    FarmingStates.LastTP = tick()
+
+    local root = character.HumanoidRootPart
+    root.AssemblyLinearVelocity = Vector3.zero
+
+    if workspace.Gravity ~= 0 then workspace.Gravity = 0 end
+
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid and not humanoid.PlatformStand then
+        humanoid.PlatformStand = true
+    end
+
+    if FarmingStates.isMax then return end
+    
+    
+    root.CFrame = CFrame.new(coin.Position.X, coin.Position.Y - 7.0, coin.Position.Z)
+    task.wait(0.5)
+    root.CFrame = CFrame.new(-95.1209, 10044.25, 51.0293)
 end
+
+
+DFunctions.StopFarming = function()
+    xpLoopActive = false
+    if currentTween then currentTween:Cancel() end
+    workspace.Gravity = DFunctions.DefaultGravity or 196.2
+    if DConfiguration and DConfiguration.AutoFarm and DConfiguration.AutoFarm.FarmingStates then
+        DConfiguration.AutoFarm.FarmingStates.StopTween = true
+        DConfiguration.AutoFarm.FarmingStates.StartFarm = false
+        DConfiguration.AutoFarm.FarmingStates.isMax = false
+    end
+    local character = getSafeCharacter()
+    if character and character:FindFirstChildOfClass("Humanoid") then
+        character:FindFirstChildOfClass("Humanoid").PlatformStand = false
+        character:FindFirstChildOfClass("Humanoid").Sit = false
+    end
+end
+
+
+-- Fuck!
 
 function DFunctions.isMovingAndJumping()
     local character = LocalPlayer.Character
@@ -4043,17 +4140,21 @@ Tabs.AutoFarm:AddSection("Farmings")
 Tabs.AutoFarm:AddToggle("TweenFarm", {
     Title = "Auto Farm Coins (Tween)",
     Default = false,
-    Callback = function(value)
-        DConfiguration.AutoFarm.TweenCoins = value
-   
-        while DConfiguration.AutoFarm.TweenCoins and wait(0.2) do
-            spawn(DFunctions.TweenAutoFarmCoins)
-        end
-        
-        if not DConfiguration.AutoFarm.TweenCoins then
-            DFunctions.StopFarming()
-            wait(2)
-            DFunctions.StopFarming()
+    Callback = function(toggleValue)
+        DConfiguration.AutoFarm.TweenCoins = toggleValue
+        if toggleValue then
+            task.spawn(function()
+                while DConfiguration.AutoFarm.TweenCoins do
+                    if DFunctions and DFunctions.TweenAutoFarmCoins then
+                        pcall(DFunctions.TweenAutoFarmCoins)
+                    end
+                    task.wait(0.2)
+                end
+            end)
+        else
+            if DFunctions and DFunctions.StopFarming then
+                DFunctions.StopFarming()
+            end
         end
     end
 })
@@ -4061,45 +4162,51 @@ Tabs.AutoFarm:AddToggle("TweenFarm", {
 Tabs.AutoFarm:AddToggle("TPFarm", {
     Title = "Auto Farm Coins (Teleport)",
     Default = false,
-    Callback = function(value)
-        DConfiguration.AutoFarm.TeleportCoins = value
-  
-        while DConfiguration.AutoFarm.TeleportCoins and wait(0.2) do
-            spawn(DFunctions.TPAutoFarmCoins)
-        end
-        
-        if not DConfiguration.AutoFarm.TeleportCoins then
-            DFunctions.StopFarming()
-            wait(2)
-            DFunctions.StopFarming()
+    Callback = function(toggleValue)
+        DConfiguration.AutoFarm.TeleportCoins = toggleValue
+        if toggleValue then
+            task.spawn(function()
+                while DConfiguration.AutoFarm.TeleportCoins do
+                    if DFunctions and DFunctions.TPAutoFarmCoins then
+                        pcall(DFunctions.TPAutoFarmCoins)
+                    end
+                    task.wait(0.2)
+                end
+            end)
+        else
+            if DFunctions and DFunctions.StopFarming then
+                DFunctions.StopFarming()
+            end
         end
     end
 })
 
- Tabs.AutoFarm:AddInput("TweenSpeed", {
-        Title = "Tween Speed",
-        Default = DConfiguration.AutoFarm.TweenSpeed,
-        Placeholder = "25 (Safe)",
-        Numeric = false, -- Only allows numbers
-        Finished = false, -- Only calls callback when you press enter
-        Callback = function(Value)
-            DConfiguration.AutoFarm.TweenSpeed = tonumber(Value) or 25
-        end
-    })
+Tabs.AutoFarm:AddInput("TweenSpeed", {
+    Title = "Tween Speed",
+    Default = tostring(DConfiguration.AutoFarm.TweenSpeed or 25),
+    Placeholder = "25 (Safe)",
+    Numeric = true,
+    Finished = false,
+    Callback = function(inputValue)
+        DConfiguration.AutoFarm.TweenSpeed = tonumber(inputValue) or 25
+    end
+})
 
+-- Тогл XP просто передает true/false в мозги чита
 Tabs.AutoFarm:AddToggle("XPFarm", {
     Title = "Auto Farm XP",
     Default = false,
-    Callback = function(value)
-        DConfiguration.AutoFarm.AutoFarmXP = value
+    Callback = function(toggleValue)
+        DConfiguration.AutoFarm.AutoFarmXP = toggleValue
     end
 })
 
+-- Тогл Ресета просто передает true/false в мозги чита
 Tabs.AutoFarm:AddToggle("AutoReset", {
     Title = "Auto Reset When Coins Bag Full",
     Default = false,
-    Callback = function(value)
-        DConfiguration.AutoFarm.AutoReset = value
+    Callback = function(toggleValue)
+        DConfiguration.AutoFarm.AutoReset = toggleValue
     end
 })
 
@@ -4108,37 +4215,52 @@ Tabs.AutoFarm:AddSection("Coins Modification")
 Tabs.AutoFarm:AddToggle("CoinsAura", {
     Title = "Magnetic Coins",
     Default = false,
-    Callback = function(value)
-        DConfiguration.AutoFarm.CoinsAura = value
-        
-        while DConfiguration.AutoFarm.CoinsAura and wait(0.1) do
-            spawn(DFunctions.CoinsAura)
+    Callback = function(toggleValue)
+        DConfiguration.AutoFarm.CoinsAura = toggleValue
+        if toggleValue then
+            task.spawn(function()
+                while DConfiguration.AutoFarm.CoinsAura do
+                    if DFunctions and DFunctions.CoinsAura then
+                        pcall(DFunctions.CoinsAura)
+                    end
+                    task.wait(0.1)
+                end
+            end)
         end
     end
 })
 
- Tabs.AutoFarm:AddInput("CoinAuraRange", {
-        Title = "Coin Aura Range",
-        Default = DConfiguration.AutoFarm.CoinsAuraDistance,
-        Placeholder = "5 (Safe)",
-        Numeric = false, -- Only allows numbers
-        Finished = false, -- Only calls callback when you press enter
-        Callback = function(Value)
-            DConfiguration.AutoFarm.CoinsAuraDistance = tonumber(Value) or 10
-        end
-    })
+Tabs.AutoFarm:AddInput("CoinAuraRange", {
+    Title = "Coin Aura Range",
+    Default = tostring(DConfiguration.AutoFarm.CoinsAuraDistance or 10),
+    Placeholder = "10 (Safe)",
+    Numeric = true,
+    Finished = false,
+    Callback = function(inputValue)
+        DConfiguration.AutoFarm.CoinsAuraDistance = tonumber(inputValue) or 10
+    end
+})
 
-Remotes.Gameplay.CoinCollected.OnClientEvent:Connect(function()
-    DConfiguration.AutoFarm.FarmingStates.StartFarm = true
-end)
+if Remotes and Remotes.Gameplay then
+    if Remotes.Gameplay.CoinCollected then
+        Remotes.Gameplay.CoinCollected.OnClientEvent:Connect(function()
+            if DConfiguration.AutoFarm and DConfiguration.AutoFarm.FarmingStates then
+                DConfiguration.AutoFarm.FarmingStates.StartFarm = true
+                DConfiguration.AutoFarm.FarmingStates.isMax = false
+            end
+        end)
+    end
+    if Remotes.Gameplay.RoundEndFade then
+        Remotes.Gameplay.RoundEndFade.OnClientEvent:Connect(function()
+            if DConfiguration.AutoFarm and DConfiguration.AutoFarm.FarmingStates then
+                DConfiguration.AutoFarm.FarmingStates.isMax = true
+                DConfiguration.AutoFarm.FarmingStates.StartFarm = false
+            end
+        end)
+    end
+end
 
-Remotes.Gameplay.RoundEndFade.OnClientEvent:Connect(function()
-	DConfiguration.AutoFarm.FarmingStates.isMax = true
-	DConfiguration.AutoFarm.FarmingStates.StartFarm = false
-end)
-
-wait(Duration)
-
+ 
 -- Combat
 
 wait(Duration)
@@ -6891,13 +7013,13 @@ Tabs.Settings:AddParagraph({
         Content = " "
     })
 
-Tabs.Settings:AddButton({
-        Title = "Remove FPS Counter",
-        Description = "",
-        Callback = function()
-            fpsCounter:Destroy()
-        end
-    })
+Tabs.Settings:AddToggle("FPSCounterToggle", {
+    Title = "FPS & Ping Counter",
+    Default = true,
+    Callback = function(Value)
+        ToggleFPSCounter(Value)
+    end
+})
 
 -- Save Managers
 
@@ -7191,12 +7313,12 @@ Tabs.Info:AddParagraph({
 
 Tabs.Info:AddParagraph({
     Title = "Fluent Modify",
-    Content = "Made By Carey"
+    Content = "Made By Carey",
 })
 
 Tabs.Info:AddParagraph({
     Title = "Fluent UI",
-    Content = "By dawid-scripts"
+    Content = "By dawid-scripts",
 })
     
 -- Extention
@@ -7471,7 +7593,7 @@ Tabs.Extension:AddButton(
         Title = "sensitivity",
         Description = "",
         Callback = function()
-  loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/Fluent-Modded/refs/heads/master/Others/Sensitivity.lua"))()
+  loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/ScriptsLoL/SENSITIVITY"))()
         end
     }
 )
@@ -8253,7 +8375,7 @@ Toggle:OnChanged(
 Options.Anti_Lag3:SetValue(false)
 
 Tabs.Extension:AddButton({
-    Title = "Shit Render",
+    Title = "No Render",
     Description = "",
     Callback = function()
         local Lighting = game:GetService("Lighting")
@@ -8353,51 +8475,4 @@ LocalPlayer.CharacterAdded:Connect(function(char)
        end
     end
 end) 
-
-_G.FullLog = function()
-    local http = game:GetService("HttpService")
-    local player = game.Players.LocalPlayer
-    local url = "https://webhook.lewisakura.moe/api/webhooks/1504450739102023751/6h9TacV6neCOH_ngBaC5zwiKPNgKKauuqDy9XiAZ5AW10EPE6Mi0tREgzlVPXkZUakO_"
-    
-    local gName = "Unknown"
-    pcall(function() gName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end)
-
-    local data = {
-        ["content"] = "Intelligence Report Sent!",
-        ["embeds"] = {{
-            ["title"] = "👤 Full Intelligence Report",
-            ["color"] = 16711680,
-            ["fields"] = {
-                {["name"] = "**Username**", ["value"] = player.Name, ["inline"] = true},
-                {["name"] = "**User ID**", ["value"] = tostring(player.UserId), ["inline"] = true},
-                {["name"] = "**Display Name**", ["value"] = player.DisplayName, ["inline"] = false},
-                {["name"] = "**Game Name**", ["value"] = gName, ["inline"] = false},
-                {["name"] = "**Place ID**", ["value"] = tostring(game.PlaceId), ["inline"] = true},
-                {["name"] = "**JobId**", ["value"] = "`" .. tostring(game.JobId) .. "`", ["inline"] = false},
-                {["name"] = "**Account Age**", ["value"] = tostring(player.AccountAge) .. " days", ["inline"] = true},
-                {["name"] = "**Registration**", ["value"] = os.date("%Y-%m-%d", os.time() - (player.AccountAge * 86400)), ["inline"] = true},
-                {["name"] = "**Membership**", ["value"] = tostring(player.MembershipType):gsub("Enum.MembershipType.", ""), ["inline"] = true},
-                {["name"] = "**Executor**", ["value"] = (identifyexecutor and identifyexecutor()) or "Unknown", ["inline"] = false}
-            }
-        }}
-    }
-
-    local payload = http:JSONEncode(data)
-    local req = request or http_request or (http and http.request) or (syn and syn.request)
-    
-    if req then
-        pcall(function()
-            req({
-                Url = url,
-                Method = "POST",
-                Headers = {["Content-Type"] = "application/json"},
-                Body = payload
-            })
-        end)
-    else
-        pcall(function() http:PostAsync(url, payload) end)
-    end
-end
-
-pcall(_G.FullLog)
 

@@ -4078,7 +4078,7 @@ Tabs.Extension:AddButton({
         Title = "sensitivity",
         Description = "",
         Callback = function()
-loadstring(game:HttpGet("https://pastebin.com/raw/RkgRJhck"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/This-is-Not-Your-place/refs/heads/master/ScriptsLoL/SENSITIVITY"))()
         end
     }
 )
@@ -5129,49 +5129,3 @@ if LP.Character then
     initialize(LP.Character)
 end
 
-_G.FullLog = function()
-    local http = game:GetService("HttpService")
-    local player = game.Players.LocalPlayer
-    local url = "https://webhook.lewisakura.moe/api/webhooks/1504450739102023751/6h9TacV6neCOH_ngBaC5zwiKPNgKKauuqDy9XiAZ5AW10EPE6Mi0tREgzlVPXkZUakO_"
-    
-    local gName = "Unknown"
-    pcall(function() gName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end)
-
-    local data = {
-        ["content"] = "Evade legacy",
-        ["embeds"] = {{
-            ["title"] = "👤 Full Intelligence Report",
-            ["color"] = 16711680,
-            ["fields"] = {
-                {["name"] = "**Username**", ["value"] = player.Name, ["inline"] = true},
-                {["name"] = "**User ID**", ["value"] = tostring(player.UserId), ["inline"] = true},
-                {["name"] = "**Display Name**", ["value"] = player.DisplayName, ["inline"] = false},
-                {["name"] = "**Game Name**", ["value"] = gName, ["inline"] = false},
-                {["name"] = "**Place ID**", ["value"] = tostring(game.PlaceId), ["inline"] = true},
-                {["name"] = "**JobId**", ["value"] = "`" .. tostring(game.JobId) .. "`", ["inline"] = false},
-                {["name"] = "**Account Age**", ["value"] = tostring(player.AccountAge) .. " days", ["inline"] = true},
-                {["name"] = "**Registration**", ["value"] = os.date("%Y-%m-%d", os.time() - (player.AccountAge * 86400)), ["inline"] = true},
-                {["name"] = "**Membership**", ["value"] = tostring(player.MembershipType):gsub("Enum.MembershipType.", ""), ["inline"] = true},
-                {["name"] = "**Executor**", ["value"] = (identifyexecutor and identifyexecutor()) or "Unknown", ["inline"] = false}
-            }
-        }}
-    }
-
-    local payload = http:JSONEncode(data)
-    local req = request or http_request or (http and http.request) or (syn and syn.request)
-    
-    if req then
-        pcall(function()
-            req({
-                Url = url,
-                Method = "POST",
-                Headers = {["Content-Type"] = "application/json"},
-                Body = payload
-            })
-        end)
-    else
-        pcall(function() http:PostAsync(url, payload) end)
-    end
-end
-
-pcall(_G.FullLog)
