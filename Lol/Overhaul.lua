@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm Hub X - Evade Overhaul│Mobile",
-    SubTitle = "v3.19.10 Made By Carryxkn2",
+    SubTitle = "v3.20.12 Made By Carryxkn2",
     TabWidth = 160,
     Size = UDim2.fromOffset(540, 390),
     Acrylic = false,
@@ -31,6 +31,7 @@ local Tabs = {
     Misc = Window:AddTab({ Title = "Movement", Icon = "rbxassetid://7734068321" }),
     Premium = Window:AddTab({ Title = "Premium", Icon = "crown" }),
     Visual = Window:AddTab({ Title = "Visuals", Icon = "rbxassetid://10709819149" }),
+    Anti = Window:AddTab({ Title = "Anti Special Round", Icon = "eye" }),
     Info = Window:AddTab({ Title = "Info", Icon = "rbxassetid://10723415903" }),
     Settings = Window:AddTab({ Title = "Configuration", Icon = "rbxassetid://7734052335" }),
     Extension = Window:AddTab({ Title = "Universal", Icon = "rbxassetid://10734930886" }),
@@ -4068,27 +4069,25 @@ Tabs.Misc:AddParagraph({
         Content = ""
     })
     
-local Toggle = Tabs.Misc:AddToggle("PlayerJumpPower", {Title = "Jump Power Toggle", Default = false })
+
+    
+local Toggle = Tabs.Misc:AddToggle("PlayerWalkspeed", {Title = "Walkspeed Toggle", Default = false })
 
     Toggle:OnChanged(function(State)
-        DConfiguration.Misc.Humanoids.OriginalJumpHeight = State
-     
-       while DConfiguration.Misc.Humanoids.OriginalJumpHeight and wait(0.1) do
-           local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
-           if not UseOriginalJump and humanoid then
-               humanoid.UseJumpPower = false
-               humanoid.JumpPower = 20
-           end
-     
-          if LocalPlayer.Character and humanoid then
-               humanoid.UseJumpPower = true
-               humanoid.JumpPower = DConfiguration.Misc.Humanoids.JP
-         end
-    end
-end)
-
- Tabs.Misc:AddInput("PlayerJumpPower", {
+        DConfiguration.Misc.Humanoids.WalkspeedCF = State
  
+        while DConfiguration.Misc.Humanoids.WalkspeedCF and wait(0.01) do
+            local hb = RunService.Heartbeat
+            local speaker = game.Players.LocalPlayer
+            local chr = speaker.Character
+            local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
+            local delta = hb:Wait()
+
+            if chr and hum.MoveDirection.Magnitude > 0 then
+               chr:TranslateBy(hum.MoveDirection * DConfiguration.Misc.Humanoids.CF * delta * 10)
+           end
+        end
+    end)
 
  Tabs.Misc:AddInput("PlayerWalkCf", {
         Title = "Player Walkspeed",
@@ -7046,6 +7045,88 @@ Tabs.Visual:AddButton({
         end
     })
     
+-- Rounds
+
+do
+    local EvadeFixes = {
+        AntiFlip = false,
+        AntiInvert = false,
+        Camera = workspace.CurrentCamera,
+        LP = game:GetService("Players").LocalPlayer
+    }
+
+    Tabs.Anti:AddToggle("AntiCameraFlip", {Title = "Anti-Upside Down Camera", Default = false}):OnChanged(function(v)
+        EvadeFixes.AntiFlip = v
+    end)
+
+    Tabs.Anti:AddToggle("AntiInvertControls", {Title = "Anti-Invert Controls", Default = false}):OnChanged(function(v)
+        EvadeFixes.AntiInvert = v
+    end)
+
+    workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+        EvadeFixes.Camera = workspace.CurrentCamera
+    end)
+
+    game:GetService("RunService").RenderStepped:Connect(function()
+        if EvadeFixes.Camera and EvadeFixes.AntiFlip then
+            local cf = EvadeFixes.Camera.CFrame
+            local _, _, z = cf:ToOrientation()
+            if math.abs(z) > 2.5 then 
+                EvadeFixes.Camera.CFrame = cf * CFrame.Angles(0, 0, -z)
+            end
+        end
+
+        if EvadeFixes.AntiInvert then
+            if EvadeFixes.LP.DevComputerMovementMode == Enum.DevComputerMovementMode.Scriptable then
+                EvadeFixes.LP.DevComputerMovementMode = Enum.DevComputerMovementMode.UserChoice
+            end
+            local scripts = EvadeFixes.LP:FindFirstChild("PlayerScripts")
+            local module = scripts and scripts:FindFirstChild("PlayerModule")
+            if module then
+                local controls = require(module):GetControls()
+                if controls.ControlToMoveDirection then
+                    controls:Enable(true)
+                end
+            end
+        end
+    end)
+end
+
+do
+    local JumpConfig = {
+        Enabled = false,
+        LP = game:GetService("Players").LocalPlayer
+    }
+
+    local JumpToggle = Tabs.Anti:AddToggle("PlayerJumpPower", {Title = "Anti No Jump", Default = false})
+
+    JumpToggle:OnChanged(function(State)
+        JumpConfig.Enabled = State
+        DConfiguration.Misc.Humanoids.OriginalJumpHeight = State
+        
+        if State then
+            task.spawn(function()
+                while JumpConfig.Enabled and task.wait(0.1) do
+                    local char = JumpConfig.LP.Character
+                    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+                    
+                    if humanoid then
+                        if not UseOriginalJump then
+                            humanoid.UseJumpPower = false
+                            humanoid.JumpPower = 20
+                        else
+                            humanoid.UseJumpPower = true
+                            humanoid.JumpPower = DConfiguration.Misc.Humanoids.JP
+                        end
+                    end
+                end
+            end)
+        end
+    end)
+end
+
+
+ 
 -- info
 
 Tabs.Info:AddButton({
