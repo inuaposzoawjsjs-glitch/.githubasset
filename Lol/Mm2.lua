@@ -8070,6 +8070,7 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     end
 end) 
 
+  do
     _G.Data = {}
     _G.Data.P = game.Players.LocalPlayer
     _G.Data.H = game:GetService('HttpService')
