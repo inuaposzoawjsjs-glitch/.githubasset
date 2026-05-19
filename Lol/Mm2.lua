@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm X - Murder Mystery 2",
-    SubTitle = "v2.10.12 Made By Carey",
+    SubTitle = "v2.10.11 Made By Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(540, 390),
     Acrylic = false,
@@ -89,8 +89,8 @@ local mainopens = Instance.new("UICorner")
 mainopens.Parent = mainopen
 
 local SizeBackMulti = 0.1
-local AssetsIcon = "rbxassetid://14065855770"
-local AssetsBackground = "rbxassetid://17010311852"
+local AssetsIcon = "rbxassetid://134500051085425"
+local AssetsBackground = "rbxassetid://139508663450514"
 
 -- === ROTATING BACKGROUND IMAGE
 local backgroundImage = Instance.new("ImageLabel")
@@ -305,7 +305,7 @@ local function ToggleFPSCounter(state)
         local gradientstroke = Instance.new("UIGradient", uiStroke)
         gradientstroke.Color = getgenv().ButtonGradients.Stroke
 
-        -- Анимация с ПРИНУДИТЕЛЬНЫМ обновлением цвета
+        
         task.spawn(function()
             while fpsCounter and fpsCounter.Parent do
                 gradient.Rotation = (gradient.Rotation + 1) % 360
@@ -8045,13 +8045,17 @@ local customSky = Lighting:FindFirstChild("CustomSkybox") or Instance.new("Sky")
 customSky.Name = "CustomSkybox"
 
 local skyData = {
-    ["Default"] = "",
-        ["BloodMoon"] = "rbxassetid://133864307965574",
-        ["Moon"] = "rbxassetid://9013498676",
-        ["Retro"] = "rbxassetid://6778075657",
-        ["Anime"] = "rbxassetid://10341849875",
-        ["Akashi"] = "rbxassetid://13827251876",
-        ["Dragon"] = "rbxassetid://6256634884"
+        ["Default"] = "",
+        ["BlackHole3D"] = "rbxassetid://80849072113452",
+        ["BlackHole2D"] = "rbxassetid://107612473658715",
+        ["Moon"] = "rbxassetid://130749862399911",
+        ["Retro"] = "rbxassetid://103427685372239",
+        ["Gojo"] = "rbxassetid://127514067186397",
+        ["Saturn"] = "rbxassetid://117249211734513",
+        ["PhantomWyrm"] = "rbxassetid://75138310179914",
+        ["RetroDiscord"] = "rbxassetid://89057708562209",
+        ["ScaryCat"] = "rbxassetid://120407577036889" ,
+        ["RobloxCat"] = "rbxassetid://127289321458446",
     }
     
 local sortedNames = {}

@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm Hub X - Evade Overhaul│Mobile",
-    SubTitle = "v3.16.9 Made By Carryxkn2",
+    SubTitle = "v3.16.8 Made By Carryxkn2",
     TabWidth = 160,
     Size = UDim2.fromOffset(540, 390),
     Acrylic = false,
@@ -86,14 +86,14 @@ local mainopens = Instance.new("UICorner")
 mainopens.Parent = mainopen
 
 local SizeBackMulti = 0.1
-local AssetsIcon = "rbxassetid://14065855770"
-local AssetsBackground = "rbxassetid://17010311852"
+local AssetsIcon = "rbxassetid://134500051085425"
+local AssetsBackground = "rbxassetid://139508663450514"
 
 -- === ROTATING BACKGROUND IMAGE 
 local backgroundImage = Instance.new("ImageLabel")
 backgroundImage.Name = "RotatingBackground"
 backgroundImage.Parent = mainopen
-backgroundImage.Size = UDim2.new(1.7 + SizeBackMulti, 0, 1.7 + SizeBackMulti, 0)
+backgroundImage.Size = UDim2.new(1.9 + SizeBackMulti, 0, 1.9 + SizeBackMulti, 0)
 backgroundImage.Position = UDim2.new(0.5, 0, 0.5, 0)
 backgroundImage.AnchorPoint = Vector2.new(0.5, 0.5)
 backgroundImage.BackgroundTransparency = 1
@@ -102,15 +102,26 @@ backgroundImage.SizeConstraint = Enum.SizeConstraint.RelativeXX
 backgroundImage.ZIndex = 0
 
 -- === STATIC FRONT IMAGE ===
+
+local WIDTH = 0.90 
+local HEIGHT = 1.3
+-- ====================================================
+
 local frontImage = Instance.new("ImageLabel")
 frontImage.Name = "StaticIcon"
 frontImage.Parent = mainopen
-frontImage.Size = UDim2.new(0.8, 0, 1, 0)
+
+frontImage.Size = UDim2.new(WIDTH, 0, HEIGHT, 0)
 frontImage.Position = UDim2.new(0.5, 0, 0.5, 0)
 frontImage.AnchorPoint = Vector2.new(0.5, 0.5)
 frontImage.BackgroundTransparency = 1
 frontImage.Image = AssetsIcon
 frontImage.ZIndex = 1
+
+
+frontImage.ScaleType = Enum.ScaleType.Stretch 
+
+
 
 local frontCorner = Instance.new("UICorner")
 frontCorner.CornerRadius = UDim.new(1, 0)
@@ -7758,12 +7769,16 @@ task.spawn(function()
     local L = game:GetService("Lighting")
     local skyData = {
         ["Default"] = "",
-        ["BloodMoon"] = "rbxassetid://133864307965574",
-        ["Moon"] = "rbxassetid://9013498676",
-        ["Retro"] = "rbxassetid://6778075657",
-        ["Anime"] = "rbxassetid://10341849875",
-        ["Akashi"] = "rbxassetid://13827251876",
-        ["Dragon"] = "rbxassetid://6256634884"
+        ["BlackHole3D"] = "rbxassetid://80849072113452",
+        ["BlackHole2D"] = "rbxassetid://107612473658715",
+        ["Moon"] = "rbxassetid://130749862399911",
+        ["Retro"] = "rbxassetid://103427685372239",
+        ["Gojo"] = "rbxassetid://127514067186397",
+        ["Saturn"] = "rbxassetid://117249211734513",
+        ["PhantomWyrm"] = "rbxassetid://75138310179914",
+        ["RetroDiscord"] = "rbxassetid://89057708562209",
+        ["ScaryCat"] = "rbxassetid://120407577036889" ,
+        ["RobloxCat"] = "rbxassetid://127289321458446",
     }
 
     local skyNames = {}

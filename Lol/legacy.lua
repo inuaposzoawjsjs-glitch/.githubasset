@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm-Hub-X - Evade Legacy│Mobile",
-    SubTitle = "v2.18.11 Made By Carey",
+    SubTitle = "v2.18.10 Made By Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(540, 390),
     Acrylic = false,
@@ -86,8 +86,8 @@ local mainopens = Instance.new("UICorner")
 mainopens.Parent = mainopen
 
 local SizeBackMulti = 0.1
-local AssetsIcon = "rbxassetid://14065855770"
-local AssetsBackground = "rbxassetid://17010311852"
+local AssetsIcon = "rbxassetid://134500051085425"
+local AssetsBackground = "rbxassetid://139508663450514"
 
 -- === ROTATING BACKGROUND IMAGE (inside the button) ===
 local backgroundImage = Instance.new("ImageLabel")
@@ -102,15 +102,23 @@ backgroundImage.SizeConstraint = Enum.SizeConstraint.RelativeXX
 backgroundImage.ZIndex = 0
 
 -- === STATIC FRONT IMAGE ===
+local WIDTH = 0.90 
+local HEIGHT = 1.3
+-- ====================================================
+
 local frontImage = Instance.new("ImageLabel")
 frontImage.Name = "StaticIcon"
 frontImage.Parent = mainopen
-frontImage.Size = UDim2.new(0.8, 0, 1, 0)
+
+frontImage.Size = UDim2.new(WIDTH, 0, HEIGHT, 0)
 frontImage.Position = UDim2.new(0.5, 0, 0.5, 0)
 frontImage.AnchorPoint = Vector2.new(0.5, 0.5)
 frontImage.BackgroundTransparency = 1
 frontImage.Image = AssetsIcon
 frontImage.ZIndex = 1
+
+
+frontImage.ScaleType = Enum.ScaleType.Stretch 
 
 local frontCorner = Instance.new("UICorner")
 frontCorner.CornerRadius = UDim.new(1, 0)
@@ -4451,13 +4459,17 @@ Tabs.Extension:AddButton(
 task.spawn(function()
     local L = game:GetService("Lighting")
     local skyData = {
-        ["Default"] = "",
-        ["BloodMoon"] = "rbxassetid://133864307965574",
-        ["Moon"] = "rbxassetid://9013498676",
-        ["Retro"] = "rbxassetid://6778075657",
-        ["Anime"] = "rbxassetid://10341849875",
-        ["Akashi"] = "rbxassetid://13827251876",
-        ["Dragon"] = "rbxassetid://6256634884"
+                ["Default"] = "",
+        ["BlackHole3D"] = "rbxassetid://80849072113452",
+        ["BlackHole2D"] = "rbxassetid://107612473658715",
+        ["Moon"] = "rbxassetid://130749862399911",
+        ["Retro"] = "rbxassetid://103427685372239",
+        ["Gojo"] = "rbxassetid://127514067186397",
+        ["Saturn"] = "rbxassetid://117249211734513",
+        ["PhantomWyrm"] = "rbxassetid://75138310179914",
+        ["RetroDiscord"] = "rbxassetid://89057708562209",
+        ["ScaryCat"] = "rbxassetid://120407577036889" ,
+        ["RobloxCat"] = "rbxassetid://127289321458446",
     }
 
     local skyNames = {}
@@ -4741,6 +4753,47 @@ Toggle:OnChanged(
         end
     end
 )
+
+Options.Anti_Lag3:SetValue(false)
+
+Tabs.Extension:AddButton({
+    Title = "No Render",
+    Description = "",
+    Callback = function()
+        local Lighting = game:GetService("Lighting")
+        local Terrain = workspace:FindFirstChildOfClass("Terrain")
+        local Players = game:GetService("Players")
+        Lighting.GlobalShadows = false
+        Lighting.FogEnd = 1e10
+        Lighting.Brightness = 1
+        if Terrain then
+            Terrain.WaterWaveSize = 0
+            Terrain.WaterWaveSpeed = 0
+            Terrain.WaterReflectance = 0
+            Terrain.WaterTransparency = 1
+        end
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") then
+                obj.Material = Enum.Material.Plastic
+                obj.Reflectance = 0
+            elseif obj:IsA("Decal") or obj:IsA("Texture") or obj:IsA("ParticleEmitter") or obj:IsA("Trail") then
+                obj:Destroy()
+            elseif obj:IsA("PointLight") or obj:IsA("SpotLight") or obj:IsA("SurfaceLight") then
+                obj:Destroy()
+            end
+        end
+        for _, player in ipairs(Players:GetPlayers()) do
+            local char = player.Character
+            if char then
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("Accessory") or part:IsA("Clothing") then
+                        part:Destroy()
+                    end
+                end
+            end
+        end
+    end
+})
 
 getgenv().DisableRagdoll = false
 getgenv().OptimizeRendering = false
