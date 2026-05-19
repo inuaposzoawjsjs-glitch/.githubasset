@@ -4088,33 +4088,7 @@ local Toggle = Tabs.Misc:AddToggle("PlayerJumpPower", {Title = "Jump Power Toggl
 end)
 
  Tabs.Misc:AddInput("PlayerJumpPower", {
-        Title = "Player Jump Power",
-        Default = "20",
-        Placeholder = "Jump Number",
-        Numeric = false, 
-        Finished = false, 
-        Callback = function(Value)
-            DConfiguration.Misc.Humanoids.JP = tonumber(Value) or 20
-        end
-    })
-    
-local Toggle = Tabs.Misc:AddToggle("PlayerWalkspeed", {Title = "Walkspeed Toggle", Default = false })
-
-    Toggle:OnChanged(function(State)
-        DConfiguration.Misc.Humanoids.WalkspeedCF = State
  
-        while DConfiguration.Misc.Humanoids.WalkspeedCF and wait(0.01) do
-            local hb = RunService.Heartbeat
-            local speaker = game.Players.LocalPlayer
-            local chr = speaker.Character
-            local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
-            local delta = hb:Wait()
-
-            if chr and hum.MoveDirection.Magnitude > 0 then
-               chr:TranslateBy(hum.MoveDirection * DConfiguration.Misc.Humanoids.CF * delta * 10)
-           end
-        end
-    end)
 
  Tabs.Misc:AddInput("PlayerWalkCf", {
         Title = "Player Walkspeed",
