@@ -3969,7 +3969,7 @@ Tabs.Extension:AddButton({
         Title = "sensitivity",
         Description = "",
         Callback = function()
-loadstring(game:HttpGet("https://pastebin.com/raw/RkgRJhck"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/inuaposzoawjsjs-glitch/.githubasset/refs/heads/master/MODDEDFLUENT/Sensitivity.lua"))()
         end
     }
 )
