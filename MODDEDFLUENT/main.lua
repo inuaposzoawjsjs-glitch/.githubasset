@@ -110,7 +110,7 @@ local a, b = {
     }
 }
 
-local Animation = loadstring(game:HttpGet("https://github.com/inuaposzoawjsjs-glitch/.githubasset/blob/master/MODDEDFLUENT/AnimationGui.lua"))()
+local Animation = loadstring(game:HttpGet("https://raw.githubusercontent.com/inuaposzoawjsjs-glitch/.githubasset/refs/heads/master/MODDEDFLUENT/AnimationGui.lua"))()
 getgenv().ShineEnabled = true
 getgenv().ButtonGradients = {
     Background = ColorSequence.new {
