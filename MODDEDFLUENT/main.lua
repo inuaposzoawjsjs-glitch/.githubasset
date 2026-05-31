@@ -110,7 +110,7 @@ local a, b = {
     }
 }
 
-local Animation = loadstring(game:HttpGet("https://raw.githubusercontent.com/twinkilya0-jpg/Fluent-Modded/refs/heads/main/Fluent/Animation"))()
+local Animation = loadstring(game:HttpGet("https://raw.githubusercontent.com/inuaposzoawjsjs-glitch/.githubasset/refs/heads/master/MODDEDFLUENT/AnimationGui.lua"))()
 getgenv().ShineEnabled = true
 getgenv().ButtonGradients = {
     Background = ColorSequence.new {
