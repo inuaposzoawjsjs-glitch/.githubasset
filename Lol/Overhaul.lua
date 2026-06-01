@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm Hub X - Evade Overhaul│Mobile",
-    SubTitle = "v3.27.21 Made By Carey",
+    SubTitle = "v3.30.21 Made By Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(540, 390),
     Acrylic = false,
@@ -5058,17 +5058,17 @@ local LP = game.Players.LocalPlayer
 local RS = game:GetService("RunService")
 local Cam = workspace.CurrentCamera
 
-getgenv().EasyTrimp = getgenv().EasyTrimp or {
+getgenv().EasyBounce = getgenv().EasyBounce or {
     Enabled = false,
-    Mode = "Smart (Joystick)",
+    Mode = "Forward",
     BaseSpeed = 50,
     ExtraSpeed = 100
 }
 
-local ET = getgenv().EasyTrimp
+local EB = getgenv().EasyBounce
 
 local state = {
-    speed = ET.BaseSpeed,
+    speed = EB.BaseSpeed,
     last = tick(),
     airTick = 0,
     airSum = 0,
@@ -5097,7 +5097,7 @@ local function resetPhysics(hrp, hum)
             end
         end
     end
-    state.speed = ET.BaseSpeed
+    state.speed = EB.BaseSpeed
     state.airTick, state.airSum, state.airborne = 0, 0, false
 end
 
@@ -5106,7 +5106,7 @@ RS.RenderStepped:Connect(function()
     local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
     local hum = ch and ch:FindFirstChild("Humanoid")
     
-    if _G.Fly or not ET.Enabled then
+    if _G.Fly or not EB.Enabled then
         resetPhysics(hrp, hum)
         return 
     end
@@ -5120,18 +5120,13 @@ RS.RenderStepped:Connect(function()
     local spdUI = getMeter()
 
     if state.airborne and not inAir then
-        state.speed = math.max(ET.BaseSpeed, state.speed - 10)
+        state.speed = math.max(EB.BaseSpeed, state.speed - 10)
         if spdUI then spdUI.Text = cut(state.speed) end
         state.airSum = 0
     end
     state.airborne = inAir
 
-    local shouldPush = false
-    if ET.Mode == "Smart (Joystick)" then
-        shouldPush = hum.MoveDirection.Magnitude > 0
-    elseif ET.Mode == "Force (Always)" then
-        shouldPush = true
-    end
+    local shouldPush = true
 
     if shouldPush then
         if inAir then
@@ -5139,11 +5134,11 @@ RS.RenderStepped:Connect(function()
             state.airTick = state.airTick + dt
             while state.airTick >= 0.04 do
                 state.airTick = state.airTick - 0.04
-                state.speed = math.min(ET.BaseSpeed + ET.ExtraSpeed, state.speed + 0.1)
+                state.speed = math.min(EB.BaseSpeed + EB.ExtraSpeed, state.speed + 0.1)
             end
         else
             state.airTick, state.airSum = 0, 0
-            state.speed = math.max(ET.BaseSpeed, state.speed - (2.5 * dt))
+            state.speed = math.max(EB.BaseSpeed, state.speed - (2.5 * dt))
         end
 
         if not state.bv or state.bv.Parent ~= hrp then
@@ -5152,8 +5147,12 @@ RS.RenderStepped:Connect(function()
             state.bv.Parent = hrp
         end
         
-        local moveDir = Cam.CFrame.LookVector
-        moveDir = Vector3.new(moveDir.X, 0, moveDir.Z).Unit
+        local camDir = Cam.CFrame.LookVector
+        local moveDir = Vector3.new(camDir.X, 0, camDir.Z).Unit
+        
+        if EB.Mode == "Back" then
+            moveDir = -moveDir
+        end
 
         state.bv.Velocity = moveDir * state.speed
         state.bv.MaxForce = Vector3.new(4e5, 0, 4e5) 
@@ -5164,75 +5163,73 @@ RS.RenderStepped:Connect(function()
             state.bv.MaxForce = Vector3.new(0, 0, 0) 
             state.bv.Velocity = Vector3.new(0, 0, 0)
         end
-        state.speed = ET.BaseSpeed
+        state.speed = EB.BaseSpeed
     end
 end)
 
-
-Tabs.Misc:AddDropdown("ET_ModeDropdown", {
-    Title = "Easy Trimp Mode",
-    Values = {"Smart (Joystick)", "Force (Always)"},
-    Default = ET.Mode,
+Tabs.Misc:AddDropdown("EB_ModeDropdown", {
+    Title = "Easy Bounce Mode",
+    Values = {"Forward", "Back"},
+    Default = EB.Mode,
     Callback = function(v)
-        ET.Mode = v
+        EB.Mode = v
     end
 })
 
-Tabs.Misc:AddInput("ET_Base", {
+Tabs.Misc:AddInput("EB_Base", {
     Title = "Base Speed", 
-    Default = tostring(ET.BaseSpeed), 
+    Default = tostring(EB.BaseSpeed), 
     Numeric = true, 
     Finished = true, 
     Callback = function(v) 
-        ET.BaseSpeed = tonumber(v) or 50 
-        if getgenv().UpdateTrimpSpeed then
-            getgenv().UpdateTrimpSpeed(ET.BaseSpeed)
+        EB.BaseSpeed = tonumber(v) or 50 
+        if getgenv().UpdateBounceSpeed then
+            getgenv().UpdateBounceSpeed(EB.BaseSpeed)
         end
     end
 })
 
-Tabs.Misc:AddInput("ET_Extra", {
+Tabs.Misc:AddInput("EB_Extra", {
     Title = "Extra Speed (Boost)", 
-    Default = tostring(ET.ExtraSpeed), 
+    Default = tostring(EB.ExtraSpeed), 
     Numeric = true, 
     Finished = true, 
     Callback = function(v) 
-        ET.ExtraSpeed = tonumber(v) or 100 
+        EB.ExtraSpeed = tonumber(v) or 100 
     end
 })
 
 DConfiguration.Settings.GuiScale = DConfiguration.Settings.GuiScale or {}
-DConfiguration.Settings.GuiScale.EasyTrimp = DConfiguration.Settings.GuiScale.EasyTrimp or 0
+DConfiguration.Settings.GuiScale.EasyBounce = DConfiguration.Settings.GuiScale.EasyBounce or 0
 
-
-Tabs.Misc:AddToggle("ET_BtnShow", {
-    Title = "Easy Trimp (Button)", 
+Tabs.Misc:AddToggle("EB_BtnShow", {
+    Title = "Easy Bounce (Button)", 
     Default = false
 }):OnChanged(function(s)
     if s then 
-        local offset = DConfiguration.Settings.GuiScale.EasyTrimp
-        DFunctions.CreateButton("ET_Btn", ET.Enabled and "TRIMP: ON" or "TRIMP: OFF", 0.15 + offset, 0.1 + offset, function(btn) 
-            ET.Enabled = not ET.Enabled 
+        local offset = DConfiguration.Settings.GuiScale.EasyBounce
+        DFunctions.CreateButton("EB_Btn", EB.Enabled and "BOUNCE: ON" or "BOUNCE: OFF", 0.15 + offset, 0.1 + offset, function(btn) 
+            EB.Enabled = not EB.Enabled 
             if btn and btn.Text then
-                btn.Text = ET.Enabled and "TRIMP: ON" or "TRIMP: OFF"
+                btn.Text = EB.Enabled and "BOUNCE: ON" or "BOUNCE: OFF"
             end
         end)
     else 
-        ET.Enabled = false
-        DFunctions.DestroyButton("ET_Btn") 
+        EB.Enabled = false
+        DFunctions.DestroyButton("EB_Btn") 
     end
 end)
 
-Tabs.Misc:AddInput("ET_ButtonSize", {
-    Title = "Easy Trimp (Button Size)",
-    Default = tostring(DConfiguration.Settings.GuiScale.EasyTrimp / 0.01), 
+Tabs.Misc:AddInput("EB_ButtonSize", {
+    Title = "Easy Bounce (Button Size)",
+    Default = tostring(DConfiguration.Settings.GuiScale.EasyBounce / 0.01), 
     Placeholder = "0",
     Numeric = true, 
     Finished = false, 
     Callback = function(Value)
         local num = tonumber(Value)
-        DConfiguration.Settings.GuiScale.EasyTrimp = (num or 0) * 0.01
-        DFunctions.UpdateButton("ET_Btn", 0.15 + DConfiguration.Settings.GuiScale.EasyTrimp, 0.1 + DConfiguration.Settings.GuiScale.EasyTrimp)
+        DConfiguration.Settings.GuiScale.EasyBounce = (num or 0) * 0.01
+        DFunctions.UpdateButton("EB_Btn", 0.15 + DConfiguration.Settings.GuiScale.EasyBounce, 0.1 + DConfiguration.Settings.GuiScale.EasyBounce)
     end
 })
 
@@ -5291,14 +5288,6 @@ Tabs.Misc:AddParagraph({
         Title = " ",
         Content = ""
     })
-    
-
-
-Tabs.Misc:AddParagraph({
-        Title = " ",
-        Content = ""
-    })
-    
 
 local Toggle = Tabs.Misc:AddToggle("InfiniteSlide", {Title = "Infinite Slide", Default = false })
 
@@ -5556,8 +5545,8 @@ Tabs.Misc:AddInput("BHOPAcceleration", {
         Title = "Max Speed Acceleration",
         Default = "70",
         Placeholder = "70",
-        Numeric = false, 
-        Finished = false,
+        Numeric = false, -- Only allows numbers
+        Finished = false, -- Only calls callback when you press enter
         Callback = function(Value)
             DConfiguration.Misc.MovementModification.BHOP.MaxSpeed = tonumber(Value) or 70
         end
@@ -5688,9 +5677,181 @@ end)
 Tabs.Misc:AddSection("Spins")
 
 Tabs.Misc:AddParagraph({
-        Title = "Sorry, spins are still in development",
-        Content = "Made By Carey"
+    Title = "No Use Emote",
+    Content = " "
+})
+
+do 
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local LP = Players.LocalPlayer
+
+    DConfiguration.Settings.GuiScale = DConfiguration.Settings.GuiScale or {}
+    DConfiguration.Settings.GuiScale.SpinBot = DConfiguration.Settings.GuiScale.SpinBot or 0
+
+    local _SP = {
+        Enabled = false,
+        Speed = 100000,
+        Conn = nil
+    }
+
+    local function ToggleSpin(state)
+        _SP.Enabled = state
+        if _SP.Conn then _SP.Conn:Disconnect() _SP.Conn = nil end
+
+        if _SP.Enabled then
+            _SP.Conn = RunService.Heartbeat:Connect(function(dt)
+                local character = LP.Character
+                local hrp = character and character:FindFirstChild("HumanoidRootPart")
+                local hum = character and character:FindFirstChild("Humanoid")
+                
+                if hrp and hum then
+                    if hum.FloorMaterial == Enum.Material.Air then
+                        hrp.Orientation = Vector3.new(hrp.Orientation.X, hrp.Orientation.Y + (_SP.Speed * dt), hrp.Orientation.Z)
+                    end
+                else
+                    if _SP.Conn then _SP.Conn:Disconnect() _SP.Conn = nil end
+                end
+            end)
+        end
+    end
+    
+    Tabs.Misc:AddToggle("SpinBtnShow", {Title = "Spin (Button)", Default = false}):OnChanged(function(S)
+        if S then
+            local sizeOffset = DConfiguration.Settings.GuiScale.SpinBot or 0
+            DFunctions.CreateButton("SpinbotBtn", _SP.Enabled and "SPIN: ON" or "SPIN: OFF", 0.15 + sizeOffset, 0.1 + sizeOffset, function(btn)
+                ToggleSpin(not _SP.Enabled)
+                if btn and btn.Text then
+                    btn.Text = _SP.Enabled and "SPIN: ON" or "SPIN: OFF"
+                end
+            end)
+        else
+            ToggleSpin(false)
+            DFunctions.DestroyButton("SpinbotBtn")
+        end
+    end)
+
+    Tabs.Misc:AddInput("SpinBtnSize", {
+        Title = "Spin Gui Size",
+        Default = tostring(DConfiguration.Settings.GuiScale.SpinBot),
+        Placeholder = "0",
+        Numeric = true,
+        Finished = false,
+        Callback = function(Value)
+            local num = tonumber(Value)
+            if num then
+                DConfiguration.Settings.GuiScale.SpinBot = num * 0.01
+            else
+                DConfiguration.Settings.GuiScale.SpinBot = 0
+            end
+            DFunctions.UpdateButton("SpinbotBtn", 0.15 + DConfiguration.Settings.GuiScale.SpinBot, 0.1 + DConfiguration.Settings.GuiScale.SpinBot)
+        end
     })
+end
+
+Tabs.Misc:AddParagraph({
+    Title = "Use Only Emote",
+    Content = "Beta"
+})
+
+do
+    local LP = game.Players.LocalPlayer
+    local RS = game:GetService("RunService")
+
+    local emoteSpinEnabled = false
+    local emoteSpinSpeed = 30
+    local emoteSpinSizeOffset = 0
+    local bav = nil
+    local menuToggle = nil
+
+    local function updateToggleState(state)
+        emoteSpinEnabled = state
+        if menuToggle and typeof(menuToggle) == "table" and menuToggle.Set then
+            menuToggle:Set(state)
+        end
+        local btn = workspace:FindFirstChild("EmoteSpinBtn") or game:GetService("CoreGui"):FindFirstChild("EmoteSpinBtn")
+        if btn and btn:IsA("TextButton") then
+            btn.Text = state and "EMOTE SPIN: ON" or "EMOTE SPIN: OFF"
+        end
+    end
+
+    RS.RenderStepped:Connect(function()
+        local ch = LP.Character
+        local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
+        
+        if not hrp or not emoteSpinEnabled then
+            if bav then
+                bav:Destroy()
+                bav = nil
+            end
+            return
+        end
+
+        if not bav or bav.Parent ~= hrp then
+            if bav then bav:Destroy() end
+            bav = Instance.new("BodyAngularVelocity")
+            bav.Parent = hrp
+        end
+
+        bav.AngularVelocity = Vector3.new(0, emoteSpinSpeed, 0)
+        bav.MaxTorque = Vector3.new(0, 4e5, 0)
+    end)
+
+    menuToggle = Tabs.Misc:AddToggle("EmoteSpinMainToggle", {
+        Title = "Enable Emote Spin",
+        Default = false,
+        Callback = function(v)
+            if emoteSpinEnabled ~= v then
+                updateToggleState(v)
+            end
+        end
+    })
+    
+    Tabs.Misc:AddInput("EmoteSpinSpeedInput", {
+        Title = "Emote Spin Speed",
+        Default = tostring(emoteSpinSpeed),
+        Numeric = true,
+        Finished = true,
+        Callback = function(Value)
+            emoteSpinSpeed = tonumber(Value) or 30
+        end
+    })
+
+    Tabs.Misc:AddToggle("EmoteSpinBtnShow", {
+        Title = "Emote Spin (Button)", 
+        Default = false
+    }):OnChanged(function(S)
+        if S then
+            DFunctions.CreateButton("EmoteSpinBtn", emoteSpinEnabled and "EMOTE SPIN: ON" or "EMOTE SPIN: OFF", 0.15 + emoteSpinSizeOffset, 0.1 + emoteSpinSizeOffset, function(btn)
+                updateToggleState(not emoteSpinEnabled)
+                if btn and btn.Text then
+                    btn.Text = emoteSpinEnabled and "EMOTE SPIN: ON" or "EMOTE SPIN: OFF"
+                end
+            end)
+        else
+            updateToggleState(false)
+            DFunctions.DestroyButton("EmoteSpinBtn")
+        end
+    end)
+
+    Tabs.Misc:AddInput("EmoteSpinBtnSize", {
+        Title = "Emote Spin Gui Size",
+        Default = "0",
+        Placeholder = "0",
+        Numeric = true,
+        Finished = false,
+        Callback = function(Value)
+            local num = tonumber(Value)
+            if num then
+                emoteSpinSizeOffset = num * 0.01
+            else
+                emoteSpinSizeOffset = 0
+            end
+            DFunctions.UpdateButton("EmoteSpinBtn", 0.15 + emoteSpinSizeOffset, 0.1 + emoteSpinSizeOffset)
+        end
+    })
+end
+
     
 -- Exploits
  

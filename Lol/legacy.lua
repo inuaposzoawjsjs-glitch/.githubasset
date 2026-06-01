@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm-Hub-X - Evade Legacy│Mobile",
-    SubTitle = "v2.19.11 Made By Carey",
+    SubTitle = "v2.20.11 Made By Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(540, 390),
     Acrylic = false,
@@ -2791,180 +2791,183 @@ Tabs.Misc:AddSection("Movement Modification")
 
 local LP = game.Players.LocalPlayer
 local RS = game:GetService("RunService")
-local Debris = game:GetService("Debris")
 local Cam = workspace.CurrentCamera
 
-getgenv().EasyTrimp = getgenv().EasyTrimp or {
+getgenv().EasyBounce = getgenv().EasyBounce or {
     Enabled = false,
-    Mode = "Smart (Joystick)", 
+    Mode = "Forward",
     BaseSpeed = 50,
     ExtraSpeed = 100
 }
 
-local ET = getgenv().EasyTrimp
+local EB = getgenv().EasyBounce
 
-getgenv().UpdateTrimpSpeed = nil
+local state = {
+    speed = EB.BaseSpeed,
+    last = tick(),
+    airTick = 0,
+    airSum = 0,
+    airborne = false,
+    bv = nil
+}
 
-do
-    local state = {
-        speed = ET.BaseSpeed,
-        trimpTimer = os.clock(),
-        airTick = 0,
-        airSum = 0,
-        airborne = false,
-        bv = nil
-    }
-
-    getgenv().UpdateTrimpSpeed = function(newSpeed)
-        state.speed = newSpeed
-    end
-
-    local function getMeter()
-        local ok, v = pcall(function()
-            return LP.PlayerGui.Shared.HUD.Overlay.Default.CharacterInfo.Item.Speedometer.Players
-        end)
-        return ok and v or nil
-    end
-
-    local function cut(n) return math.floor(n * 10) / 10 end
-
-    RS.RenderStepped:Connect(function()
-        local dt = os.clock() - state.trimpTimer
-        state.trimpTimer = os.clock()
-
-        local ch = LP.Character
-        local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
-        local hum = ch and ch:FindFirstChild("Humanoid")
-        
-        if not hrp or not hum then 
-            if state.bv then state.bv:Destroy() state.bv = nil end
-            return 
-        end
-
-        local inAir = hum.FloorMaterial == Enum.Material.Air
-        local spdUI = getMeter()
-
-        if state.airborne and not inAir then
-            state.speed = math.max(ET.BaseSpeed, state.speed - 10)
-            if ET.Enabled and spdUI then spdUI.Text = cut(state.speed) end
-            state.airSum = 0
-        end
-        state.airborne = inAir
-
-        
-        local shouldPush = false
-        if ET.Enabled then
-            if ET.Mode == "Smart (Joystick)" then
-                
-                shouldPush = hum.MoveDirection.Magnitude > 0
-            elseif ET.Mode == "Force (Always)" then
-                
-                shouldPush = true
-            end
-        end
-
-        if shouldPush then
-            if inAir then
-                state.airSum = state.airSum + dt
-                state.airTick = state.airTick + dt
-                while state.airTick >= 0.04 do
-                    state.airTick = state.airTick - 0.04
-                    state.speed = math.min(ET.BaseSpeed + ET.ExtraSpeed, state.speed + 0.1)
-                end
-            else
-                state.airTick, state.airSum = 0, 0
-                state.speed = math.max(ET.BaseSpeed, state.speed - (2.5 * dt))
-            end
-
-            if not state.bv or state.bv.Parent ~= hrp then
-                if state.bv then state.bv:Destroy() end
-                state.bv = Instance.new("BodyVelocity")
-                state.bv.MaxForce = Vector3.new(4e5, 0, 4e5)
-                state.bv.Parent = hrp
-            end
-
-            local moveDir = Cam.CFrame.LookVector
-            moveDir = Vector3.new(moveDir.X, 0, moveDir.Z).Unit
-            state.bv.Velocity = moveDir * state.speed
-
-            if spdUI then spdUI.Text = cut(state.speed) end
-        else
-            if state.bv then 
-                state.bv:Destroy() 
-                state.bv = nil 
-            end
-            state.speed = ET.BaseSpeed
-        end
+local function getMeter()
+    local ok, v = pcall(function()
+        return LP.PlayerGui.Shared.HUD.Overlay.Default.CharacterInfo.Item.Speedometer.Players
     end)
+    return ok and v or nil
 end
 
+local function cut(n) return math.floor(n * 10) / 10 end
 
-Tabs.Misc:AddDropdown("ET_ModeDropdown", {
-    Title = "Easy Trimp Mode",
-    Values = {"Smart (Joystick)", "Force (Always)"},
-    Default = ET.Mode,
+local function resetPhysics(hrp, hum)
+    if state.bv then 
+        state.bv:Destroy() 
+        state.bv = nil 
+    end
+    if hrp then
+        for _, child in ipairs(hrp:GetChildren()) do
+            if (child:IsA("BodyVelocity") and child.Name == "BodyVelocity") or child:IsA("BodyForce") then
+                child:Destroy()
+            end
+        end
+    end
+    state.speed = EB.BaseSpeed
+    state.airTick, state.airSum, state.airborne = 0, 0, false
+end
+
+RS.RenderStepped:Connect(function()
+    local ch = LP.Character
+    local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
+    local hum = ch and ch:FindFirstChild("Humanoid")
+    
+    if _G.Fly or not EB.Enabled then
+        resetPhysics(hrp, hum)
+        return 
+    end
+
+    if not hrp or not hum then return end
+
+    local dt = tick() - state.last
+    state.last = tick()
+
+    local inAir = hum.FloorMaterial == Enum.Material.Air
+    local spdUI = getMeter()
+
+    if state.airborne and not inAir then
+        state.speed = math.max(EB.BaseSpeed, state.speed - 10)
+        if spdUI then spdUI.Text = cut(state.speed) end
+        state.airSum = 0
+    end
+    state.airborne = inAir
+
+    local shouldPush = true
+
+    if shouldPush then
+        if inAir then
+            state.airSum = state.airSum + dt
+            state.airTick = state.airTick + dt
+            while state.airTick >= 0.04 do
+                state.airTick = state.airTick - 0.04
+                state.speed = math.min(EB.BaseSpeed + EB.ExtraSpeed, state.speed + 0.1)
+            end
+        else
+            state.airTick, state.airSum = 0, 0
+            state.speed = math.max(EB.BaseSpeed, state.speed - (2.5 * dt))
+        end
+
+        if not state.bv or state.bv.Parent ~= hrp then
+            if state.bv then state.bv:Destroy() end
+            state.bv = Instance.new("BodyVelocity")
+            state.bv.Parent = hrp
+        end
+        
+        local camDir = Cam.CFrame.LookVector
+        local moveDir = Vector3.new(camDir.X, 0, camDir.Z).Unit
+        
+        if EB.Mode == "Back" then
+            moveDir = -moveDir
+        end
+
+        state.bv.Velocity = moveDir * state.speed
+        state.bv.MaxForce = Vector3.new(4e5, 0, 4e5) 
+
+        if spdUI then spdUI.Text = cut(state.speed) end
+    else
+        if state.bv then
+            state.bv.MaxForce = Vector3.new(0, 0, 0) 
+            state.bv.Velocity = Vector3.new(0, 0, 0)
+        end
+        state.speed = EB.BaseSpeed
+    end
+end)
+
+Tabs.Misc:AddDropdown("EB_ModeDropdown", {
+    Title = "Easy Bounce Mode",
+    Values = {"Forward", "Back"},
+    Default = EB.Mode,
     Callback = function(v)
-        ET.Mode = v
+        EB.Mode = v
     end
 })
 
-Tabs.Misc:AddInput("ET_Base", {
+Tabs.Misc:AddInput("EB_Base", {
     Title = "Base Speed", 
-    Default = tostring(ET.BaseSpeed), 
+    Default = tostring(EB.BaseSpeed), 
     Numeric = true, 
     Finished = true, 
     Callback = function(v) 
-        ET.BaseSpeed = tonumber(v) or 50 
-        if getgenv().UpdateTrimpSpeed then
-            getgenv().UpdateTrimpSpeed(ET.BaseSpeed)
+        EB.BaseSpeed = tonumber(v) or 50 
+        if getgenv().UpdateBounceSpeed then
+            getgenv().UpdateBounceSpeed(EB.BaseSpeed)
         end
     end
 })
 
-Tabs.Misc:AddInput("ET_Extra", {
+Tabs.Misc:AddInput("EB_Extra", {
     Title = "Extra Speed (Boost)", 
-    Default = tostring(ET.ExtraSpeed), 
+    Default = tostring(EB.ExtraSpeed), 
     Numeric = true, 
     Finished = true, 
     Callback = function(v) 
-        ET.ExtraSpeed = tonumber(v) or 100 
+        EB.ExtraSpeed = tonumber(v) or 100 
     end
 })
 
 DConfiguration.Settings.GuiScale = DConfiguration.Settings.GuiScale or {}
-DConfiguration.Settings.GuiScale.EasyTrimp = DConfiguration.Settings.GuiScale.EasyTrimp or 0
+DConfiguration.Settings.GuiScale.EasyBounce = DConfiguration.Settings.GuiScale.EasyBounce or 0
 
-
-Tabs.Misc:AddToggle("ET_BtnShow", {
-    Title = "Easy Trimp (Button)", 
+Tabs.Misc:AddToggle("EB_BtnShow", {
+    Title = "Easy Bounce (Button)", 
     Default = false
 }):OnChanged(function(s)
     if s then 
-        local offset = DConfiguration.Settings.GuiScale.EasyTrimp
-        DFunctions.CreateButton("ET_Btn", ET.Enabled and "TRIMP: ON" or "TRIMP: OFF", 0.15 + offset, 0.1 + offset, function(btn) 
-            ET.Enabled = not ET.Enabled 
+        local offset = DConfiguration.Settings.GuiScale.EasyBounce
+        DFunctions.CreateButton("EB_Btn", EB.Enabled and "BOUNCE: ON" or "BOUNCE: OFF", 0.15 + offset, 0.1 + offset, function(btn) 
+            EB.Enabled = not EB.Enabled 
             if btn and btn.Text then
-                btn.Text = ET.Enabled and "TRIMP: ON" or "TRIMP: OFF"
+                btn.Text = EB.Enabled and "BOUNCE: ON" or "BOUNCE: OFF"
             end
         end)
     else 
-        ET.Enabled = false
-        DFunctions.DestroyButton("ET_Btn") 
+        EB.Enabled = false
+        DFunctions.DestroyButton("EB_Btn") 
     end
 end)
 
-Tabs.Misc:AddInput("ET_ButtonSize", {
-    Title = "Easy Trimp (Button Size)",
-    Default = tostring(DConfiguration.Settings.GuiScale.EasyTrimp / 0.01), 
+Tabs.Misc:AddInput("EB_ButtonSize", {
+    Title = "Easy Bounce (Button Size)",
+    Default = tostring(DConfiguration.Settings.GuiScale.EasyBounce / 0.01), 
     Placeholder = "0",
     Numeric = true, 
     Finished = false, 
     Callback = function(Value)
         local num = tonumber(Value)
-        DConfiguration.Settings.GuiScale.EasyTrimp = (num or 0) * 0.01
-        DFunctions.UpdateButton("ET_Btn", 0.15 + DConfiguration.Settings.GuiScale.EasyTrimp, 0.1 + DConfiguration.Settings.GuiScale.EasyTrimp)
+        DConfiguration.Settings.GuiScale.EasyBounce = (num or 0) * 0.01
+        DFunctions.UpdateButton("EB_Btn", 0.15 + DConfiguration.Settings.GuiScale.EasyBounce, 0.1 + DConfiguration.Settings.GuiScale.EasyBounce)
     end
 })
+
 
 Tabs.Misc:AddParagraph({
     Title = "​ ",
