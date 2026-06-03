@@ -3534,21 +3534,12 @@ local Toggle = Tabs.Main:AddToggle("RemoveInvisibleWalls", {Title = "Remove Invi
 		end
     end)
     
-Tabs.Main:AddSection("Battlepass Modification")
+Tabs.Main:AddSection("Events")
 
-local Toggle = Tabs.Main:AddToggle("BypassTimer", { Title = "Bypass Timer", Default = false })
-
-Toggle:OnChanged(function(value)
-    DConfiguration.Battlepass.BypassTimer = value
-
-    while DConfiguration.Battlepass.BypassTimer and task.wait(1) do
-        local Unlocked = LocalPlayer.PlayerGui and LocalPlayer.PlayerGui:FindFirstChild("Menu") and LocalPlayer.PlayerGui.Menu:FindFirstChild("Views") and LocalPlayer.PlayerGui.Menu.Views:FindFirstChild("Battlepass") and LocalPlayer.PlayerGui.Menu.Views.Battlepass:FindFirstChild("ViewPass") and LocalPlayer.PlayerGui.Menu.Views.Battlepass.ViewPass:FindFirstChild("Center") and LocalPlayer.PlayerGui.Menu.Views.Battlepass.ViewPass.Center:FindFirstChild("ViewPass") and LocalPlayer.PlayerGui.Menu.Views.Battlepass.ViewPass.Center.ViewPass:FindFirstChild("Unlocked")
-
-        if Unlocked then
-            Unlocked.Visible = false
-        end
-    end
-end)
+Tabs.Main:AddParagraph({
+        Title = "Bypass Time Event",
+        Content = "no longer works"
+    })
 
 local Toggle = Tabs.Main:AddToggle("EnableExchange", {Title = "Enable Exchange", Default = false })
 
@@ -5512,11 +5503,16 @@ local Toggle = Tabs.Misc:AddToggle("BackwardBHOP", {Title = "BHOP Backward", Def
       DConfiguration.Misc.MovementModification.BHOP.Backwards = State
 end)
 
-local Toggle = Tabs.Misc:AddToggle("SpiderHop", {Title = "Spider Hop (Beta)", Default = false })
+local Toggle = Tabs.Misc:AddToggle("SpiderHop", {Title = "Spider Hop V1", Default = false })
 
  Toggle:OnChanged(function(State)
       DConfiguration.Misc.MovementModification.BHOP.SpiderHop = State
 end)
+
+Tabs.Misc:AddParagraph({
+        Title = "SpiderHop V2 Soon...",
+        Content = ""
+    })
     
 Tabs.Misc:AddInput("BHOPAcceleration", {
         Title = "BHOP Acceleration",
@@ -5535,7 +5531,7 @@ Tabs.Misc:AddParagraph({
         Content = ""
     })
     
-local Toggle = Tabs.Misc:AddToggle("BHOPAutoAccelerate", {Title = "Auto Acceleration (Legit)", Default = false })
+local Toggle = Tabs.Misc:AddToggle("BHOPAutoAccelerate", {Title = "Max Speed In Acceleration", Default = false })
 
  Toggle:OnChanged(function(State)
       DConfiguration.Misc.MovementModification.BHOP.AutoAcceleration = State
