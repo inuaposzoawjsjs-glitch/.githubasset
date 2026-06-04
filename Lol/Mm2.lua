@@ -33,7 +33,6 @@ Tabs = {
     Visuals = Window:AddTab({ Title = "Visuals", Icon = "rbxassetid://10709819149" }),
     Troll = Window:AddTab({ Title = "Trolling", Icon = "laugh" }),
     Exploits = Window:AddTab({ Title = "Exploits", Icon = "bomb" }),
-    Utilities = Window:AddTab({ Title = "Utilities", Icon = "settings-2" }),
     Info = Window:AddTab({ Title = "Info", Icon = "rbxassetid://10723415903" }),
     Settings = Window:AddTab({ Title = "Configuration", Icon = "rbxassetid://7734052335" }),
     Extension = Window:AddTab({ Title = "Extension", Icon = "rbxassetid://10734930886" })
@@ -6286,7 +6285,7 @@ local function SafeFling(target)
         if hrp then
             local oldPos = hrp.CFrame
             SkidFling(target)
-            task.wait(3) 
+            task.wait(10) 
             hrp.Velocity = Vector3.new(0, 0, 0)
             hrp.RotVelocity = Vector3.new(0, 0, 0)
             hrp.CFrame = oldPos
@@ -6306,7 +6305,7 @@ Toggle:OnChanged(function(value)
                 if TargetPlayer then
                     SafeFling(TargetPlayer)
                 end
-                task.wait(0.5)
+                task.wait(5)
             end
         end)
     end
@@ -6911,6 +6910,57 @@ Tabs.Visuals:AddToggle("DeleteHats", {
     end
 })
 
+Tabs.Visuals:AddSection("Tools")
+
+Tabs.Visuals:AddButton({
+    Title = "Get TP Tool",
+    Description = "",
+    Callback = function()
+        local mouse = lp:GetMouse()
+        local tool = Instance.new("Tool")
+        tool.Name = "Teleport Tool"
+        tool.RequiresHandle = false
+        tool.Parent = lp:FindFirstChildOfClass("Backpack")
+        
+        tool.Activated:Connect(function()
+            local char = lp.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            if root and mouse.Hit then
+                root.CFrame = CFrame.new(mouse.Hit.X, mouse.Hit.Y + 3, mouse.Hit.Z)
+            end
+        end)
+    end
+})
+
+Tabs.Visuals:AddButton({
+    Title = "Get Delete Tool",
+    Description = "",
+    Callback = function()
+        local mouse = lp:GetMouse()
+        local tool = Instance.new("Tool")
+        tool.Name = "Delete Tool"
+        tool.RequiresHandle = false
+        tool.Parent = lp:FindFirstChildOfClass("Backpack")
+        
+        tool.Activated:Connect(function()
+            if mouse.Target then
+                mouse.Target:Destroy()
+            end
+        end)
+    end
+})
+
+Tabs.Visuals:AddButton({
+    Title = "Load F3X Tools",
+    Description = "",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/infyiff/backup/refs/heads/main/f3x.lua"))()
+        end
+    }
+)
+
+--  Exploits 
+
 Tabs.Exploits:AddDropdown("EmoteDropdown", {
     Title = "Select Emote",
     Values = {"Zen", "Dab", "Sit", "Headless", "Ninja", "Zombie", "Floss"},
@@ -6928,13 +6978,6 @@ Tabs.Exploits:AddButton({
            Remotes.Misc.PlayEmote:Fire(string.lower(DConfiguration.Misc.AlternativeFeatures.EmoteSelected))
     end
 })
-
-Tabs.Exploits:AddParagraph({
-        Title = " ",
-        Content = ""
-    })
-
-
 
 -- Settings
 
@@ -7174,58 +7217,6 @@ Tabs.Troll:AddButton(
     }
 )
 
--- Utilities
-
-Tabs.Utilities:AddSection("Tools")
-
-Tabs.Utilities:AddButton({
-    Title = "Get TP Tool",
-    Description = "",
-    Callback = function()
-        local mouse = lp:GetMouse()
-        local tool = Instance.new("Tool")
-        tool.Name = "Teleport Tool"
-        tool.RequiresHandle = false
-        tool.Parent = lp:FindFirstChildOfClass("Backpack")
-        
-        tool.Activated:Connect(function()
-            local char = lp.Character
-            local root = char and char:FindFirstChild("HumanoidRootPart")
-            if root and mouse.Hit then
-                root.CFrame = CFrame.new(mouse.Hit.X, mouse.Hit.Y + 3, mouse.Hit.Z)
-            end
-        end)
-    end
-})
-
-Tabs.Utilities:AddButton({
-    Title = "Get Delete Tool",
-    Description = "",
-    Callback = function()
-        local mouse = lp:GetMouse()
-        local tool = Instance.new("Tool")
-        tool.Name = "Delete Tool"
-        tool.RequiresHandle = false
-        tool.Parent = lp:FindFirstChildOfClass("Backpack")
-        
-        tool.Activated:Connect(function()
-            if mouse.Target then
-                mouse.Target:Destroy()
-            end
-        end)
-    end
-})
-
-Tabs.Utilities:AddButton({
-    Title = "Load F3X Tools",
-    Description = "",
-    Callback = function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/infyiff/backup/refs/heads/main/f3x.lua"))()
-        end
-    }
-)
-
-
 -- Info
 
 Tabs.Info:AddButton({
@@ -7265,7 +7256,7 @@ Tabs.Extension:AddButton(
     }
 )
 
-Tabs.Extension:AddSection("SkinChanger")
+Tabs.Extension:AddSection("Character Extension")
 
 Tabs.Extension:AddButton({
     Title = "Korblox",
