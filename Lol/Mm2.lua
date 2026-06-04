@@ -6910,55 +6910,6 @@ Tabs.Visuals:AddToggle("DeleteHats", {
     end
 })
 
-Tabs.Visuals:AddSection("Tools")
-
-Tabs.Visuals:AddButton({
-    Title = "Get TP Tool",
-    Description = "",
-    Callback = function()
-        local mouse = lp:GetMouse()
-        local tool = Instance.new("Tool")
-        tool.Name = "Teleport Tool"
-        tool.RequiresHandle = false
-        tool.Parent = lp:FindFirstChildOfClass("Backpack")
-        
-        tool.Activated:Connect(function()
-            local char = lp.Character
-            local root = char and char:FindFirstChild("HumanoidRootPart")
-            if root and mouse.Hit then
-                root.CFrame = CFrame.new(mouse.Hit.X, mouse.Hit.Y + 3, mouse.Hit.Z)
-            end
-        end)
-    end
-})
-
-Tabs.Visuals:AddButton({
-    Title = "Get Delete Tool",
-    Description = "",
-    Callback = function()
-        local mouse = lp:GetMouse()
-        local tool = Instance.new("Tool")
-        tool.Name = "Delete Tool"
-        tool.RequiresHandle = false
-        tool.Parent = lp:FindFirstChildOfClass("Backpack")
-        
-        tool.Activated:Connect(function()
-            if mouse.Target then
-                mouse.Target:Destroy()
-            end
-        end)
-    end
-})
-
-Tabs.Visuals:AddButton({
-    Title = "Load F3X Tools",
-    Description = "",
-    Callback = function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/infyiff/backup/refs/heads/main/f3x.lua"))()
-        end
-    }
-)
-
 --  Exploits 
 
 Tabs.Exploits:AddDropdown("EmoteDropdown", {
@@ -7206,6 +7157,8 @@ Tabs.Troll:AddToggle("SplitToggle", {
     end
 })
 
+Tabs.Visuals:AddSection("Tools")
+
 Tabs.Troll:AddButton(
     {
         Title = "Jerk",
@@ -7213,6 +7166,53 @@ Tabs.Troll:AddButton(
         Callback = function()
             loadstring(game:HttpGet("https://pastefy.app/YZoglOyJ/raw"))()
 
+        end
+    }
+)
+
+Tabs.Troll:AddButton({
+    Title = "Get TP Tool",
+    Description = "",
+    Callback = function()
+        local mouse = lp:GetMouse()
+        local tool = Instance.new("Tool")
+        tool.Name = "Teleport Tool"
+        tool.RequiresHandle = false
+        tool.Parent = lp:FindFirstChildOfClass("Backpack")
+        
+        tool.Activated:Connect(function()
+            local char = lp.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            if root and mouse.Hit then
+                root.CFrame = CFrame.new(mouse.Hit.X, mouse.Hit.Y + 3, mouse.Hit.Z)
+            end
+        end)
+    end
+})
+
+Tabs.Troll:AddButton({
+    Title = "Get Delete Tool",
+    Description = "",
+    Callback = function()
+        local mouse = lp:GetMouse()
+        local tool = Instance.new("Tool")
+        tool.Name = "Delete Tool"
+        tool.RequiresHandle = false
+        tool.Parent = lp:FindFirstChildOfClass("Backpack")
+        
+        tool.Activated:Connect(function()
+            if mouse.Target then
+                mouse.Target:Destroy()
+            end
+        end)
+    end
+})
+
+Tabs.Troll:AddButton({
+    Title = "Load F3X Tools",
+    Description = "",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/infyiff/backup/refs/heads/main/f3x.lua"))()
         end
     }
 )
