@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm Hub X - Evade Overhaul│Mobile",
-    SubTitle = "v3.30.22 Made By Carey",
+    SubTitle = "v3.30.21 Made By Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(540, 390),
     Acrylic = false,
@@ -7256,196 +7256,200 @@ Tabs.Info:AddParagraph({
 
 Tabs.Extension:AddSection("Character Extension")
 
-Tabs.Extension:AddButton(
-    {
-        Title = "Korblox",
-        Description = "",
-        Callback = function()
-            local Players = game:GetService("Players")
-            local player = Players.LocalPlayer
-            local RunService = game:GetService("RunService")
-            
-            local KORBLOX_MESH_ID = "rbxassetid://101851696" -- Korblox Right leg mesh
-            local KORBLOX_COLOR = Color3.fromRGB(50, 50, 50) -- Dark Grey for Korblox color
+_G.KorbloxR_Enabled = false
+_G.KorbloxL_Enabled = false
+_G.Headless_Enabled = false
 
-            local function applyKorbloxLeg(character)
-                -- Handle R6
-                local rightLeg = character:WaitForChild("Right Leg", 9e9) or character:WaitForChild("RightUpperLeg", 9e9)
-                if not rightLeg then
-                    warn("Right Leg/Upper Leg not found!")
-                    return
-                end
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
 
-                for _, child in ipairs(rightLeg:GetChildren()) do
-                    if child:IsA("SpecialMesh") or child:IsA("CharacterMesh") then
-                        child:Destroy()
-                    end
-                end
 
-                rightLeg.Color = KORBLOX_COLOR
-                rightLeg:GetPropertyChangedSignal("Color"):Connect(
-                    function()
-                        if rightLeg.Color ~= KORBLOX_COLOR then
-                            rightLeg.Color = KORBLOX_COLOR
-                        end
-                    end
-                )
-
-                local korbloxMesh = Instance.new("SpecialMesh")
-                korbloxMesh.MeshType = Enum.MeshType.FileMesh
-                korbloxMesh.MeshId = KORBLOX_MESH_ID
-                korbloxMesh.Scale = Vector3.new(1, 1, 1)
-                korbloxMesh.Parent = rightLeg
-            end
-
-            local function applyCharacter(character)
-                applyKorbloxLeg(character)
-            end
-
-            local function applyToLocalPlayer()
-                if player.Character then
-                    applyCharacter(player.Character)
-                end
-            end
-
-            player.CharacterAdded:Connect(
-                function(character)
-                    applyCharacter(character)
-                end
-            )
-
-            applyToLocalPlayer()
+local function applyKorblox(side, meshId)
+    local char = player.Character
+    if not char then return end
+    
+    local legName = (side == "Right") and (char:FindFirstChild("Right Leg") and "Right Leg" or "RightUpperLeg") or "Left Leg"
+    local leg = char:FindFirstChild(legName)
+    
+    if leg then
+        for _, child in ipairs(leg:GetChildren()) do
+            if child:IsA("SpecialMesh") then child:Destroy() end
         end
-    }
-)
+        
+        leg.Color = Color3.fromRGB(50, 50, 50)
+        local mesh = Instance.new("SpecialMesh")
+        mesh.Name = "KorbloxMesh"
+        mesh.MeshType = Enum.MeshType.FileMesh
+        mesh.MeshId = meshId
+        mesh.Parent = leg
+    end
+end
 
-Tabs.Extension:AddButton(
-    {
-        Title = "Korblox 2",
-        Description = "",
-        Callback = function()
-            local Players = game:GetService("Players")
-            local player = Players.LocalPlayer
-            
-            local KORBLOX_MESH_ID = "rbxassetid://101851582"
-            local KORBLOX_COLOR = Color3.fromRGB(50, 50, 50)
+local function applyHeadless()
+    local char = player.Character
+    local head = char and char:FindFirstChild("Head")
+    if head then
+        head.Transparency = 1
+        if head:FindFirstChild("face") then head.face:Destroy() end
+        
+        local mesh = Instance.new("SpecialMesh")
+        mesh.Name = "HeadlessMesh"
+        mesh.MeshType = Enum.MeshType.FileMesh
+        mesh.MeshId = "rbxassetid://1095708"
+        mesh.Scale = Vector3.new(0.001, 0.001, 0.001)
+        mesh.Parent = head
+    end
+end
 
-            local function applyKorbloxLeg(character)
-                local leftLeg = character:WaitForChild("Left Leg", 9e9)
-                if not leftLeg then
-                    return
-                end
-
-                for _, child in ipairs(leftLeg:GetChildren()) do
-                    if child:IsA("SpecialMesh") or child:IsA("CharacterMesh") then
-                        child:Destroy()
-                    end
-                end
-
-                leftLeg.Color = KORBLOX_COLOR
-                leftLeg:GetPropertyChangedSignal("Color"):Connect(
-                    function()
-                        if leftLeg.Color ~= KORBLOX_COLOR then
-                            leftLeg.Color = KORBLOX_COLOR
-                        end
-                    end
-                )
-
-                local korbloxMesh = Instance.new("SpecialMesh")
-                korbloxMesh.MeshType = Enum.MeshType.FileMesh
-                korbloxMesh.MeshId = KORBLOX_MESH_ID
-                korbloxMesh.Scale = Vector3.new(1, 1, 1)
-                korbloxMesh.Parent = leftLeg
-            end
-
-            if player.Character then
-                applyKorbloxLeg(player.Character)
-            end
-
-            player.CharacterAdded:Connect(
-                function(character)
-                    applyKorbloxLeg(character)
-                end
-            )
+local function revertChanges()
+    local char = player.Character
+    if not char then return end
+    
+   
+    local head = char:FindFirstChild("Head")
+    if head then
+        head.Transparency = 0
+        local mesh = head:FindFirstChild("HeadlessMesh")
+        if mesh then mesh:Destroy() end
+    end
+    
+    
+    for _, legName in pairs({"Right Leg", "RightUpperLeg", "Left Leg"}) do
+        local leg = char:FindFirstChild(legName)
+        if leg then
+            leg.Color = Color3.new(1, 1, 1)
+            local mesh = leg:FindFirstChild("KorbloxMesh")
+            if mesh then mesh:Destroy() end
         end
-    }
-)
+    end
+end
 
+player.CharacterAdded:Connect(function(char)
+    task.wait(1) 
+    if _G.KorbloxR_Enabled then applyKorblox("Right", "rbxassetid://101851696") end
+    if _G.KorbloxL_Enabled then applyKorblox("Left", "rbxassetid://101851582") end
+    if _G.Headless_Enabled then applyHeadless() end
+end)
 
-Tabs.Extension:AddButton(
-    {
-        Title = "Headless",
-        Description = "",
-        Callback = function()
-            local Players = game:GetService("Players")
-            local player = Players.LocalPlayer
-            local RunService = game:GetService("RunService")
-            local HEADLESS_MESH_ID = "rbxassetid://1095708"    -- Tiny invisible headless mesh
-
-            local function applyHeadless(head)
-                if not head then
-                    return
-                end
-
-                head.Transparency = 1
-                head.CanCollide = false
-                
-                local function removeFace()
-                    local face = head:FindFirstChild("face")
-                    if face then
-                        face:Destroy()
-                    end
-                end
-
-                removeFace()
-
-                local mesh = Instance.new("SpecialMesh")
-                mesh.MeshType = Enum.MeshType.FileMesh
-                mesh.MeshId = HEADLESS_MESH_ID
-                mesh.Scale = Vector3.new(0.001, 0.001, 0.001)
-                mesh.Parent = head
-
-                head:GetPropertyChangedSignal("Transparency"):Connect(
-                    function()
-                        if head.Transparency ~= 1 then
-                            head.Transparency = 1
-                        end
-                    end
-                )
-
-                head.ChildAdded:Connect(
-                    function(child)
-                        if child.Name == "face" and child:IsA("Decal") then
-                            child:Destroy()
-                        end
-                    end
-                )
-            end
-
-            local function applyCharacter(character)
-                local head = character:WaitForChild("Head", 9e9)
-                if head then
-                    applyHeadless(head)
-                end
-            end
-
-            local function applyToLocalPlayer()
-                if player.Character then
-                    applyCharacter(player.Character)
-                end
-            end
-
-            
-            player.CharacterAdded:Connect(
-                function(character)
-                    applyCharacter(character)
-                end
-            )
-
-            applyToLocalPlayer()
+Tabs.Extension:AddToggle("KorbloxRToggle", {
+    Title = "Korblox (Right)",
+    Description = "",
+    Default = false,
+    Callback = function(Value)
+        _G.KorbloxR_Enabled = Value
+        if Value then 
+            applyKorblox("Right", "rbxassetid://101851696") 
+        else 
+            revertChanges() 
         end
-    }
-)
+    end
+})
+
+Tabs.Extension:AddToggle("KorbloxLToggle", {
+    Title = "Korblox (Left)",
+    Description = "",
+    Default = false,
+    Callback = function(Value)
+        _G.KorbloxL_Enabled = Value
+        if Value then 
+            applyKorblox("Left", "rbxassetid://101851582") 
+        else 
+            revertChanges() 
+        end
+    end
+})
+
+Tabs.Extension:AddToggle("HeadlessToggle", {
+    Title = "Headless",
+    Description = "",
+    Default = false,
+    Callback = function(Value)
+        _G.Headless_Enabled = Value
+        if Value then 
+            applyHeadless() 
+        else 
+            revertChanges() 
+        end
+    end
+})
+
+
+_G.Players = game:GetService("Players")
+_G.LPlayer = _G.Players.LocalPlayer
+
+_G.ExtStates = {
+    Wings = false,
+    Poison = false,
+    Frozen = false,
+    Fire = false,
+    Doomsekkar = false,
+}
+
+_G.ApplySingleExt = function(id, name, state)
+    if not state then
+        if _G.LPlayer.Character and _G.LPlayer.Character:FindFirstChild(name) then
+            _G.LPlayer.Character[name]:Destroy()
+        end
+        return
+    end
+    
+    local char = _G.LPlayer.Character
+    if not char or char:FindFirstChild(name) then return end
+    
+    local s, obj = pcall(function() return game:GetObjects("rbxassetid://" .. id)[1] end)
+    if s and obj then
+        obj.Name = name
+        obj.Parent = char
+        
+        local h = obj:FindFirstChild("Handle")
+        if h and h:IsA("BasePart") then
+            h.CanCollide = false
+            
+            local w = Instance.new("Weld")
+            w.Part0 = h
+            
+            if name == "Wings_Acc" then
+                local torso = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
+                if torso then
+                    w.Part1 = torso
+                    w.C0 = obj.AttachmentPoint
+                    w.C1 = CFrame.new(0, 1.7, 0.3) 
+                else
+                    w.Part1 = char:FindFirstChild("Head")
+                    w.C0 = obj.AttachmentPoint
+                    w.C1 = CFrame.new(0, 0.5, 0)
+                end
+            else
+                w.Part1 = char:FindFirstChild("Head")
+                w.C0 = obj.AttachmentPoint
+                w.C1 = CFrame.new(0, 0.5, 0) 
+            end
+            
+            w.Parent = h
+        end
+    end
+end
+
+_G.RefreshExts = function()
+    if _G.ExtStates.Wings then _G.ApplySingleExt(192557913, "Wings_Acc", true) end
+    if _G.ExtStates.Poison then _G.ApplySingleExt(1744060292, "Poison_Acc", true) end
+    if _G.ExtStates.Frozen then _G.ApplySingleExt(74891470, "Frozen_Acc", true) end
+    if _G.ExtStates.Fire then _G.ApplySingleExt(215718515, "Fire_Acc", true) end
+    if _G.ExtStates.Doomsekkar then _G.ApplySingleExt(132809431, "Doomsekkar_Acc", true) end
+    if _G.ExtStates.Frostsekkar then _G.ApplySingleExt(182672520, "Frostsekkar_Acc", true) end
+    if _G.ExtStates.Infernosekkar then _G.ApplySingleExt(319643443, "Infernosekkar_Acc", true) end
+    if _G.ExtStates.PoisonDusekkar then _G.ApplySingleExt(174405374, "PoisonDusekkar_Acc", true) end
+end
+
+_G.LPlayer.CharacterAdded:Connect(function()
+    task.wait(1.5) 
+    _G.RefreshExts()
+end)
+
+Tabs.Extension:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
 
 _G.Players = game:GetService("Players")
 _G.LPlayer = _G.Players.LocalPlayer
