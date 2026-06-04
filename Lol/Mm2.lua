@@ -7170,7 +7170,7 @@ Tabs.Troll:AddToggle("SplitToggle", {
     end
 })
 
-Tabs.Visuals:AddSection("Tools")
+Tabs.Troll:AddSection("Tools")
 
 Tabs.Troll:AddButton(
     {
