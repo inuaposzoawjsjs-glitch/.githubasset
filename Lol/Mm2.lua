@@ -7015,6 +7015,11 @@ Tabs.Troll:AddButton({
     end
 })
 
+Tabs.Troll:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
+
 do
     local headSitConnection
     local targetPlayer = nil
@@ -7071,6 +7076,10 @@ do
     })
 end
 
+Tabs.Troll:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
 
 do
     local bangAnim, bangTrack, bangLoop
@@ -7139,6 +7148,10 @@ do
     })
 end
 
+Tabs.Troll:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
 
 Tabs.Troll:AddToggle("SplitToggle", {
     Title = "Split Character",
@@ -7161,7 +7174,7 @@ Tabs.Visuals:AddSection("Tools")
 
 Tabs.Troll:AddButton(
     {
-        Title = "Jerk",
+        Title = "Jerk Off",
         Description = "",
         Callback = function()
             loadstring(game:HttpGet("https://pastefy.app/YZoglOyJ/raw"))()
