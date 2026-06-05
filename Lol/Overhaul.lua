@@ -2473,6 +2473,78 @@ function DFunctions.RestoreEmoteChanges()
     DFunctions.ChangeEmotes(DConfiguration.Visual.OriginalEmotes.Emote12, DConfiguration.Visual.ModifyEmotes.Emote12)
 end
 
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+DFunctions.KorbloxR = false
+DFunctions.KorbloxL = false
+DFunctions.Headless = false
+
+function DFunctions.ApplyKorblox(side, meshId)
+    local char = player.Character
+    if not char then return end
+    local legName = (side == "Right") and (char:FindFirstChild("Right Leg") and "Right Leg" or "RightUpperLeg") or "Left Leg"
+    local leg = char:FindFirstChild(legName)
+    if leg then
+        for _, child in ipairs(leg:GetChildren()) do
+            if child:IsA("SpecialMesh") then child:Destroy() end
+        end
+        leg.Color = Color3.fromRGB(50, 50, 50)
+        local mesh = Instance.new("SpecialMesh")
+        mesh.Name = "KorbloxMesh"
+        mesh.MeshType = Enum.MeshType.FileMesh
+        mesh.MeshId = meshId
+        mesh.Parent = leg
+    end
+end
+
+function DFunctions.ApplyHeadless()
+    local char = player.Character
+    local head = char and char:FindFirstChild("Head")
+    if head then
+        head.Transparency = 1
+        if head:FindFirstChild("face") then head.face:Destroy() end
+        local mesh = Instance.new("SpecialMesh")
+        mesh.Name = "HeadlessMesh"
+        mesh.MeshType = Enum.MeshType.FileMesh
+        mesh.MeshId = "rbxassetid://1095708"
+        mesh.Scale = Vector3.new(0.001, 0.001, 0.001)
+        mesh.Parent = head
+    end
+end
+
+function DFunctions.RevertChanges()
+    local char = player.Character
+    if not char then return end
+    local head = char:FindFirstChild("Head")
+    if head then
+        head.Transparency = 0
+        local mesh = head:FindFirstChild("HeadlessMesh")
+        if mesh then mesh:Destroy() end
+    end
+    for _, legName in pairs({"Right Leg", "RightUpperLeg", "Left Leg"}) do
+        local leg = char:FindFirstChild(legName)
+        if leg then
+            leg.Color = Color3.new(1, 1, 1)
+            local mesh = leg:FindFirstChild("KorbloxMesh")
+            if mesh then mesh:Destroy() end
+        end
+    end
+end
+
+function DFunctions.UpdateVisuals()
+    DFunctions.RevertChanges()
+    if DFunctions.KorbloxR then DFunctions.ApplyKorblox("Right", "rbxassetid://101851696") end
+    if DFunctions.KorbloxL then DFunctions.ApplyKorblox("Left", "rbxassetid://101851582") end
+    if DFunctions.Headless then DFunctions.ApplyHeadless() end
+end
+
+player.CharacterAdded:Connect(function()
+    task.wait(1)
+    DFunctions.UpdateVisuals()
+end)
+
+
 -- Main
 
 local GamePlayers = workspace:WaitForChild("Game"):WaitForChild("Players")
@@ -4654,11 +4726,97 @@ Tabs.Misc:AddButton({
     
 Tabs.Misc:AddButton({
         Title = "Enable Front Camera",
-        Description = "",
+        Description = "(Take the Flashlight in your hand to remove it)",
         Callback = function()
            LocalPlayer.PlayerGui.Shared.HUD.Mobile.Right.Mobile.ReloadButton.Visible = true
         end
     })
+    
+Tabs.Misc:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
+    
+local Toggle = Tabs.Misc:AddToggle("FrontCameraToggle", {Title = "Front Camera (Button)", Default = false})
+
+Toggle:OnChanged(function(State)
+    if State then
+        local isCameraOn = false
+        
+        DFunctions.CreateButton("FrontCameraButton", "Front Camera: OFF", 0.15 + 0, 0.1 + 0, function(btn)
+            isCameraOn = not isCameraOn
+            pcall(function()
+                local UseKeybindEvent = game:GetService("Players").LocalPlayer.PlayerScripts.Events.temporary_events.UseKeybind
+                
+                if isCameraOn then
+                    UseKeybindEvent:Fire({ Key = "Reload", Down = true })
+                else                   
+                    UseKeybindEvent:Fire({ Key = "Reload", Down = false })
+                end
+            end)       
+            btn.Text = isCameraOn and "Front Camera: ON" or "Front Camera: OFF"
+        end)
+    else
+        DFunctions.DestroyButton("FrontCameraButton")
+    end
+end)
+
+Tabs.Misc:AddInput("FrontCameraGuiSize", {
+    Title = "Front Camera Gui Size",
+    Default = "0",
+    Placeholder = "0",
+    Numeric = true, 
+    Finished = false, 
+    Callback = function(Value)
+        local num = tonumber(Value)
+        local scale = num and (num * 0.01) or 0
+        
+        DFunctions.UpdateButton("FrontCameraButton", 0.15 + scale, 0.1 + scale)
+    end
+})
+
+local ZoomToggle = Tabs.Misc:AddToggle("ZoomToggle", {Title = "Zoom (Button)", Default = false})
+
+ZoomToggle:OnChanged(function(State)
+    if State then
+        local isZoomOn = false
+        
+       
+        DFunctions.CreateButton("ZoomButton", "Zoom: OFF", 0.15 + 0, 0.1 + 0, function(btn)
+            isZoomOn = not isZoomOn
+            
+            
+            pcall(function()
+                local UseKeybindEvent = game:GetService("Players").LocalPlayer.PlayerScripts.Events.temporary_events.UseKeybind
+                
+                if isZoomOn then
+                    UseKeybindEvent:Fire({ Key = "Secondary", Down = true })
+                else
+                    UseKeybindEvent:Fire({ Key = "Secondary", Down = false })
+                end
+            end)
+            
+           
+            btn.Text = isZoomOn and "Zoom: ON" or "Zoom: OFF"
+        end)
+    else
+        DFunctions.DestroyButton("ZoomButton")
+    end
+end)
+
+Tabs.Misc:AddInput("ZoomGuiSize", {
+    Title = "Zoom Gui Size",
+    Default = "0",
+    Placeholder = "0",
+    Numeric = true, 
+    Finished = false, 
+    Callback = function(Value)
+        local num = tonumber(Value)
+        local scale = num and (num * 0.01) or 0
+        
+        DFunctions.UpdateButton("ZoomButton", 0.15 + scale, 0.1 + scale)
+    end
+})
     
 Tabs.Misc:AddSection("Gun Adjustments")
 
@@ -6404,8 +6562,6 @@ end))
 
 -- Visual
 
-Tabs.Visual:AddSection("CarryAnimation Replacer")
-
 do 
     local currentCarryAnim = ""
     local selectedCarryAnim = ""
@@ -6519,40 +6675,20 @@ do
             local selectedNorm = normalizeString(selectedCarryAnim)
             
             if currentNorm == "" or selectedNorm == "" then
-                Fluent:Notify({
-                    Title = "CarryAnimation Replacer",
-                    Content = "Both animation names must be filled",
-                    Duration = 3
-                })
                 return
             end
             
             if currentNorm == selectedNorm then
-                Fluent:Notify({
-                    Title = "CarryAnimation Replacer",
-                    Content = "Animation names cannot be the same",
-                    Duration = 3
-                })
                 return
             end
             
             local itemsFolder = game:GetService("ReplicatedStorage"):FindFirstChild("Items")
             if not itemsFolder then
-                Fluent:Notify({
-                    Title = "CarryAnimation Replacer",
-                    Content = "CarryAnimations folder not found",
-                    Duration = 3
-                })
                 return
             end
             
             local carryAnimsFolder = itemsFolder:FindFirstChild("CarryAnimations")
             if not carryAnimsFolder then
-                Fluent:Notify({
-                    Title = "CarryAnimation Replacer",
-                    Content = "CarryAnimations folder not found",
-                    Duration = 3
-                })
                 return
             end
             
@@ -6560,20 +6696,10 @@ do
             local selectedAnim, selectedActualName = isValidCarryAnimation(selectedCarryAnim)
             
             if not currentAnim then
-                Fluent:Notify({
-                    Title = "CarryAnimation Replacer",
-                    Content = "Current animation not found: " .. currentCarryAnim,
-                    Duration = 3
-                })
                 return
             end
             
             if not selectedAnim then
-                Fluent:Notify({
-                    Title = "CarryAnimation Replacer",
-                    Content = "Selected animation not found: " .. selectedCarryAnim,
-                    Duration = 3
-                })
                 return
             end
             
@@ -6584,11 +6710,6 @@ do
                 local selectedFolder = carryAnimsFolder:FindFirstChild(selectedActualName)
                 
                 if not currentFolder or not selectedFolder then
-                    Fluent:Notify({
-                        Title = "CarryAnimation Replacer",
-                        Content = "One or both animations not found in folder",
-                        Duration = 3
-                    })
                     return
                 end
                 
@@ -6625,12 +6746,6 @@ do
                 lastCurrentCarryAnim = currentCarryAnim
                 lastSelectedCarryAnim = selectedCarryAnim
                 isSwapped = true
-                
-                Fluent:Notify({
-                    Title = "CarryAnimation Replacer",
-                    Content = "Successfully swapped " .. currentActualName .. " with " .. selectedActualName,
-                    Duration = 3
-                })
             end)
         end
     })
@@ -6646,14 +6761,10 @@ do
             isSwapped = false
             CurrentCarryAnimInput:SetValue("")
             SelectedCarryAnimInput:SetValue("")
-            Fluent:Notify({
-                Title = "CarryAnimation Replacer",
-                Content = "All animations reset to original",
-                Duration = 3
-            })
         end
     })
 end
+
 
 local FakeSection = Tabs.Visual:AddSection("Fake Statistics")
 
@@ -6662,7 +6773,7 @@ local streakValue = 0
 FakeSection:AddInput("StreakInput", {
     Title = "Enter Streak Amount",
     Default = "0",
-    Placeholder = "Example: 999",
+    Placeholder = "Number",
     NumericOnly = true,
     Callback = function(Value)
         streakValue = tonumber(Value)
@@ -6671,7 +6782,7 @@ FakeSection:AddInput("StreakInput", {
 
 FakeSection:AddButton({
     Title = "Apply Fake Streak",
-    Description = "Set selected streak",
+    Description = "",
     Callback = function()
         if streakValue then
             game:GetService("Players").LocalPlayer:SetAttribute("Streak", streakValue)
@@ -7256,120 +7367,30 @@ Tabs.Info:AddParagraph({
 
 Tabs.Extension:AddSection("Character Extension")
 
-_G.KorbloxR_Enabled = false
-_G.KorbloxL_Enabled = false
-_G.Headless_Enabled = false
-
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-
-
-local function applyKorblox(side, meshId)
-    local char = player.Character
-    if not char then return end
-    
-    local legName = (side == "Right") and (char:FindFirstChild("Right Leg") and "Right Leg" or "RightUpperLeg") or "Left Leg"
-    local leg = char:FindFirstChild(legName)
-    
-    if leg then
-        for _, child in ipairs(leg:GetChildren()) do
-            if child:IsA("SpecialMesh") then child:Destroy() end
-        end
-        
-        leg.Color = Color3.fromRGB(50, 50, 50)
-        local mesh = Instance.new("SpecialMesh")
-        mesh.Name = "KorbloxMesh"
-        mesh.MeshType = Enum.MeshType.FileMesh
-        mesh.MeshId = meshId
-        mesh.Parent = leg
-    end
-end
-
-local function applyHeadless()
-    local char = player.Character
-    local head = char and char:FindFirstChild("Head")
-    if head then
-        head.Transparency = 1
-        if head:FindFirstChild("face") then head.face:Destroy() end
-        
-        local mesh = Instance.new("SpecialMesh")
-        mesh.Name = "HeadlessMesh"
-        mesh.MeshType = Enum.MeshType.FileMesh
-        mesh.MeshId = "rbxassetid://1095708"
-        mesh.Scale = Vector3.new(0.001, 0.001, 0.001)
-        mesh.Parent = head
-    end
-end
-
-local function revertChanges()
-    local char = player.Character
-    if not char then return end
-    
-   
-    local head = char:FindFirstChild("Head")
-    if head then
-        head.Transparency = 0
-        local mesh = head:FindFirstChild("HeadlessMesh")
-        if mesh then mesh:Destroy() end
-    end
-    
-    
-    for _, legName in pairs({"Right Leg", "RightUpperLeg", "Left Leg"}) do
-        local leg = char:FindFirstChild(legName)
-        if leg then
-            leg.Color = Color3.new(1, 1, 1)
-            local mesh = leg:FindFirstChild("KorbloxMesh")
-            if mesh then mesh:Destroy() end
-        end
-    end
-end
-
-player.CharacterAdded:Connect(function(char)
-    task.wait(1) 
-    if _G.KorbloxR_Enabled then applyKorblox("Right", "rbxassetid://101851696") end
-    if _G.KorbloxL_Enabled then applyKorblox("Left", "rbxassetid://101851582") end
-    if _G.Headless_Enabled then applyHeadless() end
-end)
-
 Tabs.Extension:AddToggle("KorbloxRToggle", {
     Title = "Korblox (Right)",
-    Description = "",
     Default = false,
     Callback = function(Value)
-        _G.KorbloxR_Enabled = Value
-        if Value then 
-            applyKorblox("Right", "rbxassetid://101851696") 
-        else 
-            revertChanges() 
-        end
+        DFunctions.KorbloxR = Value
+        DFunctions.UpdateVisuals()
     end
 })
 
 Tabs.Extension:AddToggle("KorbloxLToggle", {
     Title = "Korblox (Left)",
-    Description = "",
     Default = false,
     Callback = function(Value)
-        _G.KorbloxL_Enabled = Value
-        if Value then 
-            applyKorblox("Left", "rbxassetid://101851582") 
-        else 
-            revertChanges() 
-        end
+        DFunctions.KorbloxL = Value
+        DFunctions.UpdateVisuals()
     end
 })
 
 Tabs.Extension:AddToggle("HeadlessToggle", {
     Title = "Headless",
-    Description = "",
     Default = false,
     Callback = function(Value)
-        _G.Headless_Enabled = Value
-        if Value then 
-            applyHeadless() 
-        else 
-            revertChanges() 
-        end
+        DFunctions.Headless = Value
+        DFunctions.UpdateVisuals()
     end
 })
 
