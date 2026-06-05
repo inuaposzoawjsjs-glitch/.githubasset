@@ -4732,10 +4732,6 @@ Tabs.Misc:AddButton({
         end
     })
     
-Tabs.Misc:AddParagraph({
-        Title = " ",
-        Content = ""
-    })
     
 local Toggle = Tabs.Misc:AddToggle("FrontCameraToggle", {Title = "Front Camera (Button)", Default = false})
 
@@ -6562,6 +6558,8 @@ end))
 
 -- Visual
 
+Tabs.Visual:AddSection("Character")
+
 do 
     local currentCarryAnim = ""
     local selectedCarryAnim = ""
@@ -6765,32 +6763,10 @@ do
     })
 end
 
-
-local FakeSection = Tabs.Visual:AddSection("Fake Statistics")
-
-local streakValue = 0
-
-FakeSection:AddInput("StreakInput", {
-    Title = "Enter Streak Amount",
-    Default = "0",
-    Placeholder = "Number",
-    NumericOnly = true,
-    Callback = function(Value)
-        streakValue = tonumber(Value)
-    end
-})
-
-FakeSection:AddButton({
-    Title = "Apply Fake Streak",
-    Description = "",
-    Callback = function()
-        if streakValue then
-            game:GetService("Players").LocalPlayer:SetAttribute("Streak", streakValue)
-        end
-    end
-})
-
-local TagSection = Tabs.Visual:AddSection("Chat Changer")
+Tabs.Visual:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
 
 local nametagValues = {"Ignore", "None"}
 local nametagsFolder = game:GetService("ReplicatedStorage"):WaitForChild("Items"):WaitForChild("Nametags")
@@ -6802,7 +6778,7 @@ for _, mod in ipairs(nametagsFolder:GetChildren()) do
     end
 end
 
-local TagDropdown = TagSection:AddDropdown("VisualNametag", {
+local TagDropdown = Tabs.Visual:AddDropdown("VisualNametag", {
     Title = "Visual Nametag",
     Values = nametagValues,
     Default = "Ignore",
@@ -6830,6 +6806,30 @@ game:GetService("RunService").Heartbeat:Connect(function()
         end
     end
 end)
+
+local FakeSection = Tabs.Visual:AddSection("Fake Statistics")
+
+local streakValue = 0
+
+FakeSection:AddInput("StreakInput", {
+    Title = "Enter Streak Amount",
+    Default = "0",
+    Placeholder = "Number",
+    NumericOnly = true,
+    Callback = function(Value)
+        streakValue = tonumber(Value)
+    end
+})
+
+FakeSection:AddButton({
+    Title = "Apply Fake Streak",
+    Description = "",
+    Callback = function()
+        if streakValue then
+            game:GetService("Players").LocalPlayer:SetAttribute("Streak", streakValue)
+        end
+    end
+})
 
 local RunService = game:GetService("RunService")
 local player = game.Players.LocalPlayer
