@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm X - Evade Legacy│PC",
-    SubTitle = "vBETA Made By Carey",
+    SubTitle = "2.9.10 Made By Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
     Acrylic = false,
@@ -255,111 +255,114 @@ end)
 local Stats = game:GetService("Stats")
 local RunService = game:GetService("RunService")
 
-local fpsCounter = Instance.new("ScreenGui")
-fpsCounter.Name = "FPSCounter"
-fpsCounter.Parent = game.CoreGui
-fpsCounter.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-fpsCounter.ResetOnSpawn = false
-
-local frame = Instance.new("Frame")
-frame.Parent = fpsCounter
-frame.Size = UDim2.new(0, 180, 0, 80)
-frame.Position = UDim2.new(0, 300, 0, 10)
-frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-frame.BackgroundTransparency = 0.7
-
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 15)
-corner.Parent = frame
-
-local gradient = Instance.new("UIGradient")
-gradient.Color = getgenv().ButtonGradients.Background
-gradient.Parent = frame
-
-task.spawn(function()
-    while task.wait(0.03) do
-        gradient.Rotation = (gradient.Rotation + 1) % 360
-        gradient.Color = getgenv().ButtonGradients.Background 
-    end
-end)
-
-local uiStroke = Instance.new("UIStroke")
-uiStroke.Thickness = 2
-uiStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-uiStroke.Parent = frame
-
-local gradientstroke = Instance.new("UIGradient")
-gradientstroke.Color = getgenv().ButtonGradients.Stroke
-gradientstroke.Parent = uiStroke
-
-task.spawn(function()
-    while frame.Parent do
-        gradientstroke.Rotation = (gradientstroke.Rotation + 0.5) % 360
-        gradientstroke.Color = getgenv().ButtonGradients.Stroke
-        task.wait()
-    end
-end)
-
-local label = Instance.new("TextLabel")
-label.Parent = frame
-label.Size = UDim2.new(1, -10, 1, -10)
-label.Position = UDim2.new(0, 5, 0, 5)
-label.BackgroundTransparency = 1
-label.TextColor3 = Color3.fromRGB(255, 255, 255)
-label.Font = Enum.Font.GothamBlack
-label.TextSize = 12
-label.TextWrapped = true
-label.TextXAlignment = Enum.TextXAlignment.Center
-label.TextYAlignment = Enum.TextYAlignment.Center
-label.Text = "FPS: 0 | Ping: 0 ms\nClient Timer: 0h 0m 0s"
-
-if typeof(MakeDraggable) == "function" then
-    MakeDraggable(frame, frame, false)
-end
-
-local function GetPing()
-    local n = Stats:FindFirstChild("Network")
-    if not n then return 0 end
-    local s = n:FindFirstChild("ServerStatsItem")
-    if not s then return 0 end
-    local p = s:FindFirstChild("Data Ping")
-    if not p then return 0 end
-    return math.floor(p:GetValue())
-end
-
 local startTime = tick()
-local lastUpdateTime = startTime
-local frameCount = 0
-local previousText = ""
+local FPS_Data = {
+    GUI = nil,
+    Connection = nil
+}
 
-RunService.RenderStepped:Connect(function()
-    frameCount += 1
-    local now = tick()
-    local dt = now - lastUpdateTime
+local function ToggleFPSCounter(state)
+    if not state then
+        if FPS_Data.GUI then
+            FPS_Data.GUI:Destroy()
+            FPS_Data.GUI = nil
+        end
+        if FPS_Data.Connection then
+            FPS_Data.Connection:Disconnect()
+            FPS_Data.Connection = nil
+        end
+        return
+    end
 
-    if dt >= 1 then
-        local fps = math.round(frameCount / dt)
-        local elapsed = now - startTime
-        local h = math.floor(elapsed / 3600)
-        local m = math.floor((elapsed % 3600) / 60)
-        local s = math.floor(elapsed % 60)
-        local ping = GetPing()
+    if state and not FPS_Data.GUI then
+        local fpsCounter = Instance.new("ScreenGui")
+        fpsCounter.Name = "FPSCounter"
+        fpsCounter.Parent = game.CoreGui
+        fpsCounter.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        fpsCounter.ResetOnSpawn = false
+        FPS_Data.GUI = fpsCounter
 
-        local text = string.format(
-            "FPS: %d | Ping: %d ms\nClient Timer: %dh %dm %ds",
-            fps, ping, h, m, s
-        )
+        local frame = Instance.new("Frame")
+        frame.Parent = fpsCounter
+        frame.Size = UDim2.new(0, 180, 0, 80)
+        frame.Position = UDim2.new(0, 300, 0, 10)
+        frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        frame.BackgroundTransparency = 0.7
 
-        if text ~= previousText then
-            label.Text = text
-            previousText = text
+        local corner = Instance.new("UICorner", frame)
+        corner.CornerRadius = UDim.new(0, 15)
+
+        local gradient = Instance.new("UIGradient", frame)
+        gradient.Color = getgenv().ButtonGradients.Background
+
+        local uiStroke = Instance.new("UIStroke", frame)
+        uiStroke.Thickness = 2
+        uiStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+        local gradientstroke = Instance.new("UIGradient", uiStroke)
+        gradientstroke.Color = getgenv().ButtonGradients.Stroke
+
+        
+        task.spawn(function()
+            while fpsCounter and fpsCounter.Parent do
+                gradient.Rotation = (gradient.Rotation + 1) % 360
+                gradient.Color = getgenv().ButtonGradients.Background 
+                task.wait(0.03)
+            end
+        end)
+
+        task.spawn(function()
+            while fpsCounter and fpsCounter.Parent do
+                gradientstroke.Rotation = (gradientstroke.Rotation + 0.5) % 360
+                gradientstroke.Color = getgenv().ButtonGradients.Stroke
+                task.wait()
+            end
+        end)
+
+        local label = Instance.new("TextLabel", frame)
+        label.Size = UDim2.new(1, -10, 1, -10)
+        label.Position = UDim2.new(0, 5, 0, 5)
+        label.BackgroundTransparency = 1
+        label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        label.Font = Enum.Font.GothamBlack
+        label.TextSize = 12
+        label.TextXAlignment = Enum.TextXAlignment.Center
+        label.TextYAlignment = Enum.TextYAlignment.Center
+        label.Text = "Loading..."
+
+        if typeof(MakeDraggable) == "function" then
+            MakeDraggable(frame, frame, false)
         end
 
-        lastUpdateTime = now
-        frameCount = 0
-    end
-end)
+        local lastUpdateTime = tick()
+        local frameCount = 0
 
+        FPS_Data.Connection = RunService.RenderStepped:Connect(function()
+            frameCount = frameCount + 1
+            local now = tick()
+            local dt = now - lastUpdateTime
+
+            if dt >= 1 then
+                local fps = math.round(frameCount / dt)
+                local elapsed = now - startTime
+                local h = math.floor(elapsed / 3600)
+                local m = math.floor((elapsed % 3600) / 60)
+                local s = math.floor(elapsed % 60)
+                
+                local ping = 0
+                pcall(function()
+                    ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
+                end)
+
+                label.Text = string.format("FPS: %d | Ping: %d ms\nClient Timer: %dh %dm %ds", fps, ping, h, m, s)
+                lastUpdateTime = now
+                frameCount = 0
+            end
+        end)
+    end
+end
+
+ToggleFPSCounter(true)
 
 -- UNC Requirements
 
@@ -386,10 +389,6 @@ if game.Players then
 else
    print("Common Api")
 end
-
--- Announcement
-
--- loadstring(game:HttpGet("https://raw.githubusercontent.com/Nyxarth910/Draconic-Hub-X/refs/heads/main/files/GlobalAnnouncement.lua"))()
 
 -- Scripts
 
@@ -1727,40 +1726,23 @@ local Toggle = Tabs.Main:AddToggle("AutoRespawn", {Title = "Auto Respawn", Defau
 	 end
 end)
 
-local Toggle = Tabs.Main:AddToggle("RespawnButton", {Title = "Respawn (Button)", Default = false})
-
-Toggle:OnChanged(function(State)
-    if State then
-          DFunctions.CreateButton("RespawnButton", "Respawn", 0.15 + DConfiguration.Settings.GuiScale.Respawn, 0.1 + DConfiguration.Settings.GuiScale.Respawn, function(btn)
-         	btn.Text = "Respawning..."
-             spawn(DFunctions.AutoRespawn)
-             wait(0.1)
-             btn.Text = "Respawned!"
-             wait(0.2)
-             btn.Text = "Respawn"
-          end)
-     else
-         DFunctions.DestroyButton("RespawnButton")
-     end
-end)
-
-Tabs.Main:AddInput("RespawnButtonSize", {
-    Title = "Respawn Gui Size",
-    Default = tostring(DConfiguration.Settings.GuiScale.Respawn),
-    Placeholder = "0",
-    Numeric = true, 
-    Finished = false, 
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.Respawn = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.Respawn = 0
+local Keybind = Tabs.Main:AddKeybind("RespawnKey", {
+    Title = "Respawn Keybind",
+    Mode = "Toggle", 
+    Default = "R",
+    
+    Callback = function(State)
+     
+        if State then          
+            task.spawn(function()                    
+                DFunctions.AutoRespawn() 
+                print("Respawned!") 
+            end)
         end
-        
-        DFunctions.UpdateButton("RespawnButton", 0.15 + DConfiguration.Settings.GuiScale.Respawn, 0.1 + DConfiguration.Settings.GuiScale.Respawn)
-    end
+    end,
 })
+
+
 
 Tabs.Main:AddButton({
     Title = "Force Respawn",
@@ -2142,36 +2124,6 @@ Tabs.Misc:AddParagraph({
         Content = ""
     })
     
-local Toggle = Tabs.Misc:AddToggle("PlayerJumpPower", {Title = "Jump Power Toggle", Default = false })
-
-    Toggle:OnChanged(function(State)
-        DConfiguration.Misc.Humanoids.OriginalJumpHeight = State
-     
-       while DConfiguration.Misc.Humanoids.OriginalJumpHeight and wait(0.1) do
-           local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
-           if not UseOriginalJump and humanoid then
-               humanoid.UseJumpPower = false
-               humanoid.JumpPower = 20
-           end
-     
-          if LocalPlayer.Character and humanoid then
-               humanoid.UseJumpPower = true
-               humanoid.JumpPower = DConfiguration.Misc.Humanoids.JP
-         end
-    end
-end)
-
- Tabs.Misc:AddInput("PlayerJumpPower", {
-        Title = "Player Jump Power",
-        Default = "20",
-        Placeholder = "Jump Number",
-        Numeric = false, 
-        Finished = false, 
-        Callback = function(Value)
-            DConfiguration.Misc.Humanoids.JP = tonumber(Value) or 20
-        end
-    })
-    
 local Toggle = Tabs.Misc:AddToggle("PlayerWalkspeed", {Title = "Walkspeed Toggle", Default = false })
 
     Toggle:OnChanged(function(State)
@@ -2203,41 +2155,20 @@ local Toggle = Tabs.Misc:AddToggle("PlayerWalkspeed", {Title = "Walkspeed Toggle
     
 Tabs.Misc:AddSection("Utilities")
 
-local Toggle = Tabs.Misc:AddToggle("LagSwitch", {Title = "Lag Switch (Button)", Default = false})
-
-Toggle:OnChanged(function(State)
-    if State then
-        DFunctions.CreateButton("LagSwitchButton", "Start Lag", 0.15 + DConfiguration.Settings.GuiScale.LagSwitch, 0.1 + DConfiguration.Settings.GuiScale.LagSwitch, function(btn)
-           task.spawn(function() 
-	           DFunctions.StartLag(DConfiguration.Misc.Utilities.LagSwitch.MSDelay) 
-           end)
-           btn.Text = "..."
-           wait(0.1)
-           btn.Text = "Start Lag"
-       end)
-    else
-        DFunctions.DestroyButton("LagSwitchButton")
-    end
-end)
-
+Tabs.Misc:AddKeybind("LagSwitchKey", {
+    Title = "Lag Switch",
+    Mode = "Toggle",
+    Default = "L",
     
-Tabs.Misc:AddInput("LagSwitchButtonSize", {
-    Title = "Lag Switch Gui Size",
-    Default = tostring(DConfiguration.Settings.GuiScale.LagSwitch),
-    Placeholder = "0",
-    Numeric = true, 
-    Finished = false, 
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.LagSwitch = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.LagSwitch = 0
+    Callback = function(State)
+        if State then
+            task.spawn(function() 
+                DFunctions.StartLag(DConfiguration.Misc.Utilities.LagSwitch.MSDelay) 
+            end)
         end
-        
-        DFunctions.UpdateButton("LagSwitchButton", 0.15 + DConfiguration.Settings.GuiScale.LagSwitch, 0.1 + DConfiguration.Settings.GuiScale.LagSwitch)
-    end
+    end,
 })
+
     
  Tabs.Misc:AddInput("DelayMS", {
         Title = "Delay MS",
@@ -2300,59 +2231,29 @@ end)
 
 Tabs.Misc:AddSection("Game Automations")
 
-local Toggle = Tabs.Misc:AddToggle("MacroMode", {Title = "Macro Button Toggle", Default = false})
-
-Toggle:OnChanged(function(State)
-    if State then
-        DFunctions.CreateButton("MacroButton1", "Emote or Crouch", 0.15, 0.1, function()
-           game:GetService("ReplicatedStorage").Events.Emote:FireServer(DConfiguration.Misc.GameAutomation.SelectedPrimary)
-      	 LocalPlayer.Character.Communicator:InvokeServer("Crouching", true)
-       end)
-       
-       DFunctions.CreateButton("MacroButton2", "Uncrouch", 0.15, 0.1, function()
-      	LocalPlayer.Character.Communicator:InvokeServer("Crouching", false)
-       end)
-    else
-        DFunctions.DestroyButton("MacroButton1")
-        DFunctions.DestroyButton("MacroButton2")
-    end
-end)
-
-Tabs.Misc:AddInput("MacroButton1Size", {
-    Title = "Macro Button 1 Size",
-    Default = tostring(DConfiguration.Settings.GuiScale.MacroButton1),
-    Placeholder = "0",
-    Numeric = true, 
-    Finished = false, 
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.MacroButton1 = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.MacroButton1 = 0
-        end
-        
-        DFunctions.UpdateButton("MacroButton1", 0.15 + DConfiguration.Settings.GuiScale.MacroButton1, 0.1 + DConfiguration.Settings.GuiScale.MacroButton1)
-    end
+Tabs.Misc:AddKeybind("MacroKey1", {
+    Title = "Macro: Emote/Crouch",
+    Mode = "Toggle",
+    Default = "Q", 
+    Callback = function()
+        task.spawn(function()
+            game:GetService("ReplicatedStorage").Events.Emote:FireServer(DConfiguration.Misc.GameAutomation.SelectedPrimary)
+            LocalPlayer.Character.Communicator:InvokeServer("Crouching", true)
+        end)
+    end,
 })
 
-Tabs.Misc:AddInput("MacroButton2Size", {
-    Title = "Macro Button 2 Size",
-    Default = tostring(DConfiguration.Settings.GuiScale.MacroButton2),
-    Placeholder = "0",
-    Numeric = true, 
-    Finished = false, 
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.MacroButton2 = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.MacroButton2 = 0
-        end
-        
-        DFunctions.UpdateButton("MacroButton2", 0.15 + DConfiguration.Settings.GuiScale.MacroButton2, 0.1 + DConfiguration.Settings.GuiScale.MacroButton2)
-    end
+Tabs.Misc:AddKeybind("MacroKey2", {
+    Title = "Macro: Uncrouch",
+    Mode = "Toggle",
+    Default = "E", 
+    Callback = function()
+        task.spawn(function()
+            LocalPlayer.Character.Communicator:InvokeServer("Crouching", false)
+        end)
+    end,
 })
+
     
  local Dropdown = Tabs.Misc:AddDropdown("SelectionEmoteSlot", {
         Title = "Select Emote Slots",
@@ -2484,129 +2385,71 @@ Tabs.Misc:AddParagraph({
     
 local NormalGravity = game.Workspace.Gravity
 
-local Toggle = Tabs.Misc:AddToggle("GravityToggle", {Title = "Gravity Button", Default = false })
-
-    Toggle:OnChanged(function(State)
-      if State then
-          DFunctions.CreateButton("GravityGui", "Gravity: OFF", 0.15 + DConfiguration.Settings.GuiScale.Gravity, 0.1 + DConfiguration.Settings.GuiScale.Gravity, function(btn)
-         	DConfiguration.Misc.MovementModification.Gravity.FloatingButton = not DConfiguration.Misc.MovementModification.Gravity.FloatingButton
-             btn.Text = DConfiguration.Misc.MovementModification.Gravity.FloatingButton and "Gravity: ON" or "Gravity: OFF"
-          end)
-     else
-         DFunctions.DestroyButton("GravityGui")
-     end
-end)
-
-Tabs.Misc:AddInput("GravityButtonSize", {
-    Title = "Gravity Gui Size",
-    Default = tostring(DConfiguration.Settings.GuiScale.Gravity),
-    Placeholder = "0",
-    Numeric = true, 
+Tabs.Misc:AddInput("GravityAdjust", {
+    Title = "Gravity Adjustment",
+    Default = "10",
+    Placeholder = "Number",
+    Numeric = true,
     Finished = false, 
     Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.Gravity = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.Gravity = 0
-        end
-        
-        DFunctions.UpdateButton("GravityGui", 0.15 + DConfiguration.Settings.GuiScale.Gravity, 0.1 + DConfiguration.Settings.GuiScale.Gravity)
+        DConfiguration.Misc.MovementModification.Gravity.Value = tonumber(Value) or 10
     end
 })
 
-    
- Tabs.Misc:AddInput("GravityAdjust", {
-        Title = "Gravity Adjustment",
-        Default = "10",
-        Placeholder = " Number",
-        Numeric = false, 
-        Finished = false, 
-        Callback = function(Value)
-            DConfiguration.Misc.MovementModification.Gravity.Value = tonumber(Value) or  10
+local Toggle = Tabs.Misc:AddToggle("GravityToggle", {
+    Title = "Gravity Toggle", 
+    Default = false,
+    Callback = function(State)
+        DConfiguration.Misc.MovementModification.Gravity.FloatingButton = State
+        
+        if State then
+           
+            workspace.Gravity = DConfiguration.Misc.MovementModification.Gravity.Value
+        else
+          
+            workspace.Gravity = NormalGravity
         end
-    })
+    end
+})
+
     
 Tabs.Misc:AddParagraph({
         Title = " ",
         Content = ""
     })
     
-local Toggle = Tabs.Misc:AddToggle("BHOPToggle", {Title = "BHOP (Button)", Default = false })
-
-    Toggle:OnChanged(function(State)
-       
-       if State then
-          DFunctions.CreateButton("BHOPGui", "Auto Jump: OFF", 0.15 + DConfiguration.Settings.GuiScale.AutoJump, 0.1 + DConfiguration.Settings.GuiScale.AutoJump, function(btn)
-         	DConfiguration.Misc.MovementModification.BHOP.FloatingButton = not DConfiguration.Misc.MovementModification.BHOP.FloatingButton
-             btn.Text = DConfiguration.Misc.MovementModification.BHOP.FloatingButton and "Auto Jump: ON" or "Auto Jump: OFF"
-             
-             while DConfiguration.Misc.MovementModification.BHOP.FloatingButton and wait(0.1) do
-                 DConfiguration.Misc.MovementModification.BHOP.Enabled = DConfiguration.Misc.MovementModification.BHOP.FloatingButton
-             end
-             
-             if not DConfiguration.Misc.MovementModification.BHOP.FloatingButton then          
-              spawn(DFunctions.ResetBHOP)
-              wait(0.1)
-              spawn(DFunctions.ResetBHOP)
-              DConfiguration.Misc.MovementModification.BHOP.Enabled = false
-          end
-      end)
-   else
-      DFunctions.DestroyButton("BHOPGui")
-     end
-end)
-
-local Toggle = Tabs.Misc:AddToggle("BHOPJumpButton", {Title = "BHOP (Jump Button)", Default = false })
-
- Toggle:OnChanged(function(State)
-      DConfiguration.Misc.MovementModification.BHOP.JumpButton = State
-end)
-
-if UserInputService.TouchEnabled then
-    local JumpButton = LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("TouchGui"):WaitForChild("TouchControlFrame"):FindFirstChild("JumpButton")
-    
-    if JumpButton then
-        local isJumping = false
-
-        JumpButton.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.Touch and DConfiguration.Misc.MovementModification.BHOP.JumpButton then
-                if not isJumping then
-                    isJumping = true
-                    DConfiguration.Misc.MovementModification.BHOP.Enabled = true
-                end
-            end
-        end)
-
-        JumpButton.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.Touch and DConfiguration.Misc.MovementModification.BHOP.JumpButton and not DConfiguration.Misc.MovementModification.BHOP.FloatingButton then
-                if isJumping then
-                    isJumping = false
-                    DConfiguration.Misc.MovementModification.BHOP.Enabled = false
-                    spawn(DFunctions.ResetBHOP)
-                end
-            end
-        end)
-    end
-end
-    
-Tabs.Misc:AddInput("BHOPButtonSize", {
-    Title = "BHOP Gui Size",
-    Default = tostring(DConfiguration.Settings.GuiScale.AutoJump),
-    Placeholder = "0",
-    Numeric = true, 
-    Finished = false, 
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.AutoJump = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.AutoJump = 0
-        end
+Tabs.Misc:AddKeybind("BHOPToggleKey", {
+    Title = "BHOP Toggle",
+    Mode = "Toggle",
+    Default = "Z",
+    Callback = function(State)
+        DConfiguration.Misc.MovementModification.BHOP.FloatingButton = State
+        DConfiguration.Misc.MovementModification.BHOP.Enabled = State
         
-        DFunctions.UpdateButton("BHOPGui", 0.15 + DConfiguration.Settings.GuiScale.AutoJump, 0.1 + DConfiguration.Settings.GuiScale.AutoJump)
-    end
+        if not State then
+            task.spawn(DFunctions.ResetBHOP)
+            task.wait(0.1)
+            task.spawn(DFunctions.ResetBHOP)
+        end
+    end,
 })
+
+Tabs.Misc:AddKeybind("BHOPJumpKey", {
+    Title = "BHOP Jump (Hold)",
+    Mode = "Hold",
+    Default = "Space",
+    Callback = function(State)
+     
+        if not DConfiguration.Misc.MovementModification.BHOP.FloatingButton then
+            DConfiguration.Misc.MovementModification.BHOP.Enabled = State
+            
+            if not State then
+                task.spawn(DFunctions.ResetBHOP)
+            end
+        end
+    end,
+})
+
 
 local Dropdown = Tabs.Misc:AddDropdown("BHOPVersion", {
         Title = "Select BHOP Version",
@@ -2687,13 +2530,14 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- Visual
+
 local ItemsFolder = ReplicatedStorage.Items
 
 local Folder = Instance.new("Folder", ItemsFolder)
 Folder.Name = "D-Folder"
 
-local ChangeEmote1 = "BoldMarch"
-local ChangeEmote2 = "RockinStride" 
+local ChangeEmote1 = ""
+local ChangeEmote2 = "" 
 local ChangeCosmetics1 = "HeartSkaters" 
 local ChangeCosmetics2 = "ToxicInferno"
 
@@ -2749,8 +2593,8 @@ local Input = Tabs.Visual:AddInput("CosmeticsChange1", {
         Title = "Current Cosmetics",
         Default = "HeartSkaters",
         Placeholder = "",
-        Numeric = false, -- Only allows numbers
-        Finished = false, -- Only calls callback when you press enter
+        Numeric = false, 
+        Finished = false, 
         Callback = function(Value)
             ChangeCosmetics1 = Value
         end
@@ -2760,8 +2604,8 @@ local Input = Tabs.Visual:AddInput("CosmeticsChange2", {
         Title = "Select Cosmetics",
         Default = "ToxicInferno",
         Placeholder = "",
-        Numeric = false, -- Only allows numbers
-        Finished = false, -- Only calls callback when you press enter
+        Numeric = false,
+        Finished = false, 
         Callback = function(Value)
             ChangeCosmetics2 = Value
         end
@@ -2780,38 +2624,189 @@ Tabs.Visual:AddButton({
 
 Tabs.Visual:AddSection("Emote Changer")
 
-local Input = Tabs.Visual:AddInput("EmoteChange1", {
-        Title = "Current Emote",
-        Default = "BoldMarch",
-        Placeholder = "",
-        Numeric = false, -- Only allows numbers
-        Finished = false, -- Only calls callback when you press enter
-        Callback = function(Value)
-            ChangeEmote1 = Value
+CurrentEmote1 = ""
+CurrentEmote2 = ""
+CurrentEmote3 = ""
+CurrentEmote4 = ""
+CurrentEmote5 = ""
+CurrentEmote6 = ""
+
+SelectEmote1 = ""
+SelectEmote2 = ""
+SelectEmote3 = ""
+SelectEmote4 = ""
+SelectEmote5 = ""
+SelectEmote6 = ""
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local function Normalize(input)
+    return input:lower():gsub("%s+", "") 
+end
+
+local function FindRealName(folder, userInput)
+    if not folder then return nil end
+    local normalizedInput = Normalize(userInput)
+    for _, item in ipairs(folder:GetChildren()) do
+        if Normalize(item.Name) == normalizedInput then
+            return item.Name
         end
-    })
-    
-local Input = Tabs.Visual:AddInput("EmoteChange2", {
-        Title = "Select Emote",
-        Default = "RockinStride",
-        Placeholder = "",
-        Numeric = false, -- Only allows numbers
-        Finished = false, -- Only calls callback when you press enter
-        Callback = function(Value)
-            ChangeEmote2 = Value
+    end
+    return nil
+end
+
+local function DirectNameSwapEmote(Name1, Name2)
+    pcall(function()
+        local EmotesFolder = ReplicatedStorage:FindFirstChild("Items") and ReplicatedStorage.Items:FindFirstChild("Emotes")
+        if not EmotesFolder then return end
+        
+        local RealName1 = FindRealName(EmotesFolder, Name1)
+        local RealName2 = FindRealName(EmotesFolder, Name2)
+        
+        if RealName1 and RealName2 and RealName1 ~= RealName2 then
+            local I = EmotesFolder:FindFirstChild(RealName1)
+            local V = EmotesFolder:FindFirstChild(RealName2)
+            if I and V then
+                I.Name = RealName2
+                task.wait(0.01)
+                V.Name = RealName1
+            end
         end
-    })
-    
+    end)
+end
+
+Tabs.Visual:AddInput("EmoteCurrent1", {
+    Title = "1 Current Emote",
+    Default = CurrentEmote1,
+    Placeholder = "Original emote name",
+    Numeric = false, Finished = false,
+    Callback = function(Value) CurrentEmote1 = Value end
+})
+
+Tabs.Visual:AddInput("EmoteCurrent2", {
+    Title = "2 Current Emote",
+    Default = CurrentEmote2,
+    Placeholder = "Original emote name",
+    Numeric = false, Finished = false,
+    Callback = function(Value) CurrentEmote2 = Value end
+})
+
+Tabs.Visual:AddInput("EmoteCurrent3", {
+    Title = "3 Current Emote",
+    Default = CurrentEmote3,
+    Placeholder = "Original emote name",
+    Numeric = false, Finished = false,
+    Callback = function(Value) CurrentEmote3 = Value end
+})
+
+Tabs.Visual:AddInput("EmoteCurrent4", {
+    Title = "4 Current Emote",
+    Default = CurrentEmote4,
+    Placeholder = "Original emote name",
+    Numeric = false, Finished = false,
+    Callback = function(Value) CurrentEmote4 = Value end
+})
+
+Tabs.Visual:AddInput("EmoteCurrent5", {
+    Title = "5 Current Emote",
+    Default = CurrentEmote5,
+    Placeholder = "Original emote name",
+    Numeric = false, Finished = false,
+    Callback = function(Value) CurrentEmote5 = Value end
+})
+
+Tabs.Visual:AddInput("EmoteCurrent6", {
+    Title = "6 Current Emote",
+    Default = CurrentEmote6,
+    Placeholder = "Original emote name",
+    Numeric = false, Finished = false,
+    Callback = function(Value) CurrentEmote6 = Value end
+})
+
+Tabs.Visual:AddParagraph({ Title = " ", Content = "" })
+
+Tabs.Visual:AddInput("EmoteSelect1", {
+    Title = "1 Select Emote",
+    Default = SelectEmote1,
+    Placeholder = "Replace with...",
+    Numeric = false, Finished = false,
+    Callback = function(Value) SelectEmote1 = Value end
+})
+
+Tabs.Visual:AddInput("EmoteSelect2", {
+    Title = "2 Select Emote",
+    Default = SelectEmote2,
+    Placeholder = "Replace with...",
+    Numeric = false, Finished = false,
+    Callback = function(Value) SelectEmote2 = Value end
+})
+
+Tabs.Visual:AddInput("EmoteSelect3", {
+    Title = "3 Select Emote",
+    Default = SelectEmote3,
+    Placeholder = "Replace with...",
+    Numeric = false, Finished = false,
+    Callback = function(Value) SelectEmote3 = Value end
+})
+
+Tabs.Visual:AddInput("EmoteSelect4", {
+    Title = "4 Select Emote",
+    Default = SelectEmote4,
+    Placeholder = "Replace with...",
+    Numeric = false, Finished = false,
+    Callback = function(Value) SelectEmote4 = Value end
+})
+
+Tabs.Visual:AddInput("EmoteSelect5", {
+    Title = "5 Select Emote",
+    Default = SelectEmote5,
+    Placeholder = "Replace with...",
+    Numeric = false, Finished = false,
+    Callback = function(Value) SelectEmote5 = Value end
+})
+
+Tabs.Visual:AddInput("EmoteSelect6", {
+    Title = "6 Select Emote",
+    Default = SelectEmote6,
+    Placeholder = "Replace with...",
+    Numeric = false, Finished = false,
+    Callback = function(Value) SelectEmote6 = Value end
+})
+
+Tabs.Visual:AddParagraph({ Title = "Don't use Stride with Rockin' Stride", Content = "It is advisable not to use Stride at all" })
+
 Tabs.Visual:AddButton({
-        Title = "Change Emote",
-        Description = "" ,
-        Callback = function()
-           spawn(function()
-		       ChangeEmotes(ChangeEmote1, ChangeEmote2)
-           end)
-        end
-    })
-    
+    Title = "Change Emotes",
+    Description = "",
+    Callback = function()
+        task.spawn(function()
+            local emotePairs = {
+                {current = CurrentEmote1, select = SelectEmote1},
+                {current = CurrentEmote2, select = SelectEmote2},
+                {current = CurrentEmote3, select = SelectEmote3},
+                {current = CurrentEmote4, select = SelectEmote4},
+                {current = CurrentEmote5, select = SelectEmote5},
+                {current = CurrentEmote6, select = SelectEmote6}
+            }
+            
+            local usedEmotes = {}
+            
+            for i, pair in ipairs(emotePairs) do
+                if pair.current and pair.select and pair.current ~= "" and pair.select ~= "" and pair.current ~= pair.select then
+                    if not usedEmotes[pair.current] and not usedEmotes[pair.select] then
+                        DirectNameSwapEmote(pair.current, pair.select)
+                        
+                        usedEmotes[pair.current] = true
+                        usedEmotes[pair.select] = true
+                        
+                        task.wait(0.02)
+                    end
+                end
+            end
+        end)
+    end
+})
+
 -- info
 
 Tabs.Info:AddParagraph({
