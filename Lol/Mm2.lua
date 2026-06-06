@@ -8035,7 +8035,6 @@ task.spawn(function()
         Values = _G.SkyTemp.Names,
         Default = "Default",
         Callback = function(v)
-            -- Очищаем локальные переменные внутри калбэка, делая их свойствами таблицы
             _G.SkyTemp.Id = _G.SkyTemp.Data[v]
             _G.SkyTemp.OldSky = _G.SkyTemp.L:FindFirstChild("CustomSkybox")
             
