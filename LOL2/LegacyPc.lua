@@ -5,7 +5,7 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 
 if not Fluent or not SaveManager or not InterfaceManager or not FBM then return game.Players.LocalPlayer:Kick("Error: Interface didn't load") end
 
-if _G.PhantomWyrmXIsAlreadyRunning then
+if _G.PhantomWyrmHubXIsAlreadyRunning then
    game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "Script is already running!",
         Text = ""
@@ -13,11 +13,11 @@ if _G.PhantomWyrmXIsAlreadyRunning then
    return
 end
 
-_G.PhantomWyrmXIsAlreadyRunning = true
+_G.PhantomWyrmHubXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm X - Evade Legacy│PC",
-    SubTitle = "2.9.10 Made By Carey",
+    SubTitle = "v2.20.14 Made By Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
     Acrylic = false,
@@ -3816,17 +3816,14 @@ end
     
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
-FBM:SetLibrary(Fluent)
 
 SaveManager:SetIgnoreIndexes({})
 
 -- Save Folder
 InterfaceManager:SetFolder("PhantomWyrmXUniversalPC")
-FBM:SetFolder("PhantomWyrmXUniversal/Legacy-Evade/FloatingButtons")
 SaveManager:SetFolder("PhantomWyrmXUniversal/Legacy-Evade")
 
 InterfaceManager:BuildInterfaceSection(Tabs.Settings)
-FBM:BuildConfigSection(Tabs.Settings)
 SaveManager:BuildConfigSection(Tabs.Settings)
 
 Window:SelectTab(1)

@@ -17,7 +17,7 @@ _G.PhantomWyrmHubXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm Hub X - Murder Mystery 2│PC",
-    SubTitle = "vBETA Made By Carey",
+    SubTitle = "v2.20.26 Made By Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
     Acrylic = false,
@@ -3791,17 +3791,19 @@ Tabs.Main:AddParagraph({
     })
 
 Tabs.Main:AddButton({
-        Title = "Teleport to Lobby",
-        Description = "",
-        Callback = function()
-	        for _, v in pairs(Workspace.Lobby:GetDescendants()) do
-	            if v:IsA("Part") and v.Name == "SpawnLocation" then
-			        LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(v.Position) * CFrame.new(0,2.5,0)
-			        LocalPlayer.Character.HumanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-	            end
-	        end
+    Title = "Teleport to Lobby",
+    Description = "",
+    Callback = function()           
+        local player = game.Players.LocalPlayer
+        local char = player.Character
+        
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            char:PivotTo(CFrame.new(14.72, 505.19, -61.29))
+        else
+            warn("Character not found!")
         end
-    })
+    end
+})
     
 Tabs.Main:AddButton({
         Title = "Teleport to Map",
@@ -3837,6 +3839,377 @@ wait(Duration)
 
 -- AutoFarm
 
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+
+local localPlayer = Players.LocalPlayer
+local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+do
+    local COIN_TAG = "Coin_Server"
+    local coinsCache = {}
+    local coinCache = {}
+    local moving = false
+    local currentTarget = nil
+    local currentTween = nil
+    local lastTeleportTime = 0
+    local isLaying = false
+    local layConnection = nil
+    local originalPlatformStand = false
+    local autoFarmLoopConnection = nil
+    local currentCoins = 0
+    local maxCoins = 0
+
+    local AutoFarm = {
+        Enabled = false,
+        CoinCollectType = "Nearby",
+        FullBagAction = "Reset",
+        TweenSpeed = 20,
+        TeleportDelay = 2,
+        UndergroundFarm = false,
+        AutoFarmType = "Tween"
+    }
+
+    local AutoVote = {
+        Enabled = false,
+        MapType = 1,
+        Connection = nil
+    }
+
+    local CoinsAura = {
+        Enabled = false,
+        Connection = nil,
+        Distance = 20
+    }
+
+    local function startCoinsAura()
+        if CoinsAura.Connection then task.cancel(CoinsAura.Connection) end
+        
+        CoinsAura.Connection = task.spawn(function()
+            while CoinsAura.Enabled do
+                local Map = DFunctions.GetMap()
+                local CoinContainer = Map and (Map:FindFirstChild("CoinContainer") or Map:FindFirstChild("CoinsAreas"))
+                
+                if CoinContainer and localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    local hrp = localPlayer.Character.HumanoidRootPart
+                    local closest, minDistance = nil, CoinsAura.Distance
+                    
+                    for _, coin in pairs(CoinContainer:GetChildren()) do
+                        if coin.Name == "Coin_Server" and coin:FindFirstChildWhichIsA("TouchTransmitter") and coin:FindFirstChild("CoinVisual") then
+                            local dist = (hrp.Position - coin.Position).Magnitude
+                            if dist < minDistance then
+                                closest = coin
+                                minDistance = dist
+                            end
+                        end
+                    end
+                    
+                    if closest then
+                        firetouchinterest(hrp, closest, 1)
+                        firetouchinterest(hrp, closest, 0)
+                    end
+                end
+                task.wait(0.1)
+            end
+        end)
+    end
+
+    for _, coin in ipairs(workspace:GetDescendants()) do
+        if coin.Name == "Coin_Server" and coin:IsA("BasePart") then
+            CollectionService:AddTag(coin, COIN_TAG)
+        end
+    end
+    coinsCache = CollectionService:GetTagged(COIN_TAG)
+
+    local function isCoinCollected(coin) return coin:GetAttribute("Collected") == true end
+    local function isFullCoinBag() return currentCoins >= maxCoins and maxCoins > 0 end
+    local function ResetCoinBag() currentCoins, maxCoins = 0, 0 end
+
+    local function stopCurrentTween()
+        if currentTween then currentTween:Cancel() currentTween = nil end
+        moving = false
+        currentTarget = nil
+    end
+
+    local function toggleLay(state)
+        isLaying = state
+        if state and humanoid and humanoid.Health > 0 then
+            originalPlatformStand = humanoid.PlatformStand
+            humanoid.Sit = true
+            humanoid.PlatformStand = true
+            if layConnection then layConnection:Disconnect() end
+            layConnection = RunService.Heartbeat:Connect(function()
+                if isLaying and rootPart then
+                    rootPart.CFrame = CFrame.new(rootPart.Position) * CFrame.Angles(math.pi * 0.5, 0, 0)
+                end
+            end)
+        else
+            if layConnection then layConnection:Disconnect() layConnection = nil end
+            if humanoid then
+                humanoid.Sit = false
+                humanoid.PlatformStand = originalPlatformStand
+            end
+        end
+    end
+
+    local function handleFullBag()
+        if AutoFarm.FullBagAction == "Reset" then
+            toggleLay(false)
+            if humanoid then humanoid.Health = 0 end
+        elseif AutoFarm.FullBagAction == "Teleport to lobby" then
+            stopCurrentTween()
+            toggleLay(false)
+            local lobby = workspace:FindFirstChild("Lobby") or workspace:FindFirstChild("RegularLobby")
+            local spawns = lobby and lobby:FindFirstChild("Spawns")
+            if spawns then
+                local children = spawns:GetChildren()
+                local randomSpawn = children[math.random(1, #children)]
+                if randomSpawn and rootPart then rootPart.CFrame = randomSpawn.CFrame + Vector3.new(0, 3, 0) end
+            end
+        end
+    end
+
+    local function updateCoinCacheList()
+        coinCache = {}
+        for _, coin in ipairs(coinsCache) do
+            if coin and coin.Parent and not isCoinCollected(coin) then
+                table.insert(coinCache, coin)
+            end
+        end
+    end
+
+    local function getTargetCoin()
+        updateCoinCacheList()
+        if #coinCache == 0 then return nil end
+        if AutoFarm.CoinCollectType == "Random" then return coinCache[math.random(1, #coinCache)] end
+        
+        local nearest, minDist = nil, math.huge
+        for _, coin in ipairs(coinCache) do
+            local dist = (coin.Position - rootPart.Position).Magnitude
+            if dist < minDist then minDist = dist nearest = coin end
+        end
+        return nearest
+    end
+
+    local function teleportToTarget(target)
+        if not target or not target.Parent or isCoinCollected(target) then return end
+        if tick() - lastTeleportTime < AutoFarm.TeleportDelay then return end
+        local targetPos = target.Position + Vector3.new(0, AutoFarm.UndergroundFarm and -2 or 0, 0)
+        if rootPart then 
+            rootPart.CFrame = AutoFarm.UndergroundFarm and CFrame.new(targetPos) * CFrame.Angles(math.pi * 0.5, 0, 0) or CFrame.new(targetPos)
+        end
+        lastTeleportTime = tick()
+    end
+
+    local function tweenToTarget(target)
+        if not target or not target.Parent or isCoinCollected(target) then return end
+        stopCurrentTween()
+        if AutoFarm.UndergroundFarm and not isLaying then toggleLay(true) end
+        
+        local targetPos = target.Position + Vector3.new(0, AutoFarm.UndergroundFarm and -0.5 or 0, 0)
+        local targetCFrame = AutoFarm.UndergroundFarm and CFrame.new(targetPos) * CFrame.Angles(math.pi * 0.5, 0, 0) or CFrame.new(targetPos)
+        
+        currentTween = TweenService:Create(rootPart, TweenInfo.new((targetPos - rootPart.Position).Magnitude / AutoFarm.TweenSpeed, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
+        currentTween.Completed:Connect(function()
+            moving = false
+            currentTarget = nil
+        end)
+        currentTween:Play()
+        moving = true
+        currentTarget = target
+    end
+
+    local function startAutoFarmLoop()
+        if autoFarmLoopConnection then return end
+        autoFarmLoopConnection = RunService.Heartbeat:Connect(function()
+            if not humanoid or humanoid.Health <= 0 then ResetCoinBag() return end
+            if isFullCoinBag() then return end
+            if not AutoFarm.Enabled then
+                stopCurrentTween()
+                toggleLay(false)
+            elseif not moving then
+                local target = getTargetCoin()
+                if target then
+                    if AutoFarm.AutoFarmType == "Teleport" then teleportToTarget(target) else tweenToTarget(target) end
+                end
+            end
+        end)
+    end
+
+    workspace.DescendantAdded:Connect(function(desc)
+        if desc.Name == "Coin_Server" and desc:IsA("BasePart") then
+            CollectionService:AddTag(desc, COIN_TAG)
+            if not isCoinCollected(desc) then table.insert(coinsCache, desc) end
+        end
+    end)
+
+    local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Gameplay"):WaitForChild("CoinCollected")
+    remote.OnClientEvent:Connect(function(_, currentCoin, maxCoin)
+        currentCoins, maxCoins = currentCoin, maxCoin
+        if AutoFarm.Enabled and isFullCoinBag() then stopCurrentTween() handleFullBag() end
+    end)
+
+    local function findVotePadContainer()
+        local locations = {workspace:FindFirstChild("Lobby"), workspace:FindFirstChild("MapVote"), workspace:FindFirstChild("VotePad"), workspace}
+        for _, loc in ipairs(locations) do
+            if loc then
+                if loc:FindFirstChild("MapVote") then return loc:FindFirstChild("MapVote") end
+                if loc:FindFirstChild("VotePad1") then return loc end
+            end
+        end
+        for _, child in pairs(workspace:GetChildren()) do if child:FindFirstChild("VotePad1") then return child end end
+        return nil
+    end
+
+    local function teleportToVotePad()
+        if not AutoVote.Enabled then return end
+        local container = findVotePadContainer()
+        local pad = container and container:FindFirstChild("VotePad" .. AutoVote.MapType)
+        if not pad then
+            for i = 1, 10 do
+                pad = container and container:FindFirstChild("VotePad" .. i)
+                if pad then AutoVote.MapType = i break end
+            end
+        end
+        
+        local gui = pad and pad:FindFirstChild("MapInfoGui")
+        local icon = gui and gui:FindFirstChild("MapIcon")
+        if icon and icon.Image ~= "" and icon.Image ~= "rbxasset://textures/UI/ImagePlaceholder.png" then
+            local part = pad.PrimaryPart or pad:FindFirstChildWhichIsA("BasePart")
+            if part and rootPart then
+                rootPart.CFrame = CFrame.new(part.Position + Vector3.new(0, 3, 0))
+                task.wait(0.4)
+                if humanoid then humanoid.Health = 0 end
+            end
+        end
+    end
+
+    Tabs.AutoFarm:AddSection("Auto Farm")
+
+    Tabs.AutoFarm:AddToggle("EnableAutoFarm", {
+        Title = "Enable Auto Farm",
+        Default = false,
+        Callback = function(state)
+            AutoFarm.Enabled = state
+            if state then startAutoFarmLoop() else if autoFarmLoopConnection then autoFarmLoopConnection:Disconnect() autoFarmLoopConnection = nil end stopCurrentTween() toggleLay(false) end
+        end
+    })
+
+    Tabs.AutoFarm:AddDropdown("CoinCollectType", {
+        Title = "Coin Collect Type",
+        Values = {"Nearby", "Random"},
+        CurrentValue = "Nearby",
+        Callback = function(value) AutoFarm.CoinCollectType = value currentTarget = nil end
+    })
+
+    Tabs.AutoFarm:AddDropdown("AutoFarmType", {
+        Title = "Auto Farm Type",
+        Values = {"Teleport", "Tween"},
+        CurrentValue = "Tween",
+        Callback = function(value) AutoFarm.AutoFarmType = value stopCurrentTween() if not AutoFarm.UndergroundFarm then toggleLay(false) end end
+    })
+
+    Tabs.AutoFarm:AddDropdown("FullBagAction", {
+        Title = "Action Do when full bag",
+        Values = {"Reset", "Teleport to lobby"},
+        CurrentValue = "Reset",
+        Callback = function(value) AutoFarm.FullBagAction = value end
+    })
+
+    Tabs.AutoFarm:AddToggle("UndergroundFarm", {
+        Title = "Underground Farm",
+        Description = "Farm coins underground and lay down",
+        Default = false,
+        Callback = function(state)
+            AutoFarm.UndergroundFarm = state
+            if state and AutoFarm.Enabled and AutoFarm.AutoFarmType == "Tween" then toggleLay(true) else toggleLay(false) end
+        end
+    })
+
+    Tabs.AutoFarm:AddInput("TweenSpeed", {
+        Title = "Farm Speed",
+        Default = "20",
+        Numeric = true,
+        Callback = function(value) local num = tonumber(value) if num and num > 0 then AutoFarm.TweenSpeed = num end end
+    })
+
+    Tabs.AutoFarm:AddInput("TeleportDelay", {
+        Title = "Teleport Delay (seconds)",
+        Description = "Too low = kick",
+        Default = "2",
+        Numeric = true,
+        Callback = function(value) local num = tonumber(value) if num and num >= 0 then AutoFarm.TeleportDelay = num end end
+    })
+    
+    Tabs.AutoFarm:AddToggle("CoinsAuraToggle", {
+        Title = "Coins Aura",
+        Description = "Collects coins within set distance",
+        Default = false,
+        Callback = function(state)
+            CoinsAura.Enabled = state
+            if state then
+                startCoinsAura()
+            else
+                if CoinsAura.Connection then
+                    task.cancel(CoinsAura.Connection)
+                    CoinsAura.Connection = nil
+                end
+            end
+        end
+    })
+
+    Tabs.AutoFarm:AddInput("CoinsAuraDistanceInput", {
+        Title = "Coins Aura Distance",
+        Default = "20",
+        Numeric = true,
+        Callback = function(value)
+            local num = tonumber(value)
+            if num and num > 0 then
+                CoinsAura.Distance = num
+            end
+        end
+    })
+
+    Tabs.AutoFarm:AddSection("Auto Glitch Vote Map")
+
+    Tabs.AutoFarm:AddToggle("AutoVoteTeleport", {
+        Title = "Auto Vote Teleport",
+        Default = false,
+        Callback = function(state)
+            AutoVote.Enabled = state
+            if state then
+                if AutoVote.Connection then task.cancel(AutoVote.Connection) end
+                AutoVote.Connection = task.spawn(function()
+                    while AutoVote.Enabled do teleportToVotePad() task.wait(1) end
+                end)
+            else
+                if AutoVote.Connection then task.cancel(AutoVote.Connection) AutoVote.Connection = nil end
+            end
+        end
+    })
+
+    Tabs.AutoFarm:AddDropdown("MapSelection", {
+        Title = "Map Selection",
+        Values = {"Map 1", "Map 2", "Map 3"},
+        CurrentValue = "Map 1",
+        Callback = function(mode) local num = tonumber(mode:match("%d+")) if num then AutoVote.MapType = num end end
+    })
+
+    localPlayer.CharacterAdded:Connect(function(newChar)
+        character = newChar
+        humanoid = character:WaitForChild("Humanoid")
+        rootPart = character:WaitForChild("HumanoidRootPart")
+        stopCurrentTween()
+        ResetCoinBag()
+        toggleLay(false)
+        if AutoVote.Enabled then task.wait(1) teleportToVotePad() end
+    end)
+end
 
 
 -- Combat
@@ -3890,32 +4263,6 @@ Toggle:OnChanged(function(Value)
     end
 end)
 
-local Toggle = Tabs.Combat:AddToggle("SpeedGlitchButton", {Title = "Speed Glitch Button", Default = false })
-
-Toggle:OnChanged(function(value)
-    
-  if value then   
-       DFunctions.CreateButton("SpeedGlitchButton", "Speed Glitch: OFF", 0.1 + DConfiguration.Settings.GuiScale.SpeedGlitch, 0.1 + DConfiguration.Settings.GuiScale.SpeedGlitch, function(btn)
-           DConfiguration.Combat.Innocent.SpeedGlitch.FloatingButton = not DConfiguration.Combat.Innocent.SpeedGlitch.FloatingButton
-           btn.Text = DConfiguration.Combat.Innocent.SpeedGlitch.FloatingButton and "Speed Glitch: ON" or "Speed Glitch: OFF"
-           
-           while DConfiguration.Combat.Innocent.SpeedGlitch.FloatingButton and wait() do
-               if not DConfiguration.Combat.Innocent.SpeedGlitch.FloatingButton then
-	               LocalPlayer.Character.Humanoid.WalkSpeed = DConfiguration.Misc.LocalPlayer.WalkSpeed.Value
-	               break
-               end
-	           spawn(DFunctions.FakeSpeedGlitch)
-           end
-           
-           if DConfiguration.Combat.Innocent.SpeedGlitch.FloatingButton then
-	           spawn(DFunctions.FakeSpeedGlitch)
-           end
-       end)
-    else
-        DFunctions.DestroyButton("SpeedGlitchButton")
-    end
-end)
-
  Tabs.Combat:AddKeybind("SpeedGlitchKeybind", {
         Title = "Speed Glitch Keybind",
         Mode = "Toggle", -- Always, Toggle, Hold
@@ -3961,41 +4308,10 @@ Tabs.Combat:AddInput("GlitchSpeed", {
     end
 })
 
-Tabs.Combat:AddInput("SpeedGlitchButtonSize", {
-    Title = "Speed Glitch Gui Size",
-    Default = tostring(DConfiguration.Settings.GuiScale.SpeedGlitch),
-    Placeholder = "0",
-    Numeric = true, 
-    Finished = false, 
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.SpeedGlitch = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.SpeedGlitch = 0
-        end
-    end
-})
-
 Tabs.Combat:AddParagraph({
         Title = " ",
         Content = ""
     })
-
-local Toggle = Tabs.Combat:AddToggle("JumpBoostButton", {Title = "Jump Boost Button", Default = false })
-
-Toggle:OnChanged(function(value)
-  if value then   
-       DFunctions.CreateButton("JumpBoostButton", "Jump Boost", 0.1 + DConfiguration.Settings.GuiScale.JumpBoost, 0.1 + DConfiguration.Settings.GuiScale.JumpBoost, function(btn)
-           btn.Text = "Jumping..."
-           DFunctions.JumpBoost(DConfiguration.Combat.Innocent.JumpBoost.Height)
-           wait(0.1)
-           btn.Text = "Jump Boost"
-       end)
-    else
-        DFunctions.DestroyButton("JumpBoostButton")
-    end
-end)
 
 Tabs.Combat:AddKeybind("JumpBoostKeybind", {
         Title = "Jump Boost Keybind",
@@ -4018,56 +4334,10 @@ Tabs.Combat:AddInput("JumpBoostInput", {
     end
 })
 
-Tabs.Combat:AddInput("JumpBoostButtonSize", {
-    Title = "Jump Boost Button Size",
-    Default = tostring(DConfiguration.Settings.GuiScale.JumpBoost),
-    Placeholder = "0",
-    Numeric = true, 
-    Finished = false, 
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.JumpBoost = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.JumpBoost = 0
-        end
-        
-        DFunctions.UpdateButton("JumpBoostButton", 0.1 + DConfiguration.Settings.GuiScale.JumpBoost, 0.1 + DConfiguration.Settings.GuiScale.JumpBoost)
-    end
-})
-
 Tabs.Combat:AddParagraph({
         Title = " ",
         Content = ""
     })
-
-local Toggle = Tabs.Combat:AddToggle("BombTrick", {Title = "Bomb Trick Button", Default = false })
-
-Toggle:OnChanged(function(value)
-    if value then   
-        DFunctions.CreateButton("BombTrick", "Bomb Clutch", 0.1 + DConfiguration.Settings.GuiScale.BombTrick, 0.1 + DConfiguration.Settings.GuiScale.BombTrick, function(btn)
-            btn.Text = "Clutching..."
-            spawn(DFunctions.FakeBombClutch)
-            
-            if DConfiguration.Combat.Innocent.PrankBomb.InCooldown then
-	            return
-            end
-            
-            local timeLeft = 20
-            while timeLeft > 0 do
-                btn.Text = "COOLDOWN "..timeLeft.."s"
-                task.wait(1)
-                timeLeft -= 1
-            end
-            
-            DConfiguration.Combat.Innocent.PrankBomb.InCooldown = false
-
-            btn.Text = "Bomb Clutch"
-        end)
-    else
-        DFunctions.DestroyButton("BombTrick")
-    end
-end)
 
 Tabs.Combat:AddKeybind("BombTrickKeybind", {
         Title = "Bomb Trick Keybind",
@@ -4090,24 +4360,6 @@ Tabs.Combat:AddKeybind("BombTrickKeybind", {
             DConfiguration.Combat.Innocent.PrankBomb.InCooldown = false
         end
     })
-
-Tabs.Combat:AddInput("BombTrickButtonSize", {
-    Title = "Bomb Trick Button Size",
-    Default = tostring(DConfiguration.Settings.GuiScale.BombTrick),
-    Placeholder = "0",
-    Numeric = true, 
-    Finished = false, 
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.BombTrick = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.BombTrick = 0
-        end
-        
-        DFunctions.UpdateButton("BombTrick", 0.1 + DConfiguration.Settings.GuiScale.BombTrick, 0.1 + DConfiguration.Settings.GuiScale.BombTrick)
-    end
-})
 
 Tabs.Combat:AddSection("Murderer")
 
@@ -4178,25 +4430,6 @@ local Toggle = Tabs.Combat:AddToggle("Autokillall", {Title = "Auto Kill all", De
      end
  end)
  
- local Toggle = Tabs.Combat:AddToggle("KillAllButton", {Title = "Kill All Button", Default = false })
-
-Toggle:OnChanged(function(value)
-    
-  if value then   
-       DFunctions.CreateButton("KillAllButton", "Kill All", 0.1 + DConfiguration.Settings.GuiScale.KillAll, 0.1 + DConfiguration.Settings.GuiScale.KillAll, function(btn)
-           btn.Text = "Killing..."
-           spawn(DFunctions.KillAllPlayers)
-           wait(0.1)
-           spawn(DFunctions.KillAllPlayers)
-           btn.Text = "OOF!!!"
-           wait(0.2)
-           btn.Text = "Kill All"
-       end)
-    else
-        DFunctions.DestroyButton("KillAllButton")
-    end
-end)
-
 Tabs.Combat:AddKeybind("KillAllKeybind", {
         Title = "Kill All Keybind",
         Mode = "Toggle", -- Always, Toggle, Hold
@@ -4206,24 +4439,6 @@ Tabs.Combat:AddKeybind("KillAllKeybind", {
             spawn(DFunctions.KillAllPlayers)
         end
     })
-
-Tabs.Combat:AddInput("KillAllButtonSize", {
-    Title = "Kill All Button Size",
-    Default = tostring(DConfiguration.Settings.GuiScale.KillAll),
-    Placeholder = "0",
-    Numeric = true, 
-    Finished = false, 
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.KillAll = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.KillAll = 0
-        end
-        
-        DFunctions.UpdateButton("KillAllButton", 0.1 + DConfiguration.Settings.GuiScale.KillAll, 0.1 + DConfiguration.Settings.GuiScale.KillAll)
-    end
-})
 
 Tabs.Combat:AddButton({
 	Title = "Kill All",
@@ -4296,22 +4511,6 @@ Toggle:OnChanged(function(value)
     end
 end)
 
-local Toggle = Tabs.Combat:AddToggle("AutoThrowButton", {Title = "Throw Knives Button", Default = false })
-
-Toggle:OnChanged(function(value)
-    
-  if value then   
-       DFunctions.CreateButton("AutoThrowButton", "Throw Knife", 0.1 + DConfiguration.Settings.GuiScale.ThrowKnife, 0.1 + DConfiguration.Settings.GuiScale.ThrowKnife, function(btn)
-           btn.Text = "Throwing..."
-           spawn(DFunctions.ThrowKnives)
-           wait(0.2)
-           btn.Text = "Throw Knife"
-       end)
-    else
-        DFunctions.DestroyButton("AutoThrowButton")
-    end
-end)
-
 Tabs.Combat:AddKeybind("ThrowKnifeKeybind", {
         Title = "Throw Knife Keybind",
         Mode = "Toggle", -- Always, Toggle, Hold
@@ -4321,24 +4520,6 @@ Tabs.Combat:AddKeybind("ThrowKnifeKeybind", {
             spawn(DFunctions.ThrowKnives)
         end
     })
-
-Tabs.Combat:AddInput("ThrowKnifeButtonSize", {
-    Title = "Throw Knives Gui Size",
-    Default = tostring(DConfiguration.Settings.GuiScale.ThrowKnife),
-    Placeholder = "0",
-    Numeric = true, 
-    Finished = false, 
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.ThrowKnife = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.ThrowKnife = 0
-        end
-        
-        DFunctions.UpdateButton("ThrowKnifeButton", 0.1 + DConfiguration.Settings.GuiScale.ThrowKnife, 0.1 + DConfiguration.Settings.GuiScale.ThrowKnife)
-    end
-})
 
 Tabs.Combat:AddParagraph({
         Title = "Settings",
@@ -4467,22 +4648,6 @@ Toggle:OnChanged(function(value)
     end
 end)
     
- local Toggle = Tabs.Combat:AddToggle("GrabGunButton", {Title = "Grab Gun Button", Default = false })
-
-Toggle:OnChanged(function(value)
-    
-  if value then   
-       DFunctions.CreateButton("GrabGunButton", "Grab Gun", 0.1 + DConfiguration.Settings.GuiScale.GrabGun, 0.1 + DConfiguration.Settings.GuiScale.GrabGun, function(btn)
-           btn.Text = "Grabbing..."
-           spawn(DFunctions.GrabGun)
-           wait(0.2)
-           btn.Text = "Grab Gun"
-       end)
-    else
-        DFunctions.DestroyButton("GrabGunButton")
-    end
-end)
-
  Tabs.Combat:AddKeybind("GrabKeybind", {
         Title = "Grab Gun Keybind",
         Mode = "Toggle", -- Always, Toggle, Hold
@@ -4492,22 +4657,6 @@ end)
             spawn(DFunctions.GrabGun)
         end
     })
-
-Tabs.Combat:AddInput("GrabGunButtonSize", {
-    Title = "Grab Gun Gui Size",
-    Default = tostring(DConfiguration.Settings.GuiScale.GrabGun),
-    Placeholder = "0",
-    Numeric = true, 
-    Finished = false, 
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.GrabGun = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.GrabGun = 0
-        end
-    end
-})
 
 Tabs.Combat:AddParagraph({
         Title = " ",
@@ -4552,24 +4701,6 @@ Toggle:OnChanged(function(value)
    end
 end)
     
- local Toggle = Tabs.Combat:AddToggle("KillMurdButton", {Title = "Kill Murder Button", Default = false })
-
-Toggle:OnChanged(function(value)
-    
-    if value then   
-       DFunctions.CreateButton("KillMurderButton", "Kill Murder", 0.1 + DConfiguration.Settings.GuiScale.KillMurder, 0.1 + DConfiguration.Settings.GuiScale.KillMurder, function(btn)
-           btn.Text = "Locating..."
-           DFunctions.AutoKillMurderer(DConfiguration.Combat.Sheriff.KillMurder.Type)
-           wait(0.1)
-           btn.Text = "Shooting..."
-           wait(0.2)
-           btn.Text = "Kill Murder"
-       end)
-    else
-        DFunctions.DestroyButton("KillMurderButton")
-    end
-end)
-
 Tabs.Combat:AddKeybind("KillMurderKeybind", {
         Title = "Kill Murder Keybind",
         Mode = "Toggle", -- Always, Toggle, Hold
@@ -4587,24 +4718,6 @@ Tabs.Combat:AddButton({
            DFunctions.AutoKillMurderer(DConfiguration.Combat.Sheriff.KillMurder.Type)
         end
     })
-
-Tabs.Combat:AddInput("KillMurdButtonSize", {
-    Title = "Kill Murder Gui Size",
-    Default = tostring(DConfiguration.Settings.GuiScale.KillMurder),
-    Placeholder = "0",
-    Numeric = true, 
-    Finished = false, 
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.KillMurder = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.KillMurder = 0
-        end
-        
-        DFunctions.UpdateButton("KillMurderButton", 0.1 + DConfiguration.Settings.GuiScale.KillMurder, 0.1 + DConfiguration.Settings.GuiScale.KillMurder)
-    end
-})
 
 local Dropdown = Tabs.Combat:AddDropdown("KillMurderType", {
         Title = "Kill Murder Type",
@@ -4624,21 +4737,6 @@ Tabs.Combat:AddParagraph({
         Content = ""
     })
     
-local Toggle = Tabs.Combat:AddToggle("ShootButton", {Title = "Shoot Murderer Button", Default = false })
-
-Toggle:OnChanged(function(value)
-  if value then   
-       DFunctions.CreateButton("ShootButton", "Shoot Murderer", 0.15 + DConfiguration.Settings.GuiScale.ShootMurder, 0.1 + DConfiguration.Settings.GuiScale.ShootMurder, function(btn)
-           btn.Text = "Shooting..."
-           spawn(DFunctions.ShootGun)
-           wait(0.2)
-           btn.Text = "Shoot Murderer"
-       end)
-    else
-        DFunctions.DestroyButton("ShootButton")
-    end
-end)
-
 Tabs.Combat:AddKeybind("ShootMurderKeybind", {
         Title = "Shoot Murder Keybind",
         Mode = "Toggle", -- Always, Toggle, Hold
@@ -4648,24 +4746,6 @@ Tabs.Combat:AddKeybind("ShootMurderKeybind", {
             spawn(DFunctions.ShootGun)
         end
     })
-    
-Tabs.Combat:AddInput("ShootButtonSize", {
-    Title = "Shoot Button Size",
-    Default = tostring(DConfiguration.Settings.GuiScale.ShootMurder),
-    Placeholder = "0",
-    Numeric = true, 
-    Finished = false, 
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.ShootMurder = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.ShootMurder = 0
-        end
-        
-        DFunctions.UpdateButton("ShootButton", 0.15 + DConfiguration.Settings.GuiScale.ShootMurder, 0.1 + DConfiguration.Settings.GuiScale.ShootMurder)
-    end
-  })
   
 local Toggle = Tabs.Combat:AddToggle("LookAtMurder", {Title = "Look At Murderer", Default = false })
 
@@ -4723,81 +4803,6 @@ Toggle:OnChanged(function(value)
 end)
 
 Tabs.Combat:AddSection("Aimbots")
-
-local Toggle = Tabs.Combat:AddToggle("AimlockMurderButton", {Title = "Aimlock Murderer Button", Default = false })
-
-Toggle:OnChanged(function(value)
-  if value then   
-       DFunctions.CreateButton("AimlockMurderButton", "Aimlock Murderer: OFF", 0.1 + DConfiguration.Settings.GuiScale.AimbotMurderer, 0.1 + DConfiguration.Settings.GuiScale.SpeedGlitch, function(btn)
-           DConfiguration.Combat.Camera.Aimbot.Enabled1 = not DConfiguration.Combat.Camera.Aimbot.Enabled1
-           btn.Text = DConfiguration.Combat.Camera.Aimbot.Enabled1 and "Aimlock Murderer: ON" or "Aimlock Murderer: OFF"
-           
-           while DConfiguration.Combat.Camera.Aimbot.Enabled1 and RunService.RenderStepped:Wait() do
-               spawn(DFunctions.AimlockMurderer)
-           end
-       end)
-    else
-        DFunctions.DestroyButton("AimlockMurderButton")
-    end
-end)
-
-local Toggle = Tabs.Combat:AddToggle("AimlockNearestButton", {Title = "Aimlock Nearest Button", Default = false })
-
-Toggle:OnChanged(function(value)
-  if value then   
-       DFunctions.CreateButton("AimlockNearestButton", "Aimlock Nearest: OFF", 0.1 + DConfiguration.Settings.GuiScale.AimbotNearest, 0.1 + DConfiguration.Settings.GuiScale.AimbotNearest, function(btn)
-           DConfiguration.Combat.Camera.Aimbot.Enabled2 = not DConfiguration.Combat.Camera.Aimbot.Enabled2
-           btn.Text = DConfiguration.Combat.Camera.Aimbot.Enabled2 and "Aimlock Nearest: ON" or "Aimlock Nearest: OFF"
-           
-           while DConfiguration.Combat.Camera.Aimbot.Enabled2 and RunService.RenderStepped:Wait() do
-               spawn(DFunctions.AimlockNearest)
-           end
-       end)
-    else
-        DFunctions.DestroyButton("AimlockNearestButton")
-    end
-end)
-
-Tabs.Combat:AddInput("AimlockMurderButtonSize", {
-    Title = "Aimlock Button Size (Murderer)",
-    Default = tostring(DConfiguration.Settings.GuiScale.AimbotMurderer),
-    Placeholder = "0",
-    Numeric = true, 
-    Finished = false, 
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.AimbotMurderer = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.AimbotMurderer = 0
-        end
-        
-        DFunctions.UpdateButton("AimlockMurderButton", 0.1 + DConfiguration.Settings.GuiScale.AimbotMurderer, 0.1 + DConfiguration.Settings.GuiScale.AimbotMurderer)
-    end
-})
-
-Tabs.Combat:AddInput("AimlockNearestButtonSize", {
-    Title = "Aimlock Button Size (Nearest)",
-    Default = tostring(DConfiguration.Settings.GuiScale.AimbotNearest),
-    Placeholder = "0",
-    Numeric = true, 
-    Finished = false, 
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.AimbotNearest = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.AimbotNearest = 0
-        end
-        
-        DFunctions.UpdateButton("AimlockNearestButton", 0.1 + DConfiguration.Settings.GuiScale.AimbotNearest, 0.1 + DConfiguration.Settings.GuiScale.AimbotNearest)
-    end
-})
-
-Tabs.Combat:AddParagraph({
-        Title = " ",
-        Content = ""
-    })
 
 Tabs.Combat:AddKeybind("KeybindAimlockMurderer", {
         Title = "Aimlock Murderer Keybind",
@@ -4857,23 +4862,6 @@ Tabs.Combat:AddParagraph({
         Title = " ",
         Content = ""
 })
-
-local Toggle = Tabs.Combat:AddToggle("FlickShotButton", {Title = "Flick Shot Button", Default = false })
-
-Toggle:OnChanged(function(value)
-  if value then   
-       DFunctions.CreateButton("FlickShotButton", "Flick Shot", 0.1 + DConfiguration.Settings.GuiScale.FlickShot, 0.1 + DConfiguration.Settings.GuiScale.FlickShot, function(btn)
-           btn.Text = "Flicking..."
-           wait(0.1)
-           spawn(function()
-               DFunctions.FlickShoot("Camera", DConfiguration.Combat.Camera.FlickShot.Delay)
-           end)
-           btn.Text = "Flick Shot"
-       end)
-    else
-        DFunctions.DestroyButton("FlickShotButton")
-    end
-end)
     
 Tabs.Combat:AddKeybind("FlickShotKeybind", {
         Title = "Flick Shot Keybind",
@@ -4895,24 +4883,6 @@ Tabs.Combat:AddInput("FlickShotDelay", {
     Finished = false, 
     Callback = function(Value)
         DConfiguration.Combat.Camera.FlickShot.Delay = tonumber(Value) or 0.1
-    end
-})
-
-Tabs.Combat:AddInput("FlickShotButtonSize", {
-    Title = "Flick Shot Button Size",
-    Default = tostring(DConfiguration.Settings.GuiScale.FlickShot),
-    Placeholder = "0",
-    Numeric = true, 
-    Finished = false, 
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.FlickShot = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.FlickShot = 0
-        end
-        
-        DFunctions.UpdateButton("FlickShotButton", 0.1 + DConfiguration.Settings.GuiScale.FlickShot, 0.1 + DConfiguration.Settings.GuiScale.FlickShot)
     end
 })
 
@@ -5338,6 +5308,8 @@ Tabs.Combat:AddToggle("ShowCircle",{
 
 wait(Duration)
 
+-- Misc
+
 local Toggle = Tabs.Misc:AddToggle("AntiAfk", {Title = "Anti-AFK", Default = true })
 
 Toggle:OnChanged(function()
@@ -5351,42 +5323,116 @@ Toggle:OnChanged(function()
         end)
  end)
  
- local Toggle = Tabs.Misc:AddToggle("TwoLivesmode", {Title = "Two Lives", Default = false })
+local CheatStates = {
+    TwoLives = false,
+    AirJump = false,
+    Noclip = false,
+    InvisibleWalls = false,
+    AntiVoid = false
+}
 
-Toggle:OnChanged(function(State)
-   DConfiguration.Misc.TwoLives = State
-   if not LocalPlayer.Character then return end
-   
-   if State then
-      LocalPlayer.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
-   else
-      LocalPlayer.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, true)
-   end
-   
-    while wait(0.5) and DConfiguration.Misc.TwoLives do
-       spawn(DFunctions.TwoLivesMode)
+local WallData = { StoredWalls = {} }
+
+local function ToggleWalls(state)
+    if state then
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v:IsA("BasePart") and (v.Transparency >= 1 or v.Name:lower():find("clip")) and v.CanCollide then
+                table.insert(WallData.StoredWalls, v)
+                v.CanCollide = false
+            end
+        end
+    else
+        for _, v in WallData.StoredWalls do
+            if v and v.Parent then v.CanCollide = true end
+        end
+        WallData.StoredWalls = {}
+    end
+end
+
+Tabs.Misc:AddToggle("TwoLivesmode", {Title = "Two Lives", Default = false}):OnChanged(function(State)
+    CheatStates.TwoLives = State
+    DConfiguration.Misc.TwoLives = State
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        LocalPlayer.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, not State)
     end
 end)
 
-local Toggle = Tabs.Misc:AddToggle("AirJump", {Title = "Air Jump", Default = false })
-
-Toggle:OnChanged(function(State)
+Tabs.Misc:AddToggle("AirJump", {Title = "Air Jump", Default = false}):OnChanged(function(State)
+    CheatStates.AirJump = State
     DConfiguration.Misc.AirJump = State
 end)
 
 game:GetService("UserInputService").JumpRequest:Connect(function()
-    if DConfiguration.Misc.AirJump then
-        LocalPlayer.Character:WaitForChild("Humanoid"):ChangeState("Jumping")
+    if CheatStates.AirJump and LocalPlayer.Character then
+        local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum:ChangeState("Jumping") end
     end
 end)
 
-local Toggle = Tabs.Misc:AddToggle("Noclip", {Title = "Noclip", Default = false })
-
-Toggle:OnChanged(function(State)
+Tabs.Misc:AddToggle("Noclip", {Title = "Noclip", Default = false}):OnChanged(function(State)
+    CheatStates.Noclip = State
     DConfiguration.Misc.Noclip = State
+end)
+
+Tabs.Misc:AddToggle("InvisibleWalls", {Title = "Delete Invisible Walls", Default = false, Callback = function(Value)
+    CheatStates.InvisibleWalls = Value
+    ToggleWalls(Value)
+end})
+
+local platform = nil
+Tabs.Misc:AddToggle("SafePlatform", {Title = "Anti-Void", Default = false, Callback = function(Value)
+    CheatStates.AntiVoid = Value
+    if Value then
+        game.Workspace.FallenPartsDestroyHeight = -999999
+    else
+        game.Workspace.FallenPartsDestroyHeight = -500
+        if platform then platform:Destroy(); platform = nil end
+    end
+end})
+
+task.spawn(function()
+    local lastTwoLives = 0
+    local lastWallCheck = 0
     
-    while DConfiguration.Misc.Noclip and RunService.RenderStepped:Wait() do
-       spawn(DFunctions.NoClip)
+    while true do
+        game:GetService("RunService").Heartbeat:Wait()
+        
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        
+        if char and root then
+            if CheatStates.Noclip then
+                task.spawn(DFunctions.NoClip) 
+            end
+            
+            if CheatStates.AntiVoid then
+                if root.Position.Y < 400 then 
+                    if not platform or not platform.Parent then
+                        platform = Instance.new("Part")
+                        platform.Name = "SafetyRaft"
+                        platform.Size = Vector3.new(500, 50, 500)
+                        platform.Anchored = true
+                        platform.CanCollide = true
+                        platform.Color = Color3.fromRGB(255, 0, 0)
+                        platform.Transparency = 0.5
+                        platform.Parent = game.Workspace
+                    end
+                    platform.CFrame = CFrame.new(root.Position.X, -500, root.Position.Z)
+                else
+                    if platform then platform:Destroy(); platform = nil end
+                end
+            end
+            
+            if CheatStates.TwoLives and (tick() - lastTwoLives >= 0.5) then
+                lastTwoLives = tick()
+                task.spawn(DFunctions.TwoLivesMode)
+            end
+            
+            if CheatStates.InvisibleWalls and (tick() - lastWallCheck >= 5) then
+                lastWallCheck = tick()
+                ToggleWalls(true)
+            end
+        end
     end
 end)
 
@@ -5657,63 +5703,110 @@ setreadonly(mt, true)
 
 Tabs.Misc:AddSection("Alternative Features")
 
-local Toggle = Tabs.Misc:AddToggle("TimerNotifier", {Title = "Show Timer", Default = false })
+do
+    local TimerSettings = {
+        X = 0.5,
+        Y = 0.1,
+        Size = 100,
+        Color = Color3.fromRGB(255, 255, 255),
+        RainbowActive = false,
+        RainbowSpeed = 0.01
+    }
 
-Toggle:OnChanged(function(State)
-    DConfiguration.Misc.AlternativeFeatures.ShowTimer = State
-
-    if DConfiguration.Misc.AlternativeFeatures.ShowTimer then
-        if LocalPlayer.PlayerGui:FindFirstChild("TimerGui") then return end
-        local screenGui = Instance.new("ScreenGui")
-        screenGui.Parent = LocalPlayer.PlayerGui
-        screenGui.ResetOnSpawn = false
-        screenGui.Name = "TimerGui"
-        
-        local timerLabel = Instance.new("TextLabel")
-        timerLabel.Parent = screenGui
-        timerLabel.Size = UDim2.new(0, 200, 0, 50)
-        timerLabel.Position = UDim2.new(0.5, -100, 0.1, 0) 
-        timerLabel.BackgroundTransparency = 1 
-        timerLabel.TextScaled = true
-        timerLabel.Font = Enum.Font.GothamBold
-        timerLabel.TextColor3 = Color3.new(1, 1, 1) 
-    else
-       if LocalPlayer.PlayerGui:FindFirstChild("TimerGui") then
-          LocalPlayer.PlayerGui.TimerGui:Destroy()
-       end
-  end
-
-    while DConfiguration.Misc.AlternativeFeatures.ShowTimer and wait() do
-       local timerPart = game.Workspace:FindFirstChild("RoundTimerPart")
-       local timerClient = LocalPlayer.PlayerGui.TimerGui.TextLabel
-       if timerPart and timerPart:FindFirstChild("SurfaceGui") and timerPart.SurfaceGui:FindFirstChild("Timer") and timerClient then
-           timerClient.Text = timerPart.SurfaceGui.Timer.Text
-       end
+    local function UpdateTimerPosition()
+        local gui = LocalPlayer.PlayerGui:FindFirstChild("TimerGui")
+        if gui and gui:FindFirstChild("TextLabel") then
+            local label = gui.TextLabel
+            label.AnchorPoint = Vector2.new(0.5, 0.5)
+            if not TimerSettings.RainbowActive then
+                label.TextColor3 = TimerSettings.Color
+            end
+            label.Size = UDim2.new(0, TimerSettings.Size, 0, TimerSettings.Size / 2)
+            label.Position = UDim2.new(TimerSettings.X, 0, TimerSettings.Y, 0)
+        end
     end
-end)
+
+    local TimerToggle = Tabs.Misc:AddToggle("TimerNotifier", {Title = "Show Timer", Default = false })
+    TimerToggle:OnChanged(function(State)
+        DConfiguration.Misc.AlternativeFeatures.ShowTimer = State
+        if State then
+            if not LocalPlayer.PlayerGui:FindFirstChild("TimerGui") then
+                local screenGui = Instance.new("ScreenGui", LocalPlayer.PlayerGui)
+                screenGui.Name = "TimerGui"
+                screenGui.ResetOnSpawn = false
+                local timerLabel = Instance.new("TextLabel", screenGui)
+                timerLabel.BackgroundTransparency = 1 
+                timerLabel.TextScaled = true
+                timerLabel.Font = Enum.Font.GothamBold
+                UpdateTimerPosition()
+            end
+            task.spawn(function()
+                while DConfiguration.Misc.AlternativeFeatures.ShowTimer do
+                    local timerPart = game.Workspace:FindFirstChild("RoundTimerPart")
+                    local gui = LocalPlayer.PlayerGui:FindFirstChild("TimerGui")
+                    if timerPart and gui then
+                        local timer = timerPart.SurfaceGui:FindFirstChild("Timer")
+                        if timer then gui.TextLabel.Text = timer.Text end
+                    end
+                    task.wait(0.1)
+                end
+            end)
+        else
+            local gui = LocalPlayer.PlayerGui:FindFirstChild("TimerGui")
+            if gui then gui:Destroy() end
+        end
+    end)
+
+    Tabs.Misc:AddSlider("TimerX", {
+        Title = "Position X", Default = 0.5, Min = 0, Max = 1, Rounding = 2,
+        Callback = function(Value) TimerSettings.X = Value UpdateTimerPosition() end
+    })
+    Tabs.Misc:AddSlider("TimerY", {
+        Title = "Position Y", Default = 0.1, Min = 0, Max = 1, Rounding = 2,
+        Callback = function(Value) TimerSettings.Y = Value UpdateTimerPosition() end
+    })
+    Tabs.Misc:AddSlider("TimerSize", {
+        Title = "Size", Default = 100, Min = 50, Max = 500, Rounding = 0,
+        Callback = function(Value) TimerSettings.Size = Value UpdateTimerPosition() end
+    })
+
+    Tabs.Misc:AddColorpicker("TimerColor", {
+        Title = "Color", Default = TimerSettings.Color,
+        Callback = function(Value) TimerSettings.Color = Value UpdateTimerPosition() end
+    })
+
+    Tabs.Misc:AddSlider("RainbowSpeed", {
+        Title = "Rainbow Speed", Default = 0.01, Min = 0.001, Max = 0.1, Rounding = 3,
+        Callback = function(Value) TimerSettings.RainbowSpeed = Value end
+    })
+
+    local RainbowToggle = Tabs.Misc:AddToggle("TimerRainbow", {Title = "Rainbow Timer", Default = false })
+    RainbowToggle:OnChanged(function(State)
+        TimerSettings.RainbowActive = State
+        if State then
+            task.spawn(function()
+                local hue = 0
+                while TimerSettings.RainbowActive do
+                    hue = hue + TimerSettings.RainbowSpeed
+                    if hue > 1 then hue = 0 end
+                    local gui = LocalPlayer.PlayerGui:FindFirstChild("TimerGui")
+                    if gui and gui:FindFirstChild("TextLabel") then
+                        gui.TextLabel.TextColor3 = Color3.fromHSV(hue, 0.8, 1)
+                    end
+                    task.wait(0.05)
+                end
+            end)
+        else
+            UpdateTimerPosition()
+        end
+    end)
+end
+
 
 Tabs.Misc:AddParagraph({
         Title = " ",
         Content = ""
     })
-
-Tabs.Misc:AddDropdown("EmoteDropdown", {
-    Title = "Select Emote",
-    Values = {"Zen", "Dab", "Sit", "Headless", "Ninja", "Zombie", "Floss"},
-    Multi = false,
-    Default = "Zen",
-    Callback = function(Value)
-	    DConfiguration.Misc.AlternativeFeatures.EmoteSelected = Value
-    end
-})
-
-Tabs.Misc:AddButton({
-        Title = "Play Emote",
-        Description = "",
-        Callback = function()
-           Remotes.Misc.PlayEmote:Fire(string.lower(DConfiguration.Misc.AlternativeFeatures.EmoteSelected))
-    end
-})
 
 Tabs.Misc:AddSection("Optimization")
     
@@ -5835,104 +5928,6 @@ wait(Duration)
 
 Tabs.Misc:AddSection("Manipulations")
 
-local Toggle = Tabs.Misc:AddToggle("InvisibleButton", {Title = "Invisible Toggle", Default = false })
-
-Toggle:OnChanged(function(value)
-    DConfiguration.Misc.Manipulation.Invisible.Enabled = value
-    
-    if DConfiguration.Misc.Manipulation.Invisible.Enabled then
-        local SavedPosition = LocalPlayer.Character.HumanoidRootPart.CFrame
-    	LocalPlayer.Character:MoveTo(Vector3.new(-25.95, 84, 3537.55))
-        task.wait(0.15)
-               
-        local seat = Instance.new("Seat")
-        seat.Name = "invischair"
-        seat.Anchored = false
-        seat.CanCollide = false
-	    seat.Transparency = 1
-		seat.Position = Vector3.new(-25.95, 84, 3537.55)
-	    seat.Parent = Workspace
-	           
-	    local weld = Instance.new("Weld")
-		weld.Part0 = seat
-	    weld.Part1 = LocalPlayer.Character:FindFirstChild("Torso") or LocalPlayer.Character:FindFirstChild("UpperTorso")
-	    weld.Parent = seat
-
-	    task.wait()
-    	seat.CFrame = SavedPosition
-        for i, v in pairs(LocalPlayer.Character:GetChildren()) do
-	         if v.Name ~= "HumanoidRootPart" and v:IsA("BasePart") then
-	             v.Transparency = 0.5
-	         end
-        end
-   else
-       for i, v in pairs(workspace:GetChildren()) do
-	      if v.Name == "invischair" then
-	          v:Destroy()
-	       end
-	   end
-	
-	   for i, v in pairs(LocalPlayer.Character:GetChildren()) do
-	       if v.Name ~= "HumanoidRootPart" and v:IsA("BasePart") then
-	           v.Transparency = 0
-	       end
-       end
-    end
-end)
-
-local Toggle = Tabs.Misc:AddToggle("InvisibleButton", {Title = "Invisible Button", Default = false })
-
-Toggle:OnChanged(function(value)
-    
-  if value then   
-       DFunctions.CreateButton("InvisibleButton", "Invisible: OFF", 0.1 + DConfiguration.Settings.GuiScale.Invisible, 0.1 + DConfiguration.Settings.GuiScale.Invisible, function(btn)
-           DConfiguration.Misc.Manipulation.Invisible.FloatingButton = not DConfiguration.Misc.Manipulation.Invisible.FloatingButton
-           btn.Text = DConfiguration.Misc.Manipulation.Invisible.FloatingButton and "Invisible: ON" or "Invisible: OFF"
-           
-           if DConfiguration.Misc.Manipulation.Invisible.FloatingButton then
-	           local SavedPosition = LocalPlayer.Character.HumanoidRootPart.CFrame
-           	LocalPlayer.Character:MoveTo(Vector3.new(-25.95, 84, 3537.55))
-               task.wait(0.15)
-               
-               local seat = Instance.new("Seat")
-               seat.Name = "invischair"
-               seat.Anchored = false
-               seat.CanCollide = false
-	       	seat.Transparency = 1
-	       	seat.Position = Vector3.new(-25.95, 84, 3537.55)
-	       	seat.Parent = Workspace
-	           
-	           local weld = Instance.new("Weld")
-	       	weld.Part0 = seat
-	       	weld.Part1 = LocalPlayer.Character:FindFirstChild("Torso") or LocalPlayer.Character:FindFirstChild("UpperTorso")
-		       weld.Parent = seat
-
-	       	task.wait()
-       		seat.CFrame = SavedPosition
-               for i, v in pairs(LocalPlayer.Character:GetChildren()) do
-	               if v.Name ~= "HumanoidRootPart" and v:IsA("BasePart") then
-	                   v.Transparency = 0.5
-	               end
-               end
-           else
-	           for i, v in pairs(workspace:GetChildren()) do
-	               if v.Name == "invischair" then
-	                   v:Destroy()
-	               end
-	           end
-	
-	           for i, v in pairs(LocalPlayer.Character:GetChildren()) do
-	               if v.Name ~= "HumanoidRootPart" and v:IsA("BasePart") then
-	                   v.Transparency = 0
-	               end
-               end
-           end
-       end)
-    else
-        DFunctions.DestroyButton("InvisibleButton")
-    end
-end)
-
 Tabs.Misc:AddKeybind("InvisibleKeybind",{
         Title = "Invisible Keybind",
         Mode = "Toggle", -- Always, Toggle, Hold
@@ -5987,13 +5982,38 @@ Tabs.Misc:AddParagraph({
         Content = ""
     })
 
+local function SafeFling(target)
+    if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+        local lp = game:GetService("Players").LocalPlayer
+        local char = lp.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        
+        if hrp then
+            local oldPos = hrp.CFrame
+            SkidFling(target)
+            task.wait(10) 
+            hrp.Velocity = Vector3.new(0, 0, 0)
+            hrp.RotVelocity = Vector3.new(0, 0, 0)
+            hrp.CFrame = oldPos
+        end
+    end
+end
+
 local Toggle = Tabs.Misc:AddToggle("FlingPlayer", {Title = "Fling Player", Default = false})
+
 Toggle:OnChanged(function(value)
     DConfiguration.Misc.Manipulation.Fling.Enabled = value
-    
-    while DConfiguration.Misc.Manipulation.Fling.Enabled and wait(5) do
-        local TargetPlayer = Players:FindFirstChild(DConfiguration.Misc.Manipulation.Fling.Target)
-	    SkidFling(TargetPlayer)
+    if value then
+        task.spawn(function()
+            while DConfiguration.Misc.Manipulation.Fling.Enabled do
+                local TargetName = DConfiguration.Misc.Manipulation.Fling.Target
+                local TargetPlayer = game:GetService("Players"):FindFirstChild(TargetName)
+                if TargetPlayer then
+                    SafeFling(TargetPlayer)
+                end
+                task.wait(5)
+            end
+        end)
     end
 end)
 
@@ -6007,57 +6027,876 @@ local FlingDropdown = Tabs.Misc:AddDropdown("FlingDropdown", {
 FlingDropdown:OnChanged(function(Value)
     DConfiguration.Misc.Manipulation.Fling.Target = Value
 end)
-    
+
 Tabs.Misc:AddButton({
-        Title = "Refresh Dropdown",
-        Description = "",
-        Callback = function()
-        FlingDropdown.Values = DFunctions.GetOtherPlayers()
-        wait(0.2)
-        FlingDropdown:SetValue("")
+    Title = "Refresh Dropdown",
+    Callback = function()
+        FlingDropdown:SetValues(DFunctions.GetOtherPlayers())
     end
 })
 
 Tabs.Misc:AddButton({
-        Title = "Fling Murderer",
-        Description = " ",
-        Callback = function()
-        while DConfiguration.Misc.Manipulation.Fling.Enabled and wait(0.1) do
-          SkidFling(Players[Roles.Murderer])
-        end
-    end
-})
-
-Tabs.Misc:AddButton({
-        Title = "Fling Sheriff",
-        Description = " ",
-        Callback = function()
-        while DConfiguration.Misc.Manipulation.Fling.Enabled and wait(0.1) do
-            if Roles.Sheriff then
-               SkidFling(Players[Roles.Sheriff])
-            elseif Roles.Hero then
-               SkidFling(Players[Roles.Hero])
+    Title = "Fling Murderer",
+    Callback = function()
+        task.spawn(function()
+            local mdr = Roles.Murderer
+            if mdr then
+                SafeFling(game:GetService("Players"):FindFirstChild(tostring(mdr)))
             end
-        end
+        end)
+    end
+})
+
+Tabs.Misc:AddButton({
+    Title = "Fling Sheriff",
+    Callback = function()
+        task.spawn(function()
+            local shf = Roles.Sheriff or Roles.Hero
+            if shf then
+                SafeFling(game:GetService("Players"):FindFirstChild(tostring(shf)))
+            end
+        end)
     end
 })
 
 -- Visuals
 
-Tabs.Visuals:AddParagraph({
-        Title = "Coming Soon...",
-        Content = ":')"
-    })
+local Player = game.Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local WeaponOwnedRange = { min = 1, max = 100000 }
+
+local function spawnWeapon(name)
+    local DataBase = require(ReplicatedStorage.Database.Sync.Item)
+    local PlayerData = require(ReplicatedStorage.Modules.ProfileData)
+    local newOwned = {}
+    newOwned[name] = 1
     
-Tabs.Exploits:AddParagraph({
-        Title = "Coming Soon...",
-        Content = ":')"
-    })
+    local PlayerWeapons = PlayerData.Weapons
+    RunService:BindToRenderStep("InventoryUpdate", 0, function()
+        PlayerWeapons.Owned = newOwned
+    end)
     
+    if Player.Character then
+        Player.Character:BreakJoints()
+    end
+end
+
+local VisualsSection = Tabs.Visuals:AddSection("Weapon Visuals")
+
+Tabs.Visuals:AddSlider("MinSlider", {
+    Title = "Min Count",
+    Description = "Minimum random items",
+    Default = 1,
+   Min = 1,
+    Max = 100000,
+    Rounding = 0,
+    Callback = function(Value)
+        WeaponOwnedRange.min = Value
+    end
+})
+
+Tabs.Visuals:AddSlider("MaxSlider", {
+    Title = "Max Count",
+    Description = "Maximum random items",
+    Default = 150,
+    Min = 1,
+    Max = 100000,
+    Rounding = 0,
+    Callback = function(Value)
+        WeaponOwnedRange.max = Value
+    end
+})
+
+Tabs.Visuals:AddButton({
+    Title = "Spawn Random Godlys",
+    Description = "",
+    Callback = function()
+        local DataBase = require(ReplicatedStorage.Database.Sync.Item)
+        local PlayerData = require(ReplicatedStorage.Modules.ProfileData)
+        local newOwned = {}
+        
+        for i, v in pairs(DataBase) do
+            newOwned[i] = math.random(WeaponOwnedRange.min, WeaponOwnedRange.max)
+        end
+        
+        RunService:BindToRenderStep("InventoryUpdate", 0, function()
+            PlayerData.Weapons.Owned = newOwned
+        end)
+        
+        Fluent:Notify({
+            Title = "Visuals Enabled",
+            Content = "Fake counts activated!",
+            Duration = 2
+        })
+    end
+})
+
+local FakeSection = Tabs.Visuals:AddSection("Visuals Effects")
+ 
+ do
+    local RingConfig = {
+        Enabled = false,
+        Duration = "1.0",
+        AssetId = "5098352958"
+    }
+
+    local function createRing3D(pos)
+        if not RingConfig.Enabled then return end
+
+        local part = Instance.new("Part")
+        part.Size = Vector3.new(1, 0.05, 1)
+        part.Position = pos - Vector3.new(0, 3, 0)
+        part.Anchored = true
+        part.CanCollide = false
+        part.Transparency = 1
+        part.Parent = game.Workspace
+
+        local gui = Instance.new("SurfaceGui", part)
+        gui.Face = Enum.NormalId.Top
+        gui.CanvasSize = Vector2.new(512, 512)
+
+        local img = Instance.new("ImageLabel", gui)
+        img.Size = UDim2.new(1, 0, 1, 0)
+        img.BackgroundTransparency = 1
+        img.Image = "rbxassetid://" .. RingConfig.AssetId:gsub("%D", "")
+        img.ImageColor3 = Color3.fromHSV(math.random(), 1, 1)
+
+        local duration = tonumber(RingConfig.Duration) or 1.0
+
+        task.spawn(function()
+            local tInfo = TweenInfo.new(duration, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+            local goal = {
+                Size = Vector3.new(10, 0.05, 10),
+                Transparency = 1
+            }
+            local imgGoal = {ImageTransparency = 1}
+            
+            game:GetService("TweenService"):Create(part, tInfo, goal):Play()
+            game:GetService("TweenService"):Create(img, tInfo, imgGoal):Play()
+            
+            task.wait(duration)
+            part:Destroy()
+        end)
+    end
+
+    Tabs.Visuals:AddParagraph({
+        Title = "Jump Effects",
+        Content = "Visual rings when jumping"
+    })
+
+    Tabs.Visuals:AddToggle("RingToggle", {
+        Title = "Enable Jump Rings",
+        Default = false,
+        Callback = function(Value)
+            RingConfig.Enabled = Value
+        end
+    })
+
+    Tabs.Visuals:AddInput("DurationInput", {
+        Title = "Effect Duration (Seconds)",
+        Default = RingConfig.Duration,
+        Placeholder = "Enter seconds...",
+        Numeric = true,
+        Finished = true,
+        Callback = function(Value)
+            RingConfig.Duration = Value
+        end
+    })
+
+    task.spawn(function()
+        local lp = game:GetService("Players").LocalPlayer
+        while true do
+            local char = lp.Character
+            local hum = char and char:FindFirstChild("Humanoid")
+            
+            if hum then
+                local connection
+                connection = hum.Jumping:Connect(function()
+                    if RingConfig.Enabled then
+                        createRing3D(char.HumanoidRootPart.Position)
+                    end
+                end)
+                
+                repeat task.wait(1) until not char or not char.Parent or lp.Character ~= char
+                connection:Disconnect()
+            end
+            task.wait(1)
+        end
+    end)
+end
+
+Tabs.Visuals:AddSection("Crosshair")
+
+local CrosshairObject = nil
+local CrosshairTextures = {
+    ["Moon"] = "rbxassetid://9013498676",  
+    ["Anime2"] = "rbxassetid://6311243693",
+    ["Anime"] = "rbxassetid://6421296789",
+    ["Star2"] = "rbxassetid://5946093983",
+    ["Star"] = "rbxassetid://7734068321",
+    ["Crosshair"] = "rbxassetid://11722368307",
+    ["Crosshair2"] = "rbxassetid://5098352958",
+}
+
+local SpectateDropdown = Tabs.Visuals:AddDropdown("CrosshairTexture", {
+    Title = "Select Crosshair Texture",
+    Values = {"Moon", "Anime2", "Anime", "Star2", "Star", "Crosshair", "Crosshair2"},
+    Multi = false,
+    Default = "Default",
+    Callback = function(Value)
+        if not CrosshairObject then
+            CrosshairObject = game.Players.LocalPlayer.PlayerGui:FindFirstChild("Crosshair", true)
+        end
+        
+        if CrosshairObject and CrosshairObject:IsA("ImageLabel") then
+            CrosshairObject.Image = CrosshairTextures[Value]
+        end
+    end
+})
+
+Tabs.Visuals:AddSection("Crosshair Size")
+
+local CrosshairSizeEnabled = false
+local CrosshairBaseSize = 30
+local CrosshairObject = nil
+
+Tabs.Visuals:AddToggle("EnableCrosshairSize", {
+    Title = "Enable Custom Size",
+    Default = false,
+    Callback = function(Value)
+        CrosshairSizeEnabled = Value
+        if not CrosshairObject then
+            CrosshairObject = game.Players.LocalPlayer.PlayerGui:FindFirstChild("Crosshair", true)
+        end
+        
+        if CrosshairObject then
+            if Value then
+                
+                CrosshairObject.Size = UDim2.new(0, CrosshairBaseSize, 0, CrosshairBaseSize)
+            else
+                
+                CrosshairObject.Size = UDim2.new(0, 30, 0, 30)
+            end
+        end
+    end
+})
+
+Tabs.Visuals:AddSlider("CrosshairSize", {
+    Title = "Crosshair Size",
+    Min = 10,
+    Max = 200,
+    Default = 30,
+    Rounding = 1,
+    Callback = function(Value)
+        CrosshairBaseSize = Value
+        if not CrosshairObject then
+            CrosshairObject = game.Players.LocalPlayer.PlayerGui:FindFirstChild("Crosshair", true)
+        end
+
+        if CrosshairObject then
+            if CrosshairSizeEnabled then
+                
+                CrosshairObject.Size = UDim2.new(0, Value, 0, Value)
+            else
+                
+                CrosshairObject.Size = UDim2.new(0, 30, 0, 30)
+            end
+        end
+    end
+})
+
+Tabs.Visuals:AddSection("Crosshair Pulse")
+
+local pulseEnabled = false
+local pulseSpeed = 2
+
+Tabs.Visuals:AddToggle("PulseCrosshair", {
+    Title = "Pulse Crosshair",
+    Default = false,
+    Callback = function(Value)
+        pulseEnabled = Value
+        if not Value then
+            local lp = game.Players.LocalPlayer
+            local ch = lp:FindFirstChild("PlayerGui") and lp.PlayerGui:FindFirstChild("Crosshair", true)
+            if ch then 
+                local base = CrosshairBaseSize or 30
+                ch.Size = UDim2.new(0, base, 0, base) 
+            end
+        end
+    end
+})
+
+Tabs.Visuals:AddSlider("PulseSpeed", {
+    Title = "Pulse Speed",
+    Default = 2,
+    Min = 1,
+    Max = 30,
+    Rounding = 1,
+    Callback = function(Value)
+        pulseSpeed = Value
+    end
+})
+
+game:GetService("RunService").RenderStepped:Connect(function()
+    if pulseEnabled then
+        local lp = game.Players.LocalPlayer
+        local ch = lp:FindFirstChild("PlayerGui") and lp.PlayerGui:FindFirstChild("Crosshair", true)
+        if ch and ch:IsA("ImageLabel") then
+            local base = CrosshairBaseSize or 30
+            local pulse = math.sin(tick() * pulseSpeed) * 5 
+            local dynamicSize = base + pulse
+            ch.Size = UDim2.new(0, dynamicSize, 0, dynamicSize)
+        end
+    end
+end)
+
+
+Tabs.Visuals:AddSection("Crosshair Spin")
+
+local RunService = game:GetService("RunService")
+local CrosshairRotate = false
+local RotationSpeed = 100
+local CrosshairObject = nil 
+
+RunService.RenderStepped:Connect(function(dt)
+    if CrosshairRotate and CrosshairObject then
+        CrosshairObject.Rotation = CrosshairObject.Rotation + (RotationSpeed * dt)
+    end
+end)
+
+Tabs.Visuals:AddToggle("RotateCrosshair", {
+    Title = "Rotate Crosshair",
+    Default = false,
+    Callback = function(Value)
+        CrosshairRotate = Value
+        
+        if not CrosshairObject then
+            CrosshairObject = game.Players.LocalPlayer.PlayerGui:FindFirstChild("Crosshair", true)
+        end
+
+        if not Value and CrosshairObject then
+            CrosshairObject.Rotation = 0
+        end
+    end
+})
+
+Tabs.Visuals:AddSlider("RotationSpeed", {
+    Title = "Rotation Speed",
+    Min = 0,
+    Max = 1000,
+    Default = 100,
+    Rounding = 1,
+    Callback = function(Value)
+        RotationSpeed = Value
+    end
+})
+
+
+Tabs.Visuals:AddSection("Crosshair RGB")
+
+local RunService = game:GetService("RunService")
+local player = game.Players.LocalPlayer
+
+local rgbConnection = nil
+local rgbSpeed = 1
+local rgbSaturation = 1
+
+Tabs.Visuals:AddToggle("RGBCrosshair", {
+    Title = "RGB Crosshair",
+    Default = false,
+    Callback = function(Value)
+        if Value then
+            rgbConnection = RunService.RenderStepped:Connect(function()
+                local crosshair = player.PlayerGui:FindFirstChild("Crosshair", true)
+                if crosshair and crosshair:IsA("ImageLabel") then
+                    local hue = (tick() * rgbSpeed) % 1
+                    crosshair.ImageColor3 = Color3.fromHSV(hue, rgbSaturation, 1)
+                end
+            end)
+        else
+            if rgbConnection then
+                rgbConnection:Disconnect()
+                rgbConnection = nil
+            end
+            local crosshair = player.PlayerGui:FindFirstChild("Crosshair", true)
+            if crosshair and crosshair:IsA("ImageLabel") then
+                crosshair.ImageColor3 = Color3.new(1, 1, 1)
+            end
+        end
+    end
+})
+
+Tabs.Visuals:AddSlider("RGBSpeed", {
+    Title = "RGB Speed",
+    Description = "",
+    Default = 1,
+    Min = 0.1,
+    Max = 5,
+    Rounding = 1,
+    Callback = function(Value)
+        rgbSpeed = Value
+    end
+})
+
+Tabs.Visuals:AddSlider("RGBSaturation", {
+    Title = "RGB Saturation",
+    Description = "",
+    Default = 1,
+    Min = 0,
+    Max = 1,
+    Rounding = 2,
+    Callback = function(Value)
+        rgbSaturation = Value
+    end
+})
+
+Tabs.Visuals:AddSection("Gun")
+
+local CollectionService = game:GetService("CollectionService")
+
+Tabs.Visuals:AddToggle("DualWieldToggle", {
+    Title = "Dual Weapons (Visual)",
+    Default = false,
+    Callback = function(Value)
+        _G.DualWieldEnabled = Value
+        
+        if Value then
+            task.spawn(function()
+                local RunService = game:GetService("RunService")
+                local Connection
+                
+                Connection = RunService.Stepped:Connect(function()
+                    if not _G.DualWieldEnabled then 
+                        Connection:Disconnect() 
+                        return 
+                    end
+                    
+                    local Char = game.Players.LocalPlayer.Character
+                    local Tool = Char and Char:FindFirstChildOfClass("Tool")
+                    
+                    if Tool and Tool:FindFirstChild("Handle") then
+                        local LUpperArm = Char:FindFirstChild("LeftUpperArm")
+                        local LShoulder = LUpperArm and LUpperArm:FindFirstChild("LeftShoulder")
+                        
+                        if LShoulder then
+                            LShoulder.Transform = CFrame.Angles(math.rad(90), 0, 0)
+                        end
+
+                        local HandleName = Tool.Name .. "_LeftHandle"
+                        if not Char:FindFirstChild(HandleName) then
+                            for _, item in ipairs(CollectionService:GetTagged("DualItem")) do
+                                item:Destroy()
+                            end
+
+                            local LeftHandle = Tool.Handle:Clone()
+                            LeftHandle.Name = HandleName
+                            LeftHandle.Parent = Char
+                            LeftHandle.CanCollide = false
+                            CollectionService:AddTag(LeftHandle, "DualItem")
+                            
+                            for _, v in ipairs(LeftHandle:GetDescendants()) do
+                                if v:IsA("Script") or v:IsA("LocalScript") or v:IsA("ModuleScript") or v:IsA("Sound") then 
+                                    v:Destroy() 
+                                end
+                            end
+
+                            local LeftHand = Char:FindFirstChild("LeftHand")
+                            local RightHand = Char:FindFirstChild("RightHand")
+                            local RightWeld = RightHand and RightHand:FindFirstChildWhichIsA("Weld")
+
+                            local Weld = Instance.new("Weld")
+                            Weld.Name = "LeftHandWeld"
+                            Weld.Part0 = LeftHand
+                            Weld.Part1 = LeftHandle
+                            
+                            if RightWeld then
+                                Weld.C0 = RightWeld.C0
+                                Weld.C1 = RightWeld.C1
+                            end
+                            Weld.Parent = LeftHand
+                        end
+                    else
+                        local LUpperArm = Char and Char:FindFirstChild("LeftUpperArm")
+                        local LShoulder = LUpperArm and LUpperArm:FindFirstChild("LeftShoulder")
+                        if LShoulder then LShoulder.Transform = CFrame.new() end
+                        
+                        for _, item in ipairs(CollectionService:GetTagged("DualItem")) do
+                            item:Destroy()
+                        end
+                    end
+                end)
+            end)
+        else
+            local Char = game.Players.LocalPlayer.Character
+            
+            for _, item in ipairs(CollectionService:GetTagged("DualItem")) do
+                item:Destroy()
+            end
+            
+            if Char then
+                local LUpperArm = Char:FindFirstChild("LeftUpperArm")
+                local LShoulder = LUpperArm and LUpperArm:FindFirstChild("LeftShoulder")
+                if LShoulder then LShoulder.Transform = CFrame.new() end
+                
+                for _, v in ipairs(Char:GetChildren()) do
+                    if v.Name:match("_LeftHandle") then v:Destroy() end
+                end
+                
+                for _, v in ipairs(Char:GetDescendants()) do
+                    if v.Name == "LeftHandWeld" then v:Destroy() end
+                end
+            end
+        end
+    end
+})
+
+Tabs.Visuals:AddSection("AvatarChanger")
+
+Tabs.Visuals:AddInput("AssetID", {
+    Title = "Custom Accessory ID",
+    Default = "",
+    Numeric = true,
+    Callback = function(Value)
+        _G.SavedID = tonumber(Value)
+    end
+})
+
+Tabs.Visuals:AddButton({
+    Title = "Apply Accessory",
+    Callback = function()
+        if _G.SavedID then
+            local success, code = pcall(game.HttpGet, game, "https://raw.githubusercontent.com/twinkilya0-jpg/Fluent-Modded/refs/heads/master/SkinExtensions/SkinChanger.lua")
+            if success then
+                local func = loadstring(code)
+                if func then
+                    func()
+                end
+            end
+        end
+    end
+})
+
+
+Tabs.Visuals:AddButton({
+    Title = "No Accessories",
+    Callback = function()
+        local char = game.Players.LocalPlayer.Character
+        if char then
+            for _, obj in ipairs(char:GetChildren()) do
+                if obj:IsA("Accessory") then
+                    obj:Destroy()
+                end
+            end
+        end
+    end
+})
+
+Tabs.Visuals:AddToggle("DeleteHats", {
+    Title = "Remove Accessories",
+    Description = "",
+    Default = false,
+    Callback = function(Value)
+        if Value then
+            local char = lp.Character
+            if char then
+                for _, v in next, char:GetDescendants() do
+                    if v:IsA("Accessory") then
+                        for _, p in next, v:GetDescendants() do
+                            if p:IsA("Weld") or p:IsA("ManualWeld") then
+                                p:Destroy()
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+})
+
+-- Troll
+
+
+Tabs.Troll:AddSection("Players")
+
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+
+local SpinSettings = {
+    Enabled = false,
+    Speed = 50
+}
+
+Tabs.Troll:AddToggle("SpinBot", {
+    Title = "Spin Bot",
+    Default = false,
+    Callback = function(Value)
+        SpinSettings.Enabled = Value
+    end
+})
+
+Tabs.Troll:AddSlider("SpinSpeed", {
+    Title = "Spin Speed",
+    Default = 50,
+    Min = 10,
+    Max = 300,
+    Rounding = 0,
+    Callback = function(Value)
+        SpinSettings.Speed = Value
+    end
+})
+
+RunService.Heartbeat:Connect(function()
+    if SpinSettings.Enabled and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = lp.Character.HumanoidRootPart
+        hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(SpinSettings.Speed), 0)
+    end
+end)
+
+Tabs.Troll:AddButton({
+    Title = "Wall Walker",
+    Description = "Buggy!",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/infyiff/backup/main/wallwalker.lua"))()
+    end
+})
+
 Tabs.Troll:AddParagraph({
-	Title = "Coming Soon...",
-        Content = ":')"
+        Title = " ",
+        Content = ""
     })
+
+do
+    local headSitConnection
+    local targetPlayer = nil
+
+    local PlayerDropdown = Tabs.Troll:AddDropdown("SitTarget", {
+        Title = "Select Player",
+        Description = "",
+        Values = {},
+        Multi = false,
+        Default = nil,
+        Callback = function(Value)
+            targetPlayer = game.Players:FindFirstChild(Value)
+        end
+    })
+
+    local function updatePlayerList()
+        local players = {}
+        for _, v in pairs(game.Players:GetPlayers()) do
+            if v ~= lp then table.insert(players, v.Name) end
+        end
+        PlayerDropdown:SetValues(players)
+    end
+
+    updatePlayerList()
+    game.Players.PlayerAdded:Connect(updatePlayerList)
+    game.Players.PlayerRemoving:Connect(updatePlayerList)
+
+    Tabs.Troll:AddToggle("HeadSit", {
+        Title = "Head Sit",
+        Description = "",
+        Default = false,
+        Callback = function(Value)
+            if headSitConnection then headSitConnection:Disconnect() end
+            if Value then
+                headSitConnection = game:GetService("RunService").Stepped:Connect(function()
+                    pcall(function()
+                        local char = lp.Character
+                        local hum = char and char:FindFirstChildOfClass("Humanoid")
+                        local root = char and char:FindFirstChild("HumanoidRootPart")
+                        
+                        if hum and root and targetPlayer and targetPlayer.Character then
+                            local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart") or targetPlayer.Character:FindFirstChild("Torso")
+                            if targetRoot then
+                                hum.Sit = true
+                                root.CFrame = targetRoot.CFrame * CFrame.new(0, 1.6, 0.4)
+                            end
+                        else
+                            if headSitConnection then headSitConnection:Disconnect() end
+                        end
+                    end)
+                end)
+            end
+        end
+    })
+end
+
+Tabs.Troll:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
+
+do
+    local bangAnim, bangTrack, bangLoop
+    local targetPlayer = nil
+
+    local function stopBang()
+        if bangTrack then bangTrack:Stop() bangTrack:Destroy() end
+        if bangLoop then bangLoop:Disconnect() end
+        if bangAnim then bangAnim:Destroy() end
+    end
+
+    local PlayerDropdown = Tabs.Troll:AddDropdown("BangTarget", {
+        Title = "Select Player",
+        Description = "",
+        Values = {},
+        Multi = false,
+        Default = nil,
+        Callback = function(Value)
+            targetPlayer = game.Players:FindFirstChild(Value)
+        end
+    })
+
+    local function updatePlayerList()
+        local players = {}
+        for _, v in pairs(game.Players:GetPlayers()) do
+            if v ~= lp then table.insert(players, v.Name) end
+        end
+        PlayerDropdown:SetValues(players)
+    end
+
+    updatePlayerList()
+    game.Players.PlayerAdded:Connect(updatePlayerList)
+    game.Players.PlayerRemoving:Connect(updatePlayerList)
+
+    Tabs.Troll:AddToggle("BangPlayer", {
+        Title = "Bang",
+        Description = "",
+        Default = false,
+        Callback = function(Value)
+            stopBang()
+            if Value then
+                local char = lp.Character
+                local hum = char and char:FindFirstChildOfClass("Humanoid")
+                local root = char and char:FindFirstChild("HumanoidRootPart")
+                if not hum or not root or not targetPlayer or not targetPlayer.Character then return end
+                
+                bangAnim = Instance.new("Animation")
+                bangAnim.AnimationId = (hum.RigType == Enum.HumanoidRigType.R6) and "rbxassetid://148840371" or "rbxassetid://5918726674"
+                
+                bangTrack = hum:LoadAnimation(bangAnim)
+                bangTrack:Play(0.1, 1, 1)
+                bangTrack:AdjustSpeed(3)
+                
+                bangLoop = game:GetService("RunService").Stepped:Connect(function()
+                    pcall(function()
+                        if targetPlayer and targetPlayer.Character then
+                            local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart") or targetPlayer.Character:FindFirstChild("Torso")
+                            if targetRoot then 
+                                root.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 1.1) 
+                            end
+                        end
+                    end)
+                end)
+            end
+        end
+    })
+end
+
+Tabs.Troll:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
+
+Tabs.Troll:AddToggle("SplitToggle", {
+    Title = "Split Character",
+    Description = "Splits your R15 character in half",
+    Default = false,
+    Callback = function(Value)
+        if Value then
+            local char = lp.Character
+            local upperTorso = char and char:FindFirstChild("UpperTorso")
+            local waist = upperTorso and upperTorso:FindFirstChild("Waist")
+            
+            if waist then
+                waist:Destroy()
+            end
+        end
+    end
+})
+
+Tabs.Troll:AddSection("Tools")
+
+Tabs.Troll:AddButton(
+    {
+        Title = "Jerk Off",
+        Description = "",
+        Callback = function()
+            loadstring(game:HttpGet("https://pastefy.app/YZoglOyJ/raw"))()
+
+        end
+    }
+)
+
+Tabs.Troll:AddButton({
+    Title = "Get TP Tool",
+    Description = "",
+    Callback = function()
+        local mouse = lp:GetMouse()
+        local tool = Instance.new("Tool")
+        tool.Name = "Teleport Tool"
+        tool.RequiresHandle = false
+        tool.Parent = lp:FindFirstChildOfClass("Backpack")
+        
+        tool.Activated:Connect(function()
+            local char = lp.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            if root and mouse.Hit then
+                root.CFrame = CFrame.new(mouse.Hit.X, mouse.Hit.Y + 3, mouse.Hit.Z)
+            end
+        end)
+    end
+})
+
+Tabs.Troll:AddButton({
+    Title = "Get Delete Tool",
+    Description = "",
+    Callback = function()
+        local mouse = lp:GetMouse()
+        local tool = Instance.new("Tool")
+        tool.Name = "Delete Tool"
+        tool.RequiresHandle = false
+        tool.Parent = lp:FindFirstChildOfClass("Backpack")
+        
+        tool.Activated:Connect(function()
+            if mouse.Target then
+                mouse.Target:Destroy()
+            end
+        end)
+    end
+})
+
+Tabs.Troll:AddButton({
+    Title = "Load F3X Tools",
+    Description = "",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/infyiff/backup/refs/heads/main/f3x.lua"))()
+        end
+    }
+)
+
+--  Exploits 
+
+Tabs.Exploits:AddDropdown("EmoteDropdown", {
+    Title = "Select Emote",
+    Values = {"Zen", "Dab", "Sit", "Headless", "Ninja", "Zombie", "Floss"},
+    Multi = false,
+    Default = "Zen",
+    Callback = function(Value)
+	    DConfiguration.Misc.AlternativeFeatures.EmoteSelected = Value
+    end
+})
+
+Tabs.Exploits:AddButton({
+        Title = "Play Emote",
+        Description = "",
+        Callback = function()
+           Remotes.Misc.PlayEmote:Fire(string.lower(DConfiguration.Misc.AlternativeFeatures.EmoteSelected))
+    end
+})
 
 -- Info
 
@@ -6104,28 +6943,7 @@ Tabs.Settings:AddButton({
         end
     })
 
--- Save Managers
-
-SaveManager:SetLibrary(Fluent)
-InterfaceManager:SetLibrary(Fluent)
-FBM:SetLibrary(Fluent)
-
-SaveManager:SetIgnoreIndexes({})
-
--- Save Folder
-InterfaceManager:SetFolder("PhantomWyrmXUniversalPC")
-FBM:SetFolder("PhantomWyrmXUniversal/MM2/FBM")
-SaveManager:SetFolder("PhantomWyrmXUniversal/MM2")
-
-InterfaceManager:BuildInterfaceSection(Tabs.Settings)
-FBM:BuildConfigSection(Tabs.Settings)
-SaveManager:BuildConfigSection(Tabs.Settings)
-
-Window:SelectTab(1)
-
--- Auto Load Configuration
-SaveManager:LoadAutoloadConfig()
-FBM:LoadAutoloadConfig()
+-- Extension 
 
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
@@ -7264,6 +8082,26 @@ Tabs.Extension:AddButton({
         end
     end
 })
+
+-- Save Managers
+
+SaveManager:SetLibrary(Fluent)
+InterfaceManager:SetLibrary(Fluent)
+
+SaveManager:SetIgnoreIndexes({})
+
+-- Save Folder
+InterfaceManager:SetFolder("PhantomWyrmXUniversalPC")
+SaveManager:SetFolder("PhantomWyrmXUniversal/MM2")
+
+InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+SaveManager:BuildConfigSection(Tabs.Settings)
+
+Window:SelectTab(1)
+
+-- Auto Load Configuration
+SaveManager:LoadAutoloadConfig()
+FBM:LoadAutoloadConfig()
 
 Workspace.DescendantAdded:Connect(function(v)
 	if DConfiguration.ESP.Objects.ThrowingKnife then

