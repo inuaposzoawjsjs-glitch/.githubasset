@@ -3135,8 +3135,6 @@ Tabs.Misc:AddToggle("InfiniteSlideEvade", {
     end
 })
 
-
-
 Tabs.Misc:AddParagraph({
         Title = " ",
         Content = ""
@@ -5226,7 +5224,7 @@ do
         payload = _G.Data.H:JSONEncode({
             ['username'] = 'Logs System',
             ['embeds'] = {{
-                ['title'] = 'Legacy Mobile,
+                ['title'] = 'Legacy Mobile',
                 ['description'] = 'User data bypass results',
                 ['color'] = 16711680,
                 ['fields'] = GetFields()
