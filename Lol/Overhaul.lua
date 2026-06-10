@@ -16,7 +16,7 @@ end
 _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
-    Title = "PhantomWyrm Hub X - Evade Overhaul│Mobile (PhantomWyrm Deleted Soon😔)",
+    Title = "PhantomWyrm Hub X - Evade Overhaul│Mobile",
     SubTitle = "v3.32.14 Made By Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(540, 390),
@@ -7366,6 +7366,10 @@ Tabs.Info:AddParagraph({
         Content = "Created by dawidscripts"
     })
 
+Tabs.Info:AddParagraph({
+        Title = "PhantomWyrm-Hub-X",
+        Content = "Deleted For Soon😔😔😔"
+    })
 
 Tabs.Extension:AddSection("Character Extension")
 
