@@ -399,11 +399,13 @@ else
 end
 
 if game.Players then
-   print("Advance Api")
+   print("Advance Api 🟢")
 else
-   print("Common Api")
+   print("Common Api 🟢")
 end
 
+print("Executor 🟢")
+print("Script is Running!")
 
 -- Scripts
 

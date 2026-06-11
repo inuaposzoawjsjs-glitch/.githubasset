@@ -393,14 +393,13 @@ else
 end
 
 if game.Players then
-   print("Advance Api")
+   print("Advance Api 🟢")
 else
-   print("Common Api")
+   print("Common Api 🟢")
 end
 
--- Announcement
-
--- loadstring(game:HttpGet("https://raw.githubusercontent.com/Nyxarth910/Draconic-Hub-X/refs/heads/main/files/GlobalAnnouncement.lua"))() Press f darconic hub x 🥀
+print("Executor 🟢")
+print("Script is Running!")
 
 -- Scripts
 
