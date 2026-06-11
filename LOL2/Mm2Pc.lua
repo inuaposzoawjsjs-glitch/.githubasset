@@ -6552,69 +6552,6 @@ Tabs.Visuals:AddToggle("DualWieldToggle", {
     end
 })
 
-Tabs.Visuals:AddSection("AvatarChanger")
-
-Tabs.Visuals:AddInput("AssetID", {
-    Title = "Custom Accessory ID",
-    Default = "",
-    Numeric = true,
-    Callback = function(Value)
-        _G.SavedID = tonumber(Value)
-    end
-})
-
-Tabs.Visuals:AddButton({
-    Title = "Apply Accessory",
-    Callback = function()
-        if _G.SavedID then
-            local success, code = pcall(game.HttpGet, game, "https://raw.githubusercontent.com/twinkilya0-jpg/Fluent-Modded/refs/heads/master/SkinExtensions/SkinChanger.lua")
-            if success then
-                local func = loadstring(code)
-                if func then
-                    func()
-                end
-            end
-        end
-    end
-})
-
-
-Tabs.Visuals:AddButton({
-    Title = "No Accessories",
-    Callback = function()
-        local char = game.Players.LocalPlayer.Character
-        if char then
-            for _, obj in ipairs(char:GetChildren()) do
-                if obj:IsA("Accessory") then
-                    obj:Destroy()
-                end
-            end
-        end
-    end
-})
-
-Tabs.Visuals:AddToggle("DeleteHats", {
-    Title = "Remove Accessories",
-    Description = "",
-    Default = false,
-    Callback = function(Value)
-        if Value then
-            local char = lp.Character
-            if char then
-                for _, v in next, char:GetDescendants() do
-                    if v:IsA("Accessory") then
-                        for _, p in next, v:GetDescendants() do
-                            if p:IsA("Weld") or p:IsA("ManualWeld") then
-                                p:Destroy()
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-})
-
 -- Troll
 
 
@@ -7237,6 +7174,42 @@ Tabs.Extension:AddToggle("TogDoomsekkar", {
         _G.ApplySingleExt(132809431, "Doomsekkar_Acc", state) 
     end
 })
+
+Tabs.Extension:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+_G.DeleteHatsEnabled = false
+
+task.spawn(function()
+    while true do
+        if _G.DeleteHatsEnabled then
+            local char = player.Character
+            if char then
+                for _, v in ipairs(char:GetChildren()) do 
+                    if v:IsA("Accessory") then
+                        v:Destroy() 
+                    end
+                end
+            end
+        end
+        task.wait(0.1)
+    end
+end)
+
+Tabs.Extension:AddToggle("DeleteHats", {
+    Title = "Remove Accessories",
+    Description = "",
+    Default = false,
+    Callback = function(Value)
+        _G.DeleteHatsEnabled = Value
+    end
+})
+
 
 Tabs.Extension:AddButton({
     Title = "AvatarChanger",

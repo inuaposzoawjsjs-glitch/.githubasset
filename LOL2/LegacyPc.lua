@@ -2197,6 +2197,41 @@ Tabs.Misc:AddParagraph({
         Content = ""
     })
     
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+_SB = _SB or { Power = 100 }
+DConfiguration = DConfiguration or { Settings = { GuiScale = { BounceBot = 0 } } }
+DFunctions = DFunctions or {}
+
+local function TriggerBounce()
+    local character = LocalPlayer.Character
+    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    
+    if rootPart and humanoid then
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+        raycastParams.FilterDescendantsInstances = {character}
+        raycastParams.IgnoreWater = true
+        
+        local rayResult = workspace:Raycast(rootPart.Position, Vector3.new(0, -100, 0), raycastParams)
+        
+        if rayResult and rayResult.Instance and rayResult.Instance:IsA("BasePart") and rayResult.Instance.CanCollide then
+            local safePower = math.clamp(_SB.Power, 0, 500)
+            
+            humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+            rootPart.AssemblyLinearVelocity = Vector3.new(rootPart.AssemblyLinearVelocity.X, safePower, rootPart.AssemblyLinearVelocity.Z)
+            
+            task.defer(function()
+                if humanoid then
+                    humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
+                end
+            end)
+        end
+    end
+end    
+    
 local Toggle = Tabs.Misc:AddToggle("AdjustBounce", {Title = "Modify Bounce", Default = false })
 
 Toggle:OnChanged(function(State)
@@ -2228,6 +2263,40 @@ end)
             DConfiguration.Misc.Utilities.BounceModification.EmoteBounce = tonumber(Value) or 120
         end
     })
+    
+    Tabs.Misc:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
+    
+local KeybindRegular = Tabs.Misc:AddKeybind("BounceKey", {
+    Title = "Bounce (Keybind)",
+    Mode = "Toggle", 
+    Default = "O", 
+    Callback = function(State)
+        if State then
+            task.spawn(function()
+                TriggerBounce()
+            end)
+        end
+    end,
+})
+Tabs.Misc:AddInput("BouncePowerInput", {
+    Title = "Bounce Power",
+    Default = tostring(_SB.Power or 100),
+    Placeholder = "100",
+    Numeric = true,
+    Finished = false,
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num then
+            _SB.Power = math.clamp(num, 0, 500)
+        else
+            _SB.Power = 100
+        end
+    end
+})
+    
     
  Tabs.Misc:AddParagraph({
         Title = " ",
@@ -3110,7 +3179,6 @@ _G.Headless_Enabled = false
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
-
 local function applyKorblox(side, meshId)
     local char = player.Character
     if not char then return end
@@ -3139,12 +3207,14 @@ local function applyHeadless()
         head.Transparency = 1
         if head:FindFirstChild("face") then head.face:Destroy() end
         
-        local mesh = Instance.new("SpecialMesh")
-        mesh.Name = "HeadlessMesh"
-        mesh.MeshType = Enum.MeshType.FileMesh
-        mesh.MeshId = "rbxassetid://1095708"
-        mesh.Scale = Vector3.new(0.001, 0.001, 0.001)
-        mesh.Parent = head
+        if not head:FindFirstChild("HeadlessMesh") then
+            local mesh = Instance.new("SpecialMesh")
+            mesh.Name = "HeadlessMesh"
+            mesh.MeshType = Enum.MeshType.FileMesh
+            mesh.MeshId = "rbxassetid://1095708"
+            mesh.Scale = Vector3.new(0.001, 0.001, 0.001)
+            mesh.Parent = head
+        end
     end
 end
 
@@ -3152,14 +3222,12 @@ local function revertChanges()
     local char = player.Character
     if not char then return end
     
-   
     local head = char:FindFirstChild("Head")
     if head then
         head.Transparency = 0
         local mesh = head:FindFirstChild("HeadlessMesh")
         if mesh then mesh:Destroy() end
     end
-    
     
     for _, legName in pairs({"Right Leg", "RightUpperLeg", "Left Leg"}) do
         local leg = char:FindFirstChild(legName)
@@ -3171,11 +3239,22 @@ local function revertChanges()
     end
 end
 
+task.spawn(function()
+    while true do
+        if _G.KorbloxR_Enabled then applyKorblox("Right", "rbxassetid://101851696") end
+        if _G.KorbloxL_Enabled then applyKorblox("Left", "rbxassetid://101851582") end
+        if _G.Headless_Enabled then applyHeadless() end
+        
+        if not _G.KorbloxR_Enabled and not _G.KorbloxL_Enabled and not _G.Headless_Enabled then
+            revertChanges()
+        end
+        task.wait(0.1)
+    end
+end)
+
 player.CharacterAdded:Connect(function(char)
-    task.wait(1) 
-    if _G.KorbloxR_Enabled then applyKorblox("Right", "rbxassetid://101851696") end
-    if _G.KorbloxL_Enabled then applyKorblox("Left", "rbxassetid://101851582") end
-    if _G.Headless_Enabled then applyHeadless() end
+    char:WaitForChild("Humanoid")
+    revertChanges()
 end)
 
 Tabs.Extension:AddToggle("KorbloxRToggle", {
@@ -3184,11 +3263,7 @@ Tabs.Extension:AddToggle("KorbloxRToggle", {
     Default = false,
     Callback = function(Value)
         _G.KorbloxR_Enabled = Value
-        if Value then 
-            applyKorblox("Right", "rbxassetid://101851696") 
-        else 
-            revertChanges() 
-        end
+        if not Value then revertChanges() end
     end
 })
 
@@ -3198,11 +3273,7 @@ Tabs.Extension:AddToggle("KorbloxLToggle", {
     Default = false,
     Callback = function(Value)
         _G.KorbloxL_Enabled = Value
-        if Value then 
-            applyKorblox("Left", "rbxassetid://101851582") 
-        else 
-            revertChanges() 
-        end
+        if not Value then revertChanges() end
     end
 })
 
@@ -3212,14 +3283,9 @@ Tabs.Extension:AddToggle("HeadlessToggle", {
     Default = false,
     Callback = function(Value)
         _G.Headless_Enabled = Value
-        if Value then 
-            applyHeadless() 
-        else 
-            revertChanges() 
-        end
+        if not Value then revertChanges() end
     end
 })
-
 
 _G.Players = game:GetService("Players")
 _G.LPlayer = _G.Players.LocalPlayer
@@ -3415,9 +3481,45 @@ Tabs.Extension:AddToggle("TogDoomsekkar", {
     end
 })
 
+Tabs.Extension:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+_G.DeleteHatsEnabled = false
+
+task.spawn(function()
+    while true do
+        if _G.DeleteHatsEnabled then
+            local char = player.Character
+            if char then
+                for _, v in ipairs(char:GetChildren()) do 
+                    if v:IsA("Accessory") then
+                        v:Destroy() 
+                    end
+                end
+            end
+        end
+        task.wait(0.1)
+    end
+end)
+
+Tabs.Extension:AddToggle("DeleteHats", {
+    Title = "Remove Accessories",
+    Description = "",
+    Default = false,
+    Callback = function(Value)
+        _G.DeleteHatsEnabled = Value
+    end
+})
+
+
 Tabs.Extension:AddButton({
     Title = "AvatarChanger",
-    Description = "",
+    Description = "By Byteed",
     Callback = function()
         loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-client-avatar-changer-92130"))()
     end
