@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm X - Murder Mystery 2│Mobile",
-    SubTitle = "v2.20.26 Made By Carey",
+    SubTitle = "v2.21.26 Made By Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(540, 390),
     Acrylic = false,
@@ -7547,6 +7547,42 @@ Tabs.Extension:AddToggle("TogDoomsekkar", {
         _G.ApplySingleExt(132809431, "Doomsekkar_Acc", state) 
     end
 })
+
+Tabs.Extension:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
+    
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+_G.DeleteHatsEnabled = false
+
+task.spawn(function()
+    while true do
+        if _G.DeleteHatsEnabled then
+            local char = player.Character
+            if char then
+                for _, v in ipairs(char:GetChildren()) do 
+                    if v:IsA("Accessory") then
+                        v:Destroy() 
+                    end
+                end
+            end
+        end
+        task.wait(0.1)
+    end
+end)
+
+Tabs.Extension:AddToggle("DeleteHats", {
+    Title = "Remove Accessories",
+    Description = "",
+    Default = false,
+    Callback = function(Value)
+        _G.DeleteHatsEnabled = Value
+    end
+})
+
 
 Tabs.Extension:AddButton({
     Title = "AvatarChanger",

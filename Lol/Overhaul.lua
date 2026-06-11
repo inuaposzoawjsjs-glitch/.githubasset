@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm Hub X - Evade Overhaul│Mobile",
-    SubTitle = "v3.32.14 Made By Carey",
+    SubTitle = "v3.33.14 Made By Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(540, 390),
     Acrylic = false,
@@ -2483,7 +2483,11 @@ DFunctions.Headless = false
 function DFunctions.ApplyKorblox(side, meshId)
     local char = player.Character
     if not char then return end
-    local legName = (side == "Right") and (char:FindFirstChild("Right Leg") and "Right Leg" or "RightUpperLeg") or "Left Leg"
+    
+    local legName = (side == "Right") 
+        and (char:FindFirstChild("Right Leg") and "Right Leg" or "RightUpperLeg") 
+        or (char:FindFirstChild("Left Leg") and "Left Leg" or "LeftUpperLeg")
+        
     local leg = char:FindFirstChild(legName)
     if leg then
         for _, child in ipairs(leg:GetChildren()) do
@@ -2504,25 +2508,30 @@ function DFunctions.ApplyHeadless()
     if head then
         head.Transparency = 1
         if head:FindFirstChild("face") then head.face:Destroy() end
-        local mesh = Instance.new("SpecialMesh")
-        mesh.Name = "HeadlessMesh"
-        mesh.MeshType = Enum.MeshType.FileMesh
-        mesh.MeshId = "rbxassetid://1095708"
-        mesh.Scale = Vector3.new(0.001, 0.001, 0.001)
-        mesh.Parent = head
+        
+        if not head:FindFirstChild("HeadlessMesh") then
+            local mesh = Instance.new("SpecialMesh")
+            mesh.Name = "HeadlessMesh"
+            mesh.MeshType = Enum.MeshType.FileMesh
+            mesh.MeshId = "rbxassetid://1095708"
+            mesh.Scale = Vector3.new(0.001, 0.001, 0.001)
+            mesh.Parent = head
+        end
     end
 end
 
 function DFunctions.RevertChanges()
     local char = player.Character
     if not char then return end
+    
     local head = char:FindFirstChild("Head")
     if head then
         head.Transparency = 0
         local mesh = head:FindFirstChild("HeadlessMesh")
         if mesh then mesh:Destroy() end
     end
-    for _, legName in pairs({"Right Leg", "RightUpperLeg", "Left Leg"}) do
+    
+    for _, legName in pairs({"Right Leg", "RightUpperLeg", "Left Leg", "LeftUpperLeg"}) do
         local leg = char:FindFirstChild(legName)
         if leg then
             leg.Color = Color3.new(1, 1, 1)
@@ -2533,17 +2542,29 @@ function DFunctions.RevertChanges()
 end
 
 function DFunctions.UpdateVisuals()
-    DFunctions.RevertChanges()
     if DFunctions.KorbloxR then DFunctions.ApplyKorblox("Right", "rbxassetid://101851696") end
     if DFunctions.KorbloxL then DFunctions.ApplyKorblox("Left", "rbxassetid://101851582") end
     if DFunctions.Headless then DFunctions.ApplyHeadless() end
+    
+    if not DFunctions.KorbloxR and not DFunctions.KorbloxL and not DFunctions.Headless then
+        DFunctions.RevertChanges()
+    end
 end
 
-player.CharacterAdded:Connect(function()
-    task.wait(1)
-    DFunctions.UpdateVisuals()
+task.spawn(function()
+    while true do
+        DFunctions.UpdateVisuals()
+        task.wait(0.1)
+    end
 end)
 
+player.CharacterAdded:Connect(function(char)
+    char:WaitForChild("Humanoid")
+    DFunctions.RevertChanges()
+end)
+
+
+-- Topic
 
 -- Main
 
@@ -4546,141 +4567,6 @@ Tabs.Misc:AddInput("BounceBtnSize", {
     end
 })
 
-local Toggle = Tabs.Misc:AddToggle("AdjustEdgeTrimp", {Title = "Modify Edge Trimp", Default = false })
-
-Toggle:OnChanged(function(State)
-    DConfiguration.Misc.Utilities.EdgeTrimpModification.Enabled = State
-     
-    while DConfiguration.Misc.Utilities.EdgeTrimpModification.Enabled and wait(0.1) do
-        spawn(DFunctions.ModifyEdgeTrimp)
-    end
-end)
-
-Tabs.Misc:AddInput("EdgeTrimpHeight", {
-        Title = "Height Multiplier",
-        Default = "1.5",
-        Placeholder = "Number",
-        Numeric = false, 
-        Finished = false, 
-        Callback = function(Value)
-            DConfiguration.Misc.Utilities.EdgeTrimpModification.HeightMultiplier = tonumber(Value) or 1.5
-        end
-    })
-    
-Tabs.Misc:AddInput("DownThreshold", {
-        Title = "Falling Threshold",
-        Default = "4.5",
-        Placeholder = "Number",
-        Numeric = false, 
-        Finished = false, 
-        Callback = function(Value)
-            DConfiguration.Misc.Utilities.EdgeTrimpModification.DownThreshold = tonumber(Value) or 4.5
-        end
-    })
-    
-   Tabs.Misc:AddParagraph({
-        Title = " ",
-        Content = ""
-    })
-
-do
-    local PlatData = {
-        Enabled = false,
-        Size = 10,
-        Transparency = 0.1,
-        List = {}
-    }
-
-    local function ClearPlates()
-        for _, p in pairs(PlatData.List) do
-            if p and p.Parent then p:Destroy() end
-        end
-        PlatData.List = {}
-    end
-
-    local function GetFolder()
-        local g = workspace:FindFirstChild("Game")
-        local m = g and g:FindFirstChild("Map")
-        local p = m and m:FindFirstChild("Parts")
-        return p and p:FindFirstChild("ImmovableProps")
-    end
-
-    local function CreatePlates()
-        ClearPlates()
-        if not PlatData.Enabled then return end
-        local folder = GetFolder()
-        if not folder then return end
-        
-        for _, obj in pairs(folder:GetChildren()) do
-            if obj.Name == "Cactus1" or obj.Name == "Cactus2" then
-                local pos, size
-                if obj:IsA("Model") then
-                    local cf, s = obj:GetBoundingBox()
-                    pos, size = cf.Position, s
-                elseif obj:IsA("BasePart") then
-                    pos, size = obj.Position, obj.Size
-                end
-
-                if pos and size then
-                    local p = Instance.new("Part")
-                    p.Name = "PhantomWyrm"
-                    p.Size = Vector3.new(PlatData.Size, 1, PlatData.Size)
-                    p.Anchored, p.CanCollide = true, true
-                    p.Material = Enum.Material.Neon
-                    p.Transparency = PlatData.Transparency
-                    p.Color = Color3.fromRGB(0, 255, 150)
-                    p.Position = pos + Vector3.new(0, (size.Y / 2) + 0.5, 0)
-                    p.Parent = workspace
-                    table.insert(PlatData.List, p)
-                end
-            end
-        end
-    end
-
-    Tabs.Misc:AddToggle("CactusToggle", {
-        Title = "Cactus Edge Platform",
-        Default = false,
-        Callback = function(Value)
-            PlatData.Enabled = Value
-            CreatePlates()
-        end
-    })
-
-    Tabs.Misc:AddInput("CactusTransInput", {
-        Title = "Platform Transparency (0-1)",
-        Description = "make platforms invisible 3-5",
-        Default = "0.5",
-        Numeric = true,
-        Finished = true,
-        Callback = function(Value)
-            local num = tonumber(Value) or 0.5
-            PlatData.Transparency = math.clamp(num, 0, 1)
-            for _, p in pairs(PlatData.List) do
-                if p and p.Parent then p.Transparency = PlatData.Transparency end
-            end
-        end
-    })
-
-    Tabs.Misc:AddInput("CactusSizeInput", {
-        Title = "Platform Size",
-        Default = "12",
-        Numeric = true,
-        Finished = true,
-        Callback = function(Value)
-            PlatData.Size = tonumber(Value) or 12
-            if PlatData.Enabled then CreatePlates() end
-        end
-    })
-
-    task.spawn(function()
-        while task.wait(3) do
-            if PlatData.Enabled and #PlatData.List == 0 then
-                CreatePlates()
-            end
-        end
-    end)
-end
-    
     Tabs.Misc:AddParagraph({
         Title = " ",
         Content = ""
@@ -4864,6 +4750,146 @@ Tabs.Misc:AddInput("EB_ButtonSize", {
         DFunctions.UpdateButton("EB_Btn", 0.15 + DConfiguration.Settings.GuiScale.EasyBounce, 0.1 + DConfiguration.Settings.GuiScale.EasyBounce)
     end
 })
+
+Tabs.Misc:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
+
+local Toggle = Tabs.Misc:AddToggle("AdjustEdgeTrimp", {Title = "Modify Edge Trimp", Default = false })
+
+Toggle:OnChanged(function(State)
+    DConfiguration.Misc.Utilities.EdgeTrimpModification.Enabled = State
+     
+    while DConfiguration.Misc.Utilities.EdgeTrimpModification.Enabled and wait(0.1) do
+        spawn(DFunctions.ModifyEdgeTrimp)
+    end
+end)
+
+Tabs.Misc:AddInput("EdgeTrimpHeight", {
+        Title = "Height Multiplier",
+        Default = "1.5",
+        Placeholder = "Number",
+        Numeric = false, 
+        Finished = false, 
+        Callback = function(Value)
+            DConfiguration.Misc.Utilities.EdgeTrimpModification.HeightMultiplier = tonumber(Value) or 1.5
+        end
+    })
+    
+Tabs.Misc:AddInput("DownThreshold", {
+        Title = "Falling Threshold",
+        Default = "4.5",
+        Placeholder = "Number",
+        Numeric = false, 
+        Finished = false, 
+        Callback = function(Value)
+            DConfiguration.Misc.Utilities.EdgeTrimpModification.DownThreshold = tonumber(Value) or 4.5
+        end
+    })
+    
+   Tabs.Misc:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
+
+do
+    local PlatData = {
+        Enabled = false,
+        Size = 10,
+        Transparency = 0.1,
+        List = {}
+    }
+
+    local function ClearPlates()
+        for _, p in pairs(PlatData.List) do
+            if p and p.Parent then p:Destroy() end
+        end
+        PlatData.List = {}
+    end
+
+    local function GetFolder()
+        local g = workspace:FindFirstChild("Game")
+        local m = g and g:FindFirstChild("Map")
+        local p = m and m:FindFirstChild("Parts")
+        return p and p:FindFirstChild("ImmovableProps")
+    end
+
+    local function CreatePlates()
+        ClearPlates()
+        if not PlatData.Enabled then return end
+        local folder = GetFolder()
+        if not folder then return end
+        
+        for _, obj in pairs(folder:GetChildren()) do
+            if obj.Name == "Cactus1" or obj.Name == "Cactus2" then
+                local pos, size
+                if obj:IsA("Model") then
+                    local cf, s = obj:GetBoundingBox()
+                    pos, size = cf.Position, s
+                elseif obj:IsA("BasePart") then
+                    pos, size = obj.Position, obj.Size
+                end
+
+                if pos and size then
+                    local p = Instance.new("Part")
+                    p.Name = "PhantomWyrm"
+                    p.Size = Vector3.new(PlatData.Size, 1, PlatData.Size)
+                    p.Anchored, p.CanCollide = true, true
+                    p.Material = Enum.Material.Neon
+                    p.Transparency = PlatData.Transparency
+                    p.Color = Color3.fromRGB(0, 255, 150)
+                    p.Position = pos + Vector3.new(0, (size.Y / 2) + 0.5, 0)
+                    p.Parent = workspace
+                    table.insert(PlatData.List, p)
+                end
+            end
+        end
+    end
+
+    Tabs.Misc:AddToggle("CactusToggle", {
+        Title = "Cactus Platform",
+        Default = false,
+        Callback = function(Value)
+            PlatData.Enabled = Value
+            CreatePlates()
+        end
+    })
+
+    Tabs.Misc:AddInput("CactusTransInput", {
+        Title = "Platform Transparency (0-1)",
+        Description = "make platforms invisible 3-5",
+        Default = "0.5",
+        Numeric = true,
+        Finished = true,
+        Callback = function(Value)
+            local num = tonumber(Value) or 0.5
+            PlatData.Transparency = math.clamp(num, 0, 1)
+            for _, p in pairs(PlatData.List) do
+                if p and p.Parent then p.Transparency = PlatData.Transparency end
+            end
+        end
+    })
+
+    Tabs.Misc:AddInput("CactusSizeInput", {
+        Title = "Platform Size",
+        Default = "12",
+        Numeric = true,
+        Finished = true,
+        Callback = function(Value)
+            PlatData.Size = tonumber(Value) or 12
+            if PlatData.Enabled then CreatePlates() end
+        end
+    })
+
+    task.spawn(function()
+        while task.wait(3) do
+            if PlatData.Enabled and #PlatData.List == 0 then
+                CreatePlates()
+            end
+        end
+    end)
+end
     
 Tabs.Misc:AddSection("Camera Adjustments")
 
@@ -5661,7 +5687,7 @@ local Toggle = Tabs.Misc:AddToggle("SpiderHop", {Title = "Spider Hop V1", Defaul
 end)
 
 Tabs.Misc:AddParagraph({
-        Title = "SpiderHop V2 Soon...",
+        Title = "Spider Hop V2 Soon...",
         Content = ""
     })
     
@@ -5824,7 +5850,7 @@ end)
 Tabs.Misc:AddSection("Spins")
 
 Tabs.Misc:AddParagraph({
-    Title = "No Use Emote",
+    Title = "No use Emote",
     Content = " "
 })
 
@@ -5897,7 +5923,7 @@ do
 end
 
 Tabs.Misc:AddParagraph({
-    Title = "Use Only Emote",
+    Title = "Use only Emote",
     Content = "Beta"
 })
 
@@ -6206,7 +6232,7 @@ local oldTestCollision
 
 Tabs.Exploits:AddToggle("BuildAnywhere", {
     Title = "Pads Build Bypass",
-    Description = "All",
+    Description = "",
     Default = false,
     Callback = function(State)
         local buildModule = getrenv().require(game:GetService("ReplicatedStorage").Modules.Character.Tools.Modules.Methods.Build)        
@@ -6225,66 +6251,6 @@ Tabs.Exploits:AddToggle("BuildAnywhere", {
         end
     end
 })
-
-local FakeSection = Tabs.Exploits:AddSection("AccessoryChanger")
-
-Tabs.Exploits:AddInput("AssetID", {
-    Title = "Custom Accessory ID",
-    Default = "150381051",
-    Numeric = true,
-    Callback = function(Value)
-        _G.SavedID = tonumber(Value)
-    end
-})
-
-Tabs.Exploits:AddButton({
-    Title = "Apply Accessory",
-    Callback = function()
-        if _G.SavedID then
-            local success, code = pcall(game.HttpGet, game, "https://raw.githubusercontent.com/inuaposzoawjsjs-glitch/.githubasset/refs/heads/master/.github/.gist")
-            if success then
-                local func = loadstring(code)
-                if func then
-                    func()
-                end
-            end
-        end
-    end
-})
-
-
-Tabs.Exploits:AddButton({
-    Title = "No Accessories",
-    Callback = function()
-        local char = game.Players.LocalPlayer.Character
-        if char then
-            for _, obj in ipairs(char:GetChildren()) do
-                if obj:IsA("Accessory") then
-                    obj:Destroy()
-                end
-            end
-        end
-    end
-})
-
-do 
-    Tabs.Exploits:AddToggle("RemoveAccs", {Title = "Remove Accessories", Default = false})
-
-    task.spawn(function()
-        while task.wait(0.2) do
-            if Fluent.Options.RemoveAccs.Value then
-                local lp = game:GetService("Players").LocalPlayer
-                if lp and lp.Character then
-                    for _, v in ipairs(lp.Character:GetChildren()) do
-                        if v:IsA("Accessory") then
-                            v:Destroy()
-                        end
-                    end
-                end
-            end
-        end
-    end)
-end
 
 local FakeSection = Tabs.Exploits:AddSection("Grenade")
 
@@ -7366,10 +7332,6 @@ Tabs.Info:AddParagraph({
         Content = "Created by dawidscripts"
     })
 
-Tabs.Info:AddParagraph({
-        Title = "PhantomWyrm-Hub-X",
-        Content = "Deleted For Soon😔😔😔"
-    })
 
 Tabs.Extension:AddSection("Character Extension")
 
@@ -7595,9 +7557,46 @@ Tabs.Extension:AddToggle("TogDoomsekkar", {
     end
 })
 
+Tabs.Extension:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+_G.DeleteHatsEnabled = false
+
+task.spawn(function()
+    while true do
+        if _G.DeleteHatsEnabled then
+            local char = player.Character
+            if char then
+                for _, v in ipairs(char:GetChildren()) do 
+                    if v:IsA("Accessory") then
+                        v:Destroy() 
+                    end
+                end
+            end
+        end
+        task.wait(0.1)
+    end
+end)
+
+Tabs.Extension:AddToggle("DeleteHats", {
+    Title = "Remove Accessories",
+    Description = "",
+    Default = false,
+    Callback = function(Value)
+        _G.DeleteHatsEnabled = Value
+    end
+})
+
+
+
 Tabs.Extension:AddButton({
     Title = "AvatarChanger",
-    Description = "",
+    Description = "By Byteed",
     Callback = function()
         loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-client-avatar-changer-92130"))()
     end
@@ -8436,7 +8435,7 @@ task.spawn(function()
 
     Tabs.Extension:AddToggle("FpsUnlockToggle", {
         Title = "Unlock FPS",
-        Description = "Removes the frame rate cap",
+        Description = "",
         Default = false,
         Callback = function(Value)
             FpsConfig.Enabled = Value

