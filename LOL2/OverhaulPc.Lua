@@ -378,11 +378,20 @@ else
    print("Supported firetouchinterest()")
 end
 
-if game.Players then
-   print("Advance Api")
+if not setfpscap or setfpscap(500) then
+    return LocalPlayer:Kick("UNC RESTRICTION MISSING: setfpscap() | PLEASE TRY OTHER EXECUTORS")
 else
-   print("Common Api")
+   print("Supported setfpscap()")
 end
+
+if game.Players then
+   print("Advance Api 🟢")
+else
+   print("Common Api 🟢")
+end
+
+print("Executor 🟢")
+print("Script is Running!")
 
 -- Announcement
 
