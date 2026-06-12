@@ -2523,48 +2523,22 @@ function DFunctions.ApplyHeadless()
     end
 end
 
-function DFunctions.RevertChanges()
-    local char = player.Character
-    if not char then return end
-    
-    local head = char:FindFirstChild("Head")
-    if head then
-        head.Transparency = 0
-        local mesh = head:FindFirstChild("HeadlessMesh")
-        if mesh then mesh:Destroy() end
-    end
-    
-    for _, legName in pairs({"Right Leg", "RightUpperLeg", "Left Leg", "LeftUpperLeg"}) do
-        local leg = char:FindFirstChild(legName)
-        if leg then
-            leg.Color = Color3.new(1, 1, 1)
-            local mesh = leg:FindFirstChild("KorbloxMesh")
-            if mesh then mesh:Destroy() end
-        end
-    end
-end
-
 function DFunctions.UpdateVisuals()
     if DFunctions.KorbloxR then DFunctions.ApplyKorblox("Right", "rbxassetid://101851696") end
     if DFunctions.KorbloxL then DFunctions.ApplyKorblox("Left", "rbxassetid://101851582") end
     if DFunctions.Headless then DFunctions.ApplyHeadless() end
-    
-    if not DFunctions.KorbloxR and not DFunctions.KorbloxL and not DFunctions.Headless then
-        DFunctions.RevertChanges()
-    end
 end
-
-task.spawn(function()
-    while true do
-        DFunctions.UpdateVisuals()
-        task.wait(0.1)
-    end
-end)
 
 player.CharacterAdded:Connect(function(char)
     char:WaitForChild("Humanoid")
-    DFunctions.RevertChanges()
+    task.wait(1)
+    DFunctions.UpdateVisuals()
 end)
+
+if player.Character then
+    DFunctions.UpdateVisuals()
+end
+
 
 
 -- Topic
@@ -8047,50 +8021,95 @@ Tabs.Extension:AddSection("Lightning Extension")
 
 local Lighting = game:GetService("Lighting")
 
-local normalLighting = {
-    Ambient = Lighting.Ambient,
-    ColorShift_Bottom = Lighting.ColorShift_Bottom,
-    ColorShift_Top = Lighting.ColorShift_Top,
-    FogEnd = Lighting.FogEnd,
-    FogStart = Lighting.FogStart,
-    GlobalShadows = Lighting.GlobalShadows,
-    ClockTime = Lighting.ClockTime,
-    Brightness = Lighting.Brightness
-}
+local fbConnection = nil
+local fogConnection = nil
+
+local OriginalFogEnd = Lighting.FogEnd
+local OriginalDensity, OriginalGlare, OriginalHaze
+
+getgenv().FbBrightnessValue = 2
+
+local Atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+if Atmosphere then
+    OriginalDensity = Atmosphere.Density
+    OriginalGlare = Atmosphere.Glare
+    OriginalHaze = Atmosphere.Haze
+end
+
+local function applyFullBright()
+    Lighting.Ambient = Color3.new(1, 1, 1)
+    Lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
+    Lighting.ColorShift_Top = Color3.new(1, 1, 1)
+    Lighting.FogEnd = 100000
+    Lighting.GlobalShadows = false
+    Lighting.ClockTime = 14
+    Lighting.Brightness = getgenv().FbBrightnessValue
+end
+
+local function applyNoFog()
+    Lighting.FogEnd = 100000
+    local A = Lighting:FindFirstChildOfClass("Atmosphere")
+    if A then
+        A.Density = 0
+        A.Glare = 0
+        A.Haze = 0
+    end
+end
 
 local Toggle = Tabs.Extension:AddToggle("FullBright", {
     Title = "Full Bright", 
     Default = false
 })
 
+local BrightnessInput = Tabs.Extension:AddInput("FbBrightnessInput", {
+    Title = "Full Bright Brightness",
+    Default = "2",
+    Placeholder = "Enter brightness level...",
+    Numeric = true,
+    Finished = false
+})
+
 Toggle:OnChanged(function(state)
+    if fbConnection then
+        fbConnection:Disconnect()
+        fbConnection = nil
+    end
+
     if state then
-        Lighting.Ambient = Color3.new(1, 1, 1)
-        Lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
-        Lighting.ColorShift_Top = Color3.new(1, 1, 1)
-        Lighting.FogEnd = 100000
-        Lighting.GlobalShadows = false
-        Lighting.ClockTime = 14
-        Lighting.Brightness = 2
+        applyFullBright()
+        fbConnection = Lighting.Changed:Connect(function(property)
+            if property == "Ambient" or property == "Brightness" or property == "FogEnd" or property == "GlobalShadows" then
+                applyFullBright()
+            end
+        end)
     else
-        Lighting.Ambient = normalLighting.Ambient
-        Lighting.ColorShift_Bottom = normalLighting.ColorShift_Bottom
-        Lighting.ColorShift_Top = normalLighting.ColorShift_Top
-        Lighting.FogEnd = normalLighting.FogEnd
-        Lighting.GlobalShadows = normalLighting.GlobalShadows
-        Lighting.ClockTime = normalLighting.ClockTime
-        Lighting.Brightness = normalLighting.Brightness
+        Lighting.GlobalShadows = true
+        local A = Lighting:FindFirstChildOfClass("Atmosphere")
+        if A then
+            Lighting.Ambient = Color3.new(0, 0, 0)
+            Lighting.Brightness = 1
+        else
+            Lighting.Ambient = Color3.fromRGB(128, 128, 128)
+            Lighting.Brightness = 1
+        end
+        Lighting.FogEnd = 1000
     end
 end)
 
+BrightnessInput:OnChanged(function()
+    local value = tonumber(BrightnessInput.Value)
+    if value then
+        getgenv().FbBrightnessValue = value
+    else
+        getgenv().FbBrightnessValue = 2
+    end
+    
+    if Options.FullBright.Value then
+        applyFullBright()
+    end
+end)
 
 Options.FullBright:SetValue(false)
-
-local Lighting = game:GetService("Lighting")
-local RunService = game:GetService("RunService")
-
-local OriginalFogEnd, OriginalDensity, OriginalGlare, OriginalHaze
-local FogLoop
 
 local NoFogToggle = Tabs.Extension:AddToggle("NoFogToggle", {
     Title = "Disable Fog",
@@ -8098,41 +8117,38 @@ local NoFogToggle = Tabs.Extension:AddToggle("NoFogToggle", {
 })
 
 NoFogToggle:OnChanged(function(Value)
-    if FogLoop then FogLoop:Disconnect() end
+    if fogConnection then 
+        fogConnection:Disconnect() 
+        fogConnection = nil
+    end
     
     if Value then
-       
         OriginalFogEnd = Lighting.FogEnd
-        local Atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
-        if Atmosphere then
-            OriginalDensity = Atmosphere.Density
-            OriginalGlare = Atmosphere.Glare
-            OriginalHaze = Atmosphere.Haze
+        local Atm = Lighting:FindFirstChildOfClass("Atmosphere")
+        if Atm then
+            OriginalDensity = Atm.Density
+            OriginalGlare = Atm.Glare
+            OriginalHaze = Atm.Haze
         end
 
+        applyNoFog()
+        fogConnection = Lighting:GetPropertyChangedSignal("FogEnd"):Connect(applyNoFog)
         
-        FogLoop = RunService.RenderStepped:Connect(function()
-            Lighting.FogEnd = 100000
-            local A = Lighting:FindFirstChildOfClass("Atmosphere")
-            if A then
-                A.Density = 0
-                A.Glare = 0
-                A.Haze = 0
-            end
-        end)
+        local A = Lighting:FindFirstChildOfClass("Atmosphere")
+        if A then
+            fogConnection = A.Changed:Connect(applyNoFog)
+        end
     else
-        
-        if FogLoop then FogLoop:Disconnect() end
-        
         Lighting.FogEnd = OriginalFogEnd or 1000
         local A = Lighting:FindFirstChildOfClass("Atmosphere")
-        if A and OriginalDensity then
-            A.Density = OriginalDensity
-            A.Glare = OriginalGlare
-            A.Haze = OriginalHaze
+        if A then
+            A.Density = OriginalDensity or 0.3
+            A.Glare = OriginalGlare or 0
+            A.Haze = OriginalHaze or 0
         end
     end
 end)
+
 
 Tabs.Extension:AddSection("Anti Lags Extension")
 
@@ -8587,6 +8603,17 @@ spawn(function()
 		end
 	end
 end) 
+
+
+
+
+
+-- ========================================================================================================================
+--                                                  DISCORD WEBHOOK LOGGER                                                 
+-- ========================================================================================================================
+
+
+
 
 do
     _G.Data = {}

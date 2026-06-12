@@ -3653,44 +3653,23 @@ local function applyHeadless()
     end
 end
 
-local function revertChanges()
-    local char = player.Character
-    if not char then return end
-    
-    local head = char:FindFirstChild("Head")
-    if head then
-        head.Transparency = 0
-        local mesh = head:FindFirstChild("HeadlessMesh")
-        if mesh then mesh:Destroy() end
-    end
-    
-    for _, legName in pairs({"Right Leg", "RightUpperLeg", "Left Leg"}) do
-        local leg = char:FindFirstChild(legName)
-        if leg then
-            leg.Color = Color3.new(1, 1, 1)
-            local mesh = leg:FindFirstChild("KorbloxMesh")
-            if mesh then mesh:Destroy() end
-        end
-    end
+local function checkAndApplyAll()
+    if _G.KorbloxR_Enabled then applyKorblox("Right", "rbxassetid://101851696") end
+    if _G.KorbloxL_Enabled then applyKorblox("Left", "rbxassetid://101851582") end
+    if _G.Headless_Enabled then applyHeadless() end
 end
-
-task.spawn(function()
-    while true do
-        if _G.KorbloxR_Enabled then applyKorblox("Right", "rbxassetid://101851696") end
-        if _G.KorbloxL_Enabled then applyKorblox("Left", "rbxassetid://101851582") end
-        if _G.Headless_Enabled then applyHeadless() end
-        
-        if not _G.KorbloxR_Enabled and not _G.KorbloxL_Enabled and not _G.Headless_Enabled then
-            revertChanges()
-        end
-        task.wait(0.1)
-    end
-end)
 
 player.CharacterAdded:Connect(function(char)
     char:WaitForChild("Humanoid")
-    revertChanges()
+    task.wait(1)
+    
+    checkAndApplyAll()
 end)
+
+if player.Character then
+    checkAndApplyAll()
+end
+
 
 Tabs.Extension:AddToggle("KorbloxRToggle", {
     Title = "Korblox (Right)",
@@ -3927,21 +3906,29 @@ local player = Players.LocalPlayer
 
 _G.DeleteHatsEnabled = false
 
-task.spawn(function()
-    while true do
-        if _G.DeleteHatsEnabled then
-            local char = player.Character
-            if char then
-                for _, v in ipairs(char:GetChildren()) do 
-                    if v:IsA("Accessory") then
-                        v:Destroy() 
-                    end
+local function deleteHats()
+    if _G.DeleteHatsEnabled then
+        local char = player.Character
+        if char then
+            for _, v in ipairs(char:GetChildren()) do 
+                if v:IsA("Accessory") then
+                    v:Destroy() 
                 end
             end
         end
-        task.wait(0.1)
     end
+end
+
+player.CharacterAdded:Connect(function(char)
+    char:WaitForChild("Humanoid")
+    task.wait(1)
+    deleteHats()
 end)
+
+if player.Character then
+    deleteHats()
+end
+
 
 Tabs.Extension:AddToggle("DeleteHats", {
     Title = "Remove Accessories",
@@ -4405,50 +4392,95 @@ Tabs.Extension:AddSection("Lightning Extension")
 
 local Lighting = game:GetService("Lighting")
 
-local normalLighting = {
-    Ambient = Lighting.Ambient,
-    ColorShift_Bottom = Lighting.ColorShift_Bottom,
-    ColorShift_Top = Lighting.ColorShift_Top,
-    FogEnd = Lighting.FogEnd,
-    FogStart = Lighting.FogStart,
-    GlobalShadows = Lighting.GlobalShadows,
-    ClockTime = Lighting.ClockTime,
-    Brightness = Lighting.Brightness
-}
+local fbConnection = nil
+local fogConnection = nil
+
+local OriginalFogEnd = Lighting.FogEnd
+local OriginalDensity, OriginalGlare, OriginalHaze
+
+getgenv().FbBrightnessValue = 2
+
+local Atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+if Atmosphere then
+    OriginalDensity = Atmosphere.Density
+    OriginalGlare = Atmosphere.Glare
+    OriginalHaze = Atmosphere.Haze
+end
+
+local function applyFullBright()
+    Lighting.Ambient = Color3.new(1, 1, 1)
+    Lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
+    Lighting.ColorShift_Top = Color3.new(1, 1, 1)
+    Lighting.FogEnd = 100000
+    Lighting.GlobalShadows = false
+    Lighting.ClockTime = 14
+    Lighting.Brightness = getgenv().FbBrightnessValue
+end
+
+local function applyNoFog()
+    Lighting.FogEnd = 100000
+    local A = Lighting:FindFirstChildOfClass("Atmosphere")
+    if A then
+        A.Density = 0
+        A.Glare = 0
+        A.Haze = 0
+    end
+end
 
 local Toggle = Tabs.Extension:AddToggle("FullBright", {
     Title = "Full Bright", 
     Default = false
 })
 
+local BrightnessInput = Tabs.Extension:AddInput("FbBrightnessInput", {
+    Title = "Full Bright Brightness",
+    Default = "2",
+    Placeholder = "Enter brightness level...",
+    Numeric = true,
+    Finished = false
+})
+
 Toggle:OnChanged(function(state)
+    if fbConnection then
+        fbConnection:Disconnect()
+        fbConnection = nil
+    end
+
     if state then
-        Lighting.Ambient = Color3.new(1, 1, 1)
-        Lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
-        Lighting.ColorShift_Top = Color3.new(1, 1, 1)
-        Lighting.FogEnd = 100000
-        Lighting.GlobalShadows = false
-        Lighting.ClockTime = 14
-        Lighting.Brightness = 2
+        applyFullBright()
+        fbConnection = Lighting.Changed:Connect(function(property)
+            if property == "Ambient" or property == "Brightness" or property == "FogEnd" or property == "GlobalShadows" then
+                applyFullBright()
+            end
+        end)
     else
-        Lighting.Ambient = normalLighting.Ambient
-        Lighting.ColorShift_Bottom = normalLighting.ColorShift_Bottom
-        Lighting.ColorShift_Top = normalLighting.ColorShift_Top
-        Lighting.FogEnd = normalLighting.FogEnd
-        Lighting.GlobalShadows = normalLighting.GlobalShadows
-        Lighting.ClockTime = normalLighting.ClockTime
-        Lighting.Brightness = normalLighting.Brightness
+        Lighting.GlobalShadows = true
+        local A = Lighting:FindFirstChildOfClass("Atmosphere")
+        if A then
+            Lighting.Ambient = Color3.new(0, 0, 0)
+            Lighting.Brightness = 1
+        else
+            Lighting.Ambient = Color3.fromRGB(128, 128, 128)
+            Lighting.Brightness = 1
+        end
+        Lighting.FogEnd = 1000
     end
 end)
 
+BrightnessInput:OnChanged(function()
+    local value = tonumber(BrightnessInput.Value)
+    if value then
+        getgenv().FbBrightnessValue = value
+    else
+        getgenv().FbBrightnessValue = 2
+    end
+    
+    if Options.FullBright.Value then
+        applyFullBright()
+    end
+end)
 
 Options.FullBright:SetValue(false)
-
-local Lighting = game:GetService("Lighting")
-local RunService = game:GetService("RunService")
-
-local OriginalFogEnd, OriginalDensity, OriginalGlare, OriginalHaze
-local FogLoop
 
 local NoFogToggle = Tabs.Extension:AddToggle("NoFogToggle", {
     Title = "Disable Fog",
@@ -4456,41 +4488,38 @@ local NoFogToggle = Tabs.Extension:AddToggle("NoFogToggle", {
 })
 
 NoFogToggle:OnChanged(function(Value)
-    if FogLoop then FogLoop:Disconnect() end
+    if fogConnection then 
+        fogConnection:Disconnect() 
+        fogConnection = nil
+    end
     
     if Value then
-       
         OriginalFogEnd = Lighting.FogEnd
-        local Atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
-        if Atmosphere then
-            OriginalDensity = Atmosphere.Density
-            OriginalGlare = Atmosphere.Glare
-            OriginalHaze = Atmosphere.Haze
+        local Atm = Lighting:FindFirstChildOfClass("Atmosphere")
+        if Atm then
+            OriginalDensity = Atm.Density
+            OriginalGlare = Atm.Glare
+            OriginalHaze = Atm.Haze
         end
 
+        applyNoFog()
+        fogConnection = Lighting:GetPropertyChangedSignal("FogEnd"):Connect(applyNoFog)
         
-        FogLoop = RunService.RenderStepped:Connect(function()
-            Lighting.FogEnd = 100000
-            local A = Lighting:FindFirstChildOfClass("Atmosphere")
-            if A then
-                A.Density = 0
-                A.Glare = 0
-                A.Haze = 0
-            end
-        end)
+        local A = Lighting:FindFirstChildOfClass("Atmosphere")
+        if A then
+            fogConnection = A.Changed:Connect(applyNoFog)
+        end
     else
-        
-        if FogLoop then FogLoop:Disconnect() end
-        
         Lighting.FogEnd = OriginalFogEnd or 1000
         local A = Lighting:FindFirstChildOfClass("Atmosphere")
-        if A and OriginalDensity then
-            A.Density = OriginalDensity
-            A.Glare = OriginalGlare
-            A.Haze = OriginalHaze
+        if A then
+            A.Density = OriginalDensity or 0.3
+            A.Glare = OriginalGlare or 0
+            A.Haze = OriginalHaze or 0
         end
     end
 end)
+
 
 Tabs.Extension:AddSection("Anti Lags Extension")
 
@@ -4679,154 +4708,72 @@ Tabs.Extension:AddButton({
     end
 })
 
-getgenv().DisableRagdoll = false
-getgenv().OptimizeRendering = false
-
--- Toggles
-
-local RagdollToggle = Tabs.Extension:AddToggle("RagdollToggle", {Title = "Anti-Ragdoll", Default = false})
-local OptimizeToggle = Tabs.Extension:AddToggle("OptimizeToggle", {Title = "Render Optimization", Default = false})
-
-RagdollToggle:OnChanged(function()
-    getgenv().DisableRagdoll = RagdollToggle.Value
-end)
-
-
-local function safeOptimize(obj)
-    if obj:IsA("BasePart") then
-        if obj.Transparency >= 1 or (obj.Material == Enum.Material.Plastic and obj.Transparency > 0) then
-            obj.CastShadow = false
-     
-            pcall(function()
-                obj.RenderFidelity = Enum.RenderFidelity.Performance
-            end)
-        end
-    end
-end
-
-
-OptimizeToggle:OnChanged(function()
-    getgenv().OptimizeRendering = OptimizeToggle.Value
-    
-    if getgenv().OptimizeRendering then
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            safeOptimize(obj)
-        end
-    end
-end)
-
--- Fone
-
-local RunService = game:GetService("RunService")
-local LP = game:GetService("Players").LocalPlayer
-
-RunService.Stepped:Connect(function()
-    if not getgenv().DisableRagdoll then return end
-    
-    local char = LP.Character
-    if char then
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum then
-            hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-            hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-            
-            local state = hum:GetState()
-            if state == Enum.HumanoidStateType.Ragdoll or state == Enum.HumanoidStateType.FallingDown then
-                hum:ChangeState(Enum.HumanoidStateType.GettingUp)
-            end
-        end
-        
-        for _, obj in ipairs(char:GetDescendants()) do
-            if obj:IsA("BallSocketConstraint") or obj:IsA("HingeConstraint") or obj:IsA("RopeConstraint") then
-                obj:Destroy()
-            end
-            if obj:IsA("BasePart") and obj.Name ~= "HumanoidRootPart" then
-                obj.CanCollide = true
-            end
-        end
-    end
-end)
-
-workspace.DescendantAdded:Connect(function(obj)
-    if getgenv().OptimizeRendering then
-        safeOptimize(obj)
-    end
-end)
-
-do
-    local Lighting = game:GetService("Lighting")
-    
-    local defaultGlobalShadows = Lighting.GlobalShadows
-    local defaultTechnology = Lighting.Technology
-
-    Tabs.Extension:AddToggle("ShadowsToggle", {
-        Title = "Remove All Shadows",
-        Description = "",
-        Default = false,
-        Callback = function(state)
-            if state then
-                Lighting.GlobalShadows = false
-                
-                Lighting.Technology = Enum.Technology.Compatibility
-                
-                for _, obj in ipairs(workspace:GetDescendants()) do
-                    if obj:IsA("BasePart") then
-                        obj.CastShadow = false
-                    end
-                end
-            else
-                Lighting.GlobalShadows = defaultGlobalShadows
-                Lighting.Technology = defaultTechnology
-                
-                for _, obj in ipairs(workspace:GetDescendants()) do
-                    if obj:IsA("BasePart") then
-                        obj.CastShadow = true 
-                    end
-                end
-            end
-        end
+Tabs.Extension:AddParagraph({
+        Title = " ",
+        Content = ""
     })
-end
+    
+    local Lighting = game:GetService("Lighting")
+local defaultGlobalShadows = Lighting.GlobalShadows
+local defaultTechnology = Lighting.Technology
 
-local Lighting = game:GetService("Lighting")
-
-Tabs.Extension:AddToggle("DarknessToggle", {
-    Title = "Disable Light",
+local ShadowsToggle = Tabs.Extension:AddToggle("ShadowsToggle", {
+    Title = "Remove All Shadows",
     Description = "",
-    Default = false,
-    Callback = function(state)
-        for _, light in ipairs(workspace:GetDescendants()) do
-            if light:IsA("Light") then
-                light.Enabled = not state
-                task.wait() 
-            end
-        end
-    end
+    Default = false
 })
 
-
-do
-    local FpsConfig = {
-        Enabled = false
-    }
-
-    local function updateFps()
-        pcall(function()
-            local target = FpsConfig.Enabled and 9999 or 60
-            
-            if setfflag then
-                setfflag("TaskSchedulerTargetFps", tostring(target))
-                setfflag("DFIntTaskSchedulerTargetFps", tostring(target))
-            end
-            
-            if setfpscap then
-                setfpscap(target)
+ShadowsToggle:OnChanged(function(state)
+    pcall(function()
+        Lighting.GlobalShadows = not state
+        Lighting.Technology = state and Enum.Technology.Compatibility or defaultTechnology
+        
+        task.spawn(function()
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if obj:IsA("BasePart") then
+                    obj.CastShadow = not state
+                end
             end
         end)
-    end
-    
-local networkPausedConn
+    end)
+end)
 
+local DarknessToggle = Tabs.Extension:AddToggle("DarknessToggle", {
+    Title = "Disable Light",
+    Description = "",
+    Default = false
+})
+
+DarknessToggle:OnChanged(function(state)
+    task.spawn(function()
+        for _, light in ipairs(workspace:GetDescendants()) do
+            if light:IsA("Light") then
+                pcall(function()
+                    light.Enabled = not state
+                end)
+            end
+        end
+    end)
+end)
+
+getgenv().FpsConfig = {
+    Enabled = false
+}
+
+local function updateFps()
+    pcall(function()
+        local target = getgenv().FpsConfig.Enabled and 9999 or 60
+        if setfflag then
+            setfflag("TaskSchedulerTargetFps", tostring(target))
+            setfflag("DFIntTaskSchedulerTargetFps", tostring(target))
+        end
+        if setfpscap then
+            setfpscap(target)
+        end
+    end)
+end
+
+local networkPausedConn = nil
 local AntiGPTPause = Tabs.Extension:AddToggle("AntiNetworkPause", {
     Title = "Anti Gameplay Paused", 
     Default = false, 
@@ -4858,25 +4805,29 @@ AntiGPTPause:OnChanged(function(Value)
     end
 end)
 
+local FpsUnlockToggle = Tabs.Extension:AddToggle("FpsUnlockToggle", {
+    Title = "Unlock FPS",
+    Description = "",
+    Default = false
+})
 
-    Tabs.Extension:AddToggle("FpsUnlockToggle", {
-        Title = "Unlock FPS",
-        Description = "",
-        Default = false,
-        Callback = function(Value)
-            FpsConfig.Enabled = Value
+FpsUnlockToggle:OnChanged(function(Value)
+    getgenv().FpsConfig.Enabled = Value
+    updateFps()
+end)
+
+game:GetService("Players").LocalPlayer.CharacterAdded:Connect(function(character)
+    pcall(function()
+        character:WaitForChild("Humanoid", 5)
+        task.wait(1)
+        if getgenv().FpsConfig.Enabled then
             updateFps()
         end
-    })
-
-    task.spawn(function()
-        while true do
-            if FpsConfig.Enabled then
-                updateFps()
-            end
-            task.wait(5)
-        end
     end)
+end)
+
+if game:GetService("Players").LocalPlayer.Character and getgenv().FpsConfig.Enabled then
+    updateFps()
 end
 
 
@@ -5065,6 +5016,11 @@ LP.CharacterAdded:Connect(initialize)
 if LP.Character then
     initialize(LP.Character)
 end
+
+-- ========================================================================================================================
+--                                                  DISCORD WEBHOOK LOGGER                                                 
+-- ========================================================================================================================
+
 
 do
     _G.Data = {}
