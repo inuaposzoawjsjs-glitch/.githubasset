@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm Hub X - Evade Overhaul│PC",
-    SubTitle = "v3.33.20 Made Carey",
+    SubTitle = "v3.32.19 Made Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
     Acrylic = false,
@@ -6672,110 +6672,112 @@ end)
         
 Tabs.Extension:AddSection("Lightning Extension")
 
-local Lighting = game:GetService("Lighting")
+do
+    local Lighting = game:GetService("Lighting")
 
-local fbLoopActive = false
-local fogLoopActive = false
+    local fbLoopActive = false
+    local fogLoopActive = false
 
-getgenv().FbBrightnessValue = 2
+    getgenv().FbBrightnessValue = 2
 
-local function forceFullBright()
-    Lighting.Ambient = Color3.new(1, 1, 1)
-    Lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
-    Lighting.ColorShift_Top = Color3.new(1, 1, 1)
-    Lighting.FogEnd = 100000
-    Lighting.GlobalShadows = false
-    Lighting.ClockTime = 14
-    Lighting.Brightness = getgenv().FbBrightnessValue
+    local function forceFullBright()
+        Lighting.Ambient = Color3.new(1, 1, 1)
+        Lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
+        Lighting.ColorShift_Top = Color3.new(1, 1, 1)
+        Lighting.FogEnd = 100000
+        Lighting.GlobalShadows = false
+        Lighting.ClockTime = 14
+        Lighting.Brightness = getgenv().FbBrightnessValue
+    end
+
+    local function forceNoFog()
+        Lighting.FogEnd = 100000
+        local A = Lighting:FindFirstChildOfClass("Atmosphere")
+        if A then
+            A.Density = 0
+            A.Glare = 0
+            A.Haze = 0
+        end
+    end
+
+    local Toggle = Tabs.Extension:AddToggle("FullBright", {
+        Title = "Full Bright", 
+        Default = false
+    })
+
+    local BrightnessInput = Tabs.Extension:AddInput("FbBrightnessInput", {
+        Title = "Full Bright Brightness",
+        Default = "2",
+        Placeholder = "Enter brightness level...",
+        Numeric = true,
+        Finished = false
+    })
+
+    Toggle:OnChanged(function(state)
+        fbLoopActive = state
+
+        if state then
+            task.spawn(function()
+                while fbLoopActive do
+                    pcall(forceFullBright)
+                    task.wait(0.1)
+                end
+            end)
+        else
+            pcall(function()
+                Lighting.GlobalShadows = true
+                local A = Lighting:FindFirstChildOfClass("Atmosphere")
+                if A then
+                    Lighting.Ambient = Color3.new(0, 0, 0)
+                    Lighting.Brightness = 1
+                else
+                    Lighting.Ambient = Color3.fromRGB(128, 128, 128)
+                    Lighting.Brightness = 1
+                end
+                Lighting.FogEnd = 1000
+            end)
+        end
+    end)
+
+    BrightnessInput:OnChanged(function()
+        local value = tonumber(BrightnessInput.Value)
+        if value then
+            getgenv().FbBrightnessValue = value
+        else
+            getgenv().FbBrightnessValue = 2
+        end
+    end)
+
+    Options.FullBright:SetValue(false)
+
+    local NoFogToggle = Tabs.Extension:AddToggle("NoFogToggle", {
+        Title = "Disable Fog",
+        Default = false
+    })
+
+    NoFogToggle:OnChanged(function(Value)
+        fogLoopActive = Value
+        
+        if Value then
+            task.spawn(function()
+                while fogLoopActive do
+                    pcall(forceNoFog)
+                    task.wait(0.1)
+                end
+            end)
+        else
+            pcall(function()
+                Lighting.FogEnd = 1000
+                local A = Lighting:FindFirstChildOfClass("Atmosphere")
+                if A then
+                    A.Density = 0.3
+                    A.Glare = 0
+                    A.Haze = 0
+                end
+            end)
+        end
+    end)
 end
-
-local function forceNoFog()
-    Lighting.FogEnd = 100000
-    local A = Lighting:FindFirstChildOfClass("Atmosphere")
-    if A then
-        A.Density = 0
-        A.Glare = 0
-        A.Haze = 0
-    end
-end
-
-local Toggle = Tabs.Extension:AddToggle("FullBright", {
-    Title = "Full Bright", 
-    Default = false
-})
-
-local BrightnessInput = Tabs.Extension:AddInput("FbBrightnessInput", {
-    Title = "Full Bright Brightness",
-    Default = "2",
-    Placeholder = "Enter brightness level...",
-    Numeric = true,
-    Finished = false
-})
-
-Toggle:OnChanged(function(state)
-    fbLoopActive = state
-
-    if state then
-        task.spawn(function()
-            while fbLoopActive do
-                pcall(forceFullBright)
-                task.wait(0.1)
-            end
-        end)
-    else
-        pcall(function()
-            Lighting.GlobalShadows = true
-            local A = Lighting:FindFirstChildOfClass("Atmosphere")
-            if A then
-                Lighting.Ambient = Color3.new(0, 0, 0)
-                Lighting.Brightness = 1
-            else
-                Lighting.Ambient = Color3.fromRGB(128, 128, 128)
-                Lighting.Brightness = 1
-            end
-            Lighting.FogEnd = 1000
-        end)
-    end
-end)
-
-BrightnessInput:OnChanged(function()
-    local value = tonumber(BrightnessInput.Value)
-    if value then
-        getgenv().FbBrightnessValue = value
-    else
-        getgenv().FbBrightnessValue = 2
-    end
-end)
-
-Options.FullBright:SetValue(false)
-
-local NoFogToggle = Tabs.Extension:AddToggle("NoFogToggle", {
-    Title = "Disable Fog",
-    Default = false
-})
-
-NoFogToggle:OnChanged(function(Value)
-    fogLoopActive = Value
-    
-    if Value then
-        task.spawn(function()
-            while fogLoopActive do
-                pcall(forceNoFog)
-                task.wait(0.1)
-            end
-        end)
-    else
-        pcall(function()
-            Lighting.FogEnd = 1000
-            local A = Lighting:FindFirstChildOfClass("Atmosphere")
-            if A then
-                A.Density = 0.3
-                A.Glare = 0
-                A.Haze = 0
-            end
-        end)
-    end
-end)
 
 
 Tabs.Extension:AddSection("Fast Flag Extension")
