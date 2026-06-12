@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm Hub X - Evade Overhaul│Mobile",
-    SubTitle = "v3.34.15 Made By Carey",
+    SubTitle = "v3.33.14 Made By Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(540, 390),
     Acrylic = false,
@@ -8019,135 +8019,138 @@ end)
         
 Tabs.Extension:AddSection("Lightning Extension")
 
-local Lighting = game:GetService("Lighting")
+do
+    local Lighting = game:GetService("Lighting")
 
-local fbConnection = nil
-local fogConnection = nil
+    local fbConnection = nil
+    local fogConnection = nil
 
-local OriginalFogEnd = Lighting.FogEnd
-local OriginalDensity, OriginalGlare, OriginalHaze
+    local OriginalFogEnd = Lighting.FogEnd
+    local OriginalDensity, OriginalGlare, OriginalHaze
 
-getgenv().FbBrightnessValue = 2
+    getgenv().FbBrightnessValue = 2
 
-local Atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
-if Atmosphere then
-    OriginalDensity = Atmosphere.Density
-    OriginalGlare = Atmosphere.Glare
-    OriginalHaze = Atmosphere.Haze
-end
-
-local function applyFullBright()
-    Lighting.Ambient = Color3.new(1, 1, 1)
-    Lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
-    Lighting.ColorShift_Top = Color3.new(1, 1, 1)
-    Lighting.FogEnd = 100000
-    Lighting.GlobalShadows = false
-    Lighting.ClockTime = 14
-    Lighting.Brightness = getgenv().FbBrightnessValue
-end
-
-local function applyNoFog()
-    Lighting.FogEnd = 100000
-    local A = Lighting:FindFirstChildOfClass("Atmosphere")
-    if A then
-        A.Density = 0
-        A.Glare = 0
-        A.Haze = 0
-    end
-end
-
-local Toggle = Tabs.Extension:AddToggle("FullBright", {
-    Title = "Full Bright", 
-    Default = false
-})
-
-local BrightnessInput = Tabs.Extension:AddInput("FbBrightnessInput", {
-    Title = "Full Bright Brightness",
-    Default = "2",
-    Placeholder = "Enter brightness level...",
-    Numeric = true,
-    Finished = false
-})
-
-Toggle:OnChanged(function(state)
-    if fbConnection then
-        fbConnection:Disconnect()
-        fbConnection = nil
+    local Atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+    if Atmosphere then
+        OriginalDensity = Atmosphere.Density
+        OriginalGlare = Atmosphere.Glare
+        OriginalHaze = Atmosphere.Haze
     end
 
-    if state then
-        applyFullBright()
-        fbConnection = Lighting.Changed:Connect(function(property)
-            if property == "Ambient" or property == "Brightness" or property == "FogEnd" or property == "GlobalShadows" then
-                applyFullBright()
-            end
-        end)
-    else
-        Lighting.GlobalShadows = true
+    local function applyFullBright()
+        Lighting.Ambient = Color3.new(1, 1, 1)
+        Lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
+        Lighting.ColorShift_Top = Color3.new(1, 1, 1)
+        Lighting.FogEnd = 100000
+        Lighting.GlobalShadows = false
+        Lighting.ClockTime = 14
+        Lighting.Brightness = getgenv().FbBrightnessValue
+    end
+
+    local function applyNoFog()
+        Lighting.FogEnd = 100000
         local A = Lighting:FindFirstChildOfClass("Atmosphere")
         if A then
-            Lighting.Ambient = Color3.new(0, 0, 0)
-            Lighting.Brightness = 1
+            A.Density = 0
+            A.Glare = 0
+            A.Haze = 0
+        end
+    end
+
+    local Toggle = Tabs.Extension:AddToggle("FullBright", {
+        Title = "Full Bright", 
+        Default = false
+    })
+
+    local BrightnessInput = Tabs.Extension:AddInput("FbBrightnessInput", {
+        Title = "Full Bright Brightness",
+        Default = "2",
+        Placeholder = "Enter brightness level...",
+        Numeric = true,
+        Finished = false
+    })
+
+    Toggle:OnChanged(function(state)
+        if fbConnection then
+            fbConnection:Disconnect()
+            fbConnection = nil
+        end
+
+        if state then
+            applyFullBright()
+            fbConnection = Lighting.Changed:Connect(function(property)
+                if property == "Ambient" or property == "Brightness" or property == "FogEnd" or property == "GlobalShadows" then
+                    applyFullBright()
+                end
+            end)
         else
-            Lighting.Ambient = Color3.fromRGB(128, 128, 128)
-            Lighting.Brightness = 1
+            Lighting.GlobalShadows = true
+            local A = Lighting:FindFirstChildOfClass("Atmosphere")
+            if A then
+                Lighting.Ambient = Color3.new(0, 0, 0)
+                Lighting.Brightness = 1
+            else
+                Lighting.Ambient = Color3.fromRGB(128, 128, 128)
+                Lighting.Brightness = 1
+            end
+            Lighting.FogEnd = 1000
         end
-        Lighting.FogEnd = 1000
-    end
-end)
+    end)
 
-BrightnessInput:OnChanged(function()
-    local value = tonumber(BrightnessInput.Value)
-    if value then
-        getgenv().FbBrightnessValue = value
-    else
-        getgenv().FbBrightnessValue = 2
-    end
-    
-    if Options.FullBright.Value then
-        applyFullBright()
-    end
-end)
-
-Options.FullBright:SetValue(false)
-
-local NoFogToggle = Tabs.Extension:AddToggle("NoFogToggle", {
-    Title = "Disable Fog",
-    Default = false
-})
-
-NoFogToggle:OnChanged(function(Value)
-    if fogConnection then 
-        fogConnection:Disconnect() 
-        fogConnection = nil
-    end
-    
-    if Value then
-        OriginalFogEnd = Lighting.FogEnd
-        local Atm = Lighting:FindFirstChildOfClass("Atmosphere")
-        if Atm then
-            OriginalDensity = Atm.Density
-            OriginalGlare = Atm.Glare
-            OriginalHaze = Atm.Haze
+    BrightnessInput:OnChanged(function()
+        local value = tonumber(BrightnessInput.Value)
+        if value then
+            getgenv().FbBrightnessValue = value
+        else
+            getgenv().FbBrightnessValue = 2
         end
-
-        applyNoFog()
-        fogConnection = Lighting:GetPropertyChangedSignal("FogEnd"):Connect(applyNoFog)
         
-        local A = Lighting:FindFirstChildOfClass("Atmosphere")
-        if A then
-            fogConnection = A.Changed:Connect(applyNoFog)
+        if Options.FullBright.Value then
+            applyFullBright()
         end
-    else
-        Lighting.FogEnd = OriginalFogEnd or 1000
-        local A = Lighting:FindFirstChildOfClass("Atmosphere")
-        if A then
-            A.Density = OriginalDensity or 0.3
-            A.Glare = OriginalGlare or 0
-            A.Haze = OriginalHaze or 0
+    end)
+
+    Options.FullBright:SetValue(false)
+
+    local NoFogToggle = Tabs.Extension:AddToggle("NoFogToggle", {
+        Title = "Disable Fog",
+        Default = false
+    })
+
+    NoFogToggle:OnChanged(function(Value)
+        if fogConnection then 
+            fogConnection:Disconnect() 
+            fogConnection = nil
         end
-    end
-end)
+        
+        if Value then
+            OriginalFogEnd = Lighting.FogEnd
+            local Atm = Lighting:FindFirstChildOfClass("Atmosphere")
+            if Atm then
+                OriginalDensity = Atm.Density
+                OriginalGlare = Atm.Glare
+                OriginalHaze = Atm.Haze
+            end
+
+            applyNoFog()
+            fogConnection = Lighting:GetPropertyChangedSignal("FogEnd"):Connect(applyNoFog)
+            
+            local A = Lighting:FindFirstChildOfClass("Atmosphere")
+            if A then
+                fogConnection = A.Changed:Connect(applyNoFog)
+            end
+        else
+            Lighting.FogEnd = OriginalFogEnd or 1000
+            local A = Lighting:FindFirstChildOfClass("Atmosphere")
+            if A then
+                A.Density = OriginalDensity or 0.3
+                A.Glare = OriginalGlare or 0
+                A.Haze = OriginalHaze or 0
+            end
+        end
+    end)
+end
+
 
 
 Tabs.Extension:AddSection("Anti Lags Extension")
