@@ -6674,50 +6674,80 @@ Tabs.Extension:AddSection("Lightning Extension")
 
 local Lighting = game:GetService("Lighting")
 
-local normalLighting = {
-    Ambient = Lighting.Ambient,
-    ColorShift_Bottom = Lighting.ColorShift_Bottom,
-    ColorShift_Top = Lighting.ColorShift_Top,
-    FogEnd = Lighting.FogEnd,
-    FogStart = Lighting.FogStart,
-    GlobalShadows = Lighting.GlobalShadows,
-    ClockTime = Lighting.ClockTime,
-    Brightness = Lighting.Brightness
-}
+local fbLoopActive = false
+local fogLoopActive = false
+
+getgenv().FbBrightnessValue = 2
+
+local function forceFullBright()
+    Lighting.Ambient = Color3.new(1, 1, 1)
+    Lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
+    Lighting.ColorShift_Top = Color3.new(1, 1, 1)
+    Lighting.FogEnd = 100000
+    Lighting.GlobalShadows = false
+    Lighting.ClockTime = 14
+    Lighting.Brightness = getgenv().FbBrightnessValue
+end
+
+local function forceNoFog()
+    Lighting.FogEnd = 100000
+    local A = Lighting:FindFirstChildOfClass("Atmosphere")
+    if A then
+        A.Density = 0
+        A.Glare = 0
+        A.Haze = 0
+    end
+end
 
 local Toggle = Tabs.Extension:AddToggle("FullBright", {
     Title = "Full Bright", 
     Default = false
 })
 
+local BrightnessInput = Tabs.Extension:AddInput("FbBrightnessInput", {
+    Title = "Full Bright Brightness",
+    Default = "2",
+    Placeholder = "Enter brightness level...",
+    Numeric = true,
+    Finished = false
+})
+
 Toggle:OnChanged(function(state)
+    fbLoopActive = state
+
     if state then
-        Lighting.Ambient = Color3.new(1, 1, 1)
-        Lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
-        Lighting.ColorShift_Top = Color3.new(1, 1, 1)
-        Lighting.FogEnd = 100000
-        Lighting.GlobalShadows = false
-        Lighting.ClockTime = 14
-        Lighting.Brightness = 2
+        task.spawn(function()
+            while fbLoopActive do
+                pcall(forceFullBright)
+                task.wait(0.1)
+            end
+        end)
     else
-        Lighting.Ambient = normalLighting.Ambient
-        Lighting.ColorShift_Bottom = normalLighting.ColorShift_Bottom
-        Lighting.ColorShift_Top = normalLighting.ColorShift_Top
-        Lighting.FogEnd = normalLighting.FogEnd
-        Lighting.GlobalShadows = normalLighting.GlobalShadows
-        Lighting.ClockTime = normalLighting.ClockTime
-        Lighting.Brightness = normalLighting.Brightness
+        pcall(function()
+            Lighting.GlobalShadows = true
+            local A = Lighting:FindFirstChildOfClass("Atmosphere")
+            if A then
+                Lighting.Ambient = Color3.new(0, 0, 0)
+                Lighting.Brightness = 1
+            else
+                Lighting.Ambient = Color3.fromRGB(128, 128, 128)
+                Lighting.Brightness = 1
+            end
+            Lighting.FogEnd = 1000
+        end)
     end
 end)
 
+BrightnessInput:OnChanged(function()
+    local value = tonumber(BrightnessInput.Value)
+    if value then
+        getgenv().FbBrightnessValue = value
+    else
+        getgenv().FbBrightnessValue = 2
+    end
+end)
 
 Options.FullBright:SetValue(false)
-
-local Lighting = game:GetService("Lighting")
-local RunService = game:GetService("RunService")
-
-local OriginalFogEnd, OriginalDensity, OriginalGlare, OriginalHaze
-local FogLoop
 
 local NoFogToggle = Tabs.Extension:AddToggle("NoFogToggle", {
     Title = "Disable Fog",
@@ -6725,41 +6755,28 @@ local NoFogToggle = Tabs.Extension:AddToggle("NoFogToggle", {
 })
 
 NoFogToggle:OnChanged(function(Value)
-    if FogLoop then FogLoop:Disconnect() end
+    fogLoopActive = Value
     
     if Value then
-       
-        OriginalFogEnd = Lighting.FogEnd
-        local Atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
-        if Atmosphere then
-            OriginalDensity = Atmosphere.Density
-            OriginalGlare = Atmosphere.Glare
-            OriginalHaze = Atmosphere.Haze
-        end
-
-        
-        FogLoop = RunService.RenderStepped:Connect(function()
-            Lighting.FogEnd = 100000
+        task.spawn(function()
+            while fogLoopActive do
+                pcall(forceNoFog)
+                task.wait(0.1)
+            end
+        end)
+    else
+        pcall(function()
+            Lighting.FogEnd = 1000
             local A = Lighting:FindFirstChildOfClass("Atmosphere")
             if A then
-                A.Density = 0
+                A.Density = 0.3
                 A.Glare = 0
                 A.Haze = 0
             end
         end)
-    else
-        
-        if FogLoop then FogLoop:Disconnect() end
-        
-        Lighting.FogEnd = OriginalFogEnd or 1000
-        local A = Lighting:FindFirstChildOfClass("Atmosphere")
-        if A and OriginalDensity then
-            A.Density = OriginalDensity
-            A.Glare = OriginalGlare
-            A.Haze = OriginalHaze
-        end
     end
 end)
+
 
 Tabs.Extension:AddSection("Fast Flag Extension")
 
@@ -6977,6 +6994,10 @@ spawn(function()
 		end
 	end
 end)
+
+-- ========================================================================================================================
+--                                                  DISCORD WEBHOOK LOGGER                                                 
+-- ========================================================================================================================
 
 
 do
