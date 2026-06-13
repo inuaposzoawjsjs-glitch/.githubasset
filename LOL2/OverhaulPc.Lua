@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm Hub X - Evade Overhaul│PC",
-    SubTitle = "v3.32.19 Made Carey",
+    SubTitle = "v3.36.19 Made Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
     Acrylic = false,
@@ -5546,6 +5546,135 @@ Tabs.Visual:AddButton({
            end)
         end
     })
+    
+Tabs.Visual:AddSection("Color Effect")
+
+do
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local LocalPlayer = Players.LocalPlayer
+
+    local selectedColor = Color3.fromRGB(255, 255, 255)
+    local originalColors = {}
+    local rainbowConnection = nil
+    local rainbowSpeed = 1
+    local hue = 0
+
+    local function isVisualEffect(object)
+        return object:IsA("ParticleEmitter") or object:IsA("Trail") or object:IsA("Beam") or object:IsA("Light") or object:IsA("SelectionBox")
+    end
+
+    local function saveAndApplyColor(character, newColor, isRainbow)
+        if not character then return end
+        for _, object in ipairs(character:GetDescendants()) do
+            if isVisualEffect(object) or object:IsA("BasePart") then
+                -- Игнорируем стандартные части тела игрока, красим только кастомные элементы эффектов
+                if not object:IsA("BasePart") or (object:IsA("BasePart") and not object.Parent:IsA("Model") and object.Name ~= "HumanoidRootPart") then
+                    
+                    if not originalColors[object] then
+                        originalColors[object] = object.Color
+                    end
+
+                    if object:IsA("ParticleEmitter") or object:IsA("Trail") or object:IsA("Beam") then
+                        object.Color = ColorSequence.new(newColor)
+                    else
+                        object.Color = newColor
+                    end
+                end
+            end
+        end
+    end
+
+    local function restoreColors()
+        for object, color in pairs(originalColors) do
+            if object and object.Parent then
+                if object:IsA("ParticleEmitter") or object:IsA("Trail") or object:IsA("Beam") then
+                    object.Color = color
+                else
+                    object.Color = color
+                end
+            end
+        end
+        table.clear(originalColors)
+    end
+
+    local function stopRainbow()
+        if rainbowConnection then
+            rainbowConnection:Disconnect()
+            rainbowConnection = nil
+        end
+    end
+
+    local function startRainbow()
+        stopRainbow()
+        rainbowConnection = RunService.Heartbeat:Connect(function(deltaTime)
+            if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled and DConfiguration.Visual.ModifyCosmetics.RainbowEnabled then
+                hue = (hue + deltaTime * (rainbowSpeed * 0.1)) % 1
+                local rainbowColor = Color3.fromHSV(hue, 1, 1)
+                saveAndApplyColor(LocalPlayer.Character, rainbowColor, true)
+            end
+        end)
+    end
+
+    Tabs.Visual:AddToggle("CosmeticsToggle", {
+        Title = "Enable Custom Color",
+        Default = false,
+        Callback = function(Value)
+            DConfiguration.Visual.ModifyCosmetics.ToggleEnabled = Value
+            if Value then
+                if DConfiguration.Visual.ModifyCosmetics.RainbowEnabled then
+                    startRainbow()
+                else
+                    saveAndApplyColor(LocalPlayer.Character, selectedColor, false)
+                end
+            else
+                stopRainbow()
+                restoreColors()
+            end
+        end
+    })
+
+    Tabs.Visual:AddColorpicker("EffectColor", {
+        Title = "Effect Color",
+        Default = Color3.fromRGB(0, 255, 120),
+        Callback = function(Value)
+            selectedColor = Value
+            if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled and not DConfiguration.Visual.ModifyCosmetics.RainbowEnabled then
+                saveAndApplyColor(LocalPlayer.Character, selectedColor, false)
+            end
+        end
+    })
+
+    Tabs.Visual:AddToggle("RainbowToggle", {
+        Title = "Rainbow Effect",
+        Default = false,
+        Callback = function(Value)
+            DConfiguration.Visual.ModifyCosmetics.RainbowEnabled = Value
+            if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled then
+                if Value then
+                    startRainbow()
+                else
+                    stopRainbow()
+                    saveAndApplyColor(LocalPlayer.Character, selectedColor, false)
+                end
+            end
+        end
+    })
+
+    Tabs.Visual:AddInput("RainbowSpeedInput", {
+        Title = "Rainbow Speed",
+        Default = "1",
+        Placeholder = "",
+        Numeric = true,
+        Finished = false,
+        Callback = function(Value)
+            local num = tonumber(Value)
+            if num then
+                rainbowSpeed = num
+            end
+        end
+    })
+end
 
 Tabs.Visual:AddSection("Emote Changer")
 
