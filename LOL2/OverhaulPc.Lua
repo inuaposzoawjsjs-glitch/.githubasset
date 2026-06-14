@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm Hub X - Evade Overhaul│PC",
-    SubTitle = "v3.36.19 Made Carey",
+    SubTitle = "v3.38.19 Made Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
     Acrylic = false,
@@ -2199,8 +2199,13 @@ function DFunctions.CrouchFunction()
     local HumanoidRootPart = Character:FindFirstChild("HumanoidRootPart")
     if not Humanoid or not HumanoidRootPart then return end
 
+    if not DConfiguration or not DConfiguration.Misc or not DConfiguration.Misc.MovementModification or not DConfiguration.Misc.MovementModification.Crouch then 
+        return 
+    end
+
     local Config = DConfiguration.Misc.MovementModification.Crouch
     local Type = Config.Type or "Normal"
+    local debounceDelay = Config.debounce or 0.1
 
     Config.isHolding = Config.isHolding or false
     Config.lastTick = Config.lastTick or 0
@@ -2209,14 +2214,14 @@ function DFunctions.CrouchFunction()
     local now = tick()
 
     local function tapCrouch()
-        if not Config.isHolding and (now - Config.lastTick) >= Config.debounce then
+        if not Config.isHolding and (now - Config.lastTick) >= debounceDelay then
             LocalPlayer.PlayerScripts.Events.temporary_events.UseKeybind:Fire({
                 Key = "Crouch",
                 Down = true
             })
             Config.isHolding = true
             Config.lastTick = now
-        elseif Config.isHolding and (now - Config.lastTick) >= Config.debounce then
+        elseif Config.isHolding and (now - Config.lastTick) >= debounceDelay then
             LocalPlayer.PlayerScripts.Events.temporary_events.UseKeybind:Fire({
                 Key = "Crouch",
                 Down = false
@@ -2231,7 +2236,7 @@ function DFunctions.CrouchFunction()
 
     if Type == "Rapid" then
         tapCrouch()
-    elseif Type == "Ground" then
+    elseif Type == "Ground" or Type == "Normal" then
         if isOnGround or VelocityY < -1 then
             tapCrouch()
         end
@@ -2239,12 +2244,9 @@ function DFunctions.CrouchFunction()
         if not isOnGround then
             tapCrouch()
         end
-    elseif Type == "Normal" then
-        if isOnGround or VelocityY < -1 then
-            tapCrouch()
-        end
     end
 end
+
 
 local Folder = Instance.new("Folder", ReplicatedStorage.Items)
 Folder.Name = "D-Folder"
@@ -4684,10 +4686,328 @@ Tabs.Misc:AddParagraph({
         Content = ""
     })
 
+local UserInputService = game:GetService("UserInputService")
+
+if not DConfiguration then DConfiguration = {} end
+if not DConfiguration.Misc then DConfiguration.Misc = {} end
+if not DConfiguration.Misc.MovementModification then DConfiguration.Misc.MovementModification = {} end
+if not DConfiguration.Misc.MovementModification.Crouch then
+    DConfiguration.Misc.MovementModification.Crouch = {
+        Keybind = false,
+        CurrentKey = Enum.KeyCode.RightControl,
+        Type = "Normal",
+        KeybindMode = "Hold",
+        debounce = 0.1,
+        lastTick = 0,
+        isHolding = false
+    }
+end
+
+local function GetCrouchConfig()
+    return DConfiguration.Misc.MovementModification.Crouch
+end
+
+local function toKeyCode(input)
+    if typeof(input) == "EnumItem" then return input end
+    if typeof(input) == "string" then
+        local success, result = pcall(function() return Enum.KeyCode[input] end)
+        if success then return result end
+    end
+    return Enum.KeyCode.RightControl
+end
+
+local function resetCrouchState(Config)
+    Config.Keybind = false
+    Config.isHolding = false
+    LocalPlayer.PlayerScripts.Events.temporary_events.UseKeybind:Fire({ ["Key"] = "Crouch", ["Down"] = false })
+    task.wait(0.05)
+    LocalPlayer.PlayerScripts.Events.temporary_events.UseKeybind:Fire({ ["Key"] = "Crouch", ["Down"] = false })
+end
+
+local Keybind = Tabs.Misc:AddKeybind("KeybindCrouch", {
+    Title = "Keybind to Auto Crouch",
+    Mode = "Click", 
+    Default = "RightControl",
+    Callback = function(Key)
+        local Config = GetCrouchConfig()
+        Config.CurrentKey = toKeyCode(Key)
+    end,
+})
+
+Keybind:OnChanged(function()
+    local Config = GetCrouchConfig()
+    if Keybind.Value then
+        Config.CurrentKey = toKeyCode(Keybind.Value)
+    end
+end)
+
+local KeybindModeDropdown = Tabs.Misc:AddDropdown("CrouchKeybindMode", {
+    Title = "Keybind Mode",
+    Values = {"Hold", "Toggle"},
+    Default = 1,
+})
+
+KeybindModeDropdown:OnChanged(function(Value)
+    local Config = GetCrouchConfig() 
+    Config.KeybindMode = Value
+    resetCrouchState(Config)
+end)
+
+local Dropdown = Tabs.Misc:AddDropdown("CrouchType", {
+    Title = "Select Crouch Type",
+    Values = {"Rapid", "Ground", "Air", "Normal"},
+    Default = 1,
+})
+
+Dropdown:OnChanged(function(Value)
+    local Config = GetCrouchConfig() 
+    Config.Type = Value
+end)
+
+Tabs.Misc:AddInput("CrouchDebounce", {
+    Title = "Crouch Speed (Debounce)",
+    Default = "0.1",
+    Placeholder = "0.1",
+    Numeric = true, 
+    Callback = function(Value)
+        local Config = GetCrouchConfig() 
+        Config.debounce = tonumber(Value) or 0.1
+    end
+})
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    local Config = GetCrouchConfig()
+    if not Config.CurrentKey or input.KeyCode ~= Config.CurrentKey then return end
+
+    if Config.KeybindMode == "Toggle" then
+        if Config.Keybind then
+            resetCrouchState(Config)
+        else
+            Config.Keybind = true
+        end
+    else
+        Config.Keybind = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input, gameProcessed)
+    local Config = GetCrouchConfig()
+    if not Config.CurrentKey or input.KeyCode ~= Config.CurrentKey then return end
+
+    if Config.KeybindMode == "Hold" then
+        resetCrouchState(Config)
+    end
+end)
+
+RunService.Heartbeat:Connect(function()
+    local MoveMod = DConfiguration.Misc and DConfiguration.Misc.MovementModification
+    local GameAuto = DConfiguration.Misc and DConfiguration.Misc.GameAutomation
+    local stop = false
+
+    if DConfiguration.Main and DConfiguration.Main.Noclip then
+        spawn(DFunctions.Noclip)
+    end
+
+    if GameAuto and GameAuto.Revive and (GameAuto.Revive.FloatingButton or GameAuto.Revive.Keybind) then
+        spawn(DFunctions.InstantRevive)
+    end
+       
+    if GameAuto and GameAuto.Carry and (GameAuto.Carry.FloatingButton or GameAuto.Carry.Keybind) then
+        spawn(DFunctions.CarryPlayer)
+    end
+    
+    if MoveMod and MoveMod.Gravity and (MoveMod.Gravity.FloatingButton or MoveMod.Gravity.Keybind) then
+        game.Workspace.Gravity = MoveMod.Gravity.Value
+    else
+        game.Workspace.Gravity = NormalGravity
+    end
+
+    if MoveMod and MoveMod.BHOP and (MoveMod.BHOP.Enabled or MoveMod.BHOP.Keybind or MoveMod.BHOP.HoldKeybind) then
+        task.spawn(DFunctions.BHOPFunction)
+        stop = true
+    end
+    
+    if MoveMod and MoveMod.Crouch and MoveMod.Crouch.Keybind then
+        task.spawn(DFunctions.CrouchFunction)
+        stop = true
+    end
+
+    if not stop and MoveMod then
+        if MoveMod.AggressiveEmoteDash and MoveMod.AggressiveEmoteDash.Enabled then
+            task.spawn(DFunctions.AggressiveEmoteDashFunction)
+        end
+        
+        if MoveMod.SlideModification and MoveMod.SlideModification.Enabled then
+            task.spawn(DFunctions.InfiniteSlideFunction)
+        end
+    end
+    
+    RunService.RenderStepped:Wait()
+end)
+
+Tabs.Misc:AddSection("Spins")
+
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LP = Players.LocalPlayer
+
+local function toKeyCode(input)
+    if typeof(input) == "EnumItem" then return input end
+    if typeof(input) == "string" then
+        local success, result = pcall(function() return Enum.KeyCode[input] end)
+        if success then return result end
+    end
+    return nil
+end
+
 Tabs.Misc:AddParagraph({
-        Title = "Spam Crouch",
-        Content = "Not work, for PC version Spam Crouch In Soon :)"
+    Title = "No use Emote",
+    Content = " "
+})
+
+do 
+    local _SP = {
+        Enabled = false,
+        Speed = 100000,
+        Conn = nil,
+        CurrentKey = Enum.KeyCode.RightAlt,
+        Active = false
+    }
+
+    local function ToggleSpin(state)
+        _SP.Active = state
+        if _SP.Conn then _SP.Conn:Disconnect() _SP.Conn = nil end
+
+        if _SP.Active then
+            _SP.Conn = RunService.Heartbeat:Connect(function(dt)
+                local character = LP.Character
+                local hrp = character and character:FindFirstChild("HumanoidRootPart")
+                local hum = character and character:FindFirstChild("Humanoid")
+                
+                if hrp and hum then
+                    if hum.FloorMaterial == Enum.Material.Air then
+                        hrp.Orientation = Vector3.new(hrp.Orientation.X, hrp.Orientation.Y + (_SP.Speed * dt), hrp.Orientation.Z)
+                    end
+                else
+                    if _SP.Conn then _SP.Conn:Disconnect() _SP.Conn = nil end
+                end
+            end)
+        end
+    end
+
+    local SpinKeybind = Tabs.Misc:AddKeybind("KeybindSpinBot", {
+        Title = "Spinbot Keybind",
+        Mode = "Click", 
+        Default = "RightAlt",
+        Callback = function(Key)
+            _SP.CurrentKey = toKeyCode(Key)
+        end,
     })
+
+    SpinKeybind:OnChanged(function()
+        if SpinKeybind.Value then
+            _SP.CurrentKey = toKeyCode(SpinKeybind.Value)
+        end
+    end)
+
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if not _SP.CurrentKey or input.KeyCode ~= _SP.CurrentKey then return end
+
+        ToggleSpin(not _SP.Active)
+    end)
+end
+
+Tabs.Misc:AddParagraph({
+    Title = "Use only Emote",
+    Content = "Beta! use only 200-100 speed"
+})
+
+do
+    local _ES = {
+        Active = false,
+        Speed = 200,
+        CurrentKey = Enum.KeyCode.RightShift
+    }
+    
+    local bav = nil
+    local EmoteSpinToggleUI = nil
+
+    local function ToggleEmoteSpin(state)
+        _ES.Active = state
+        
+        if EmoteSpinToggleUI and EmoteSpinToggleUI.Set then
+            EmoteSpinToggleUI:Set(state, true)
+        end
+    end
+
+    RunService.RenderStepped:Connect(function()
+        local ch = LP.Character
+        local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
+        
+        if not hrp or not _ES.Active then
+            if bav then
+                bav:Destroy()
+                bav = nil
+            end
+            return
+        end
+
+        if not bav or bav.Parent ~= hrp then
+            if bav then bav:Destroy() end
+            bav = Instance.new("BodyAngularVelocity")
+            bav.Parent = hrp
+        end
+
+        bav.AngularVelocity = Vector3.new(0, _ES.Speed, 0)
+        bav.MaxTorque = Vector3.new(0, 4e5, 0)
+    end)
+
+    EmoteSpinToggleUI = Tabs.Misc:AddToggle("EmoteSpinMainToggle", {
+        Title = "Enable Emote Spin",
+        Default = false,
+        Callback = function(v)
+            if _ES.Active ~= v then
+                ToggleEmoteSpin(v)
+            end
+        end
+    })
+    
+    local EmoteSpinKeybind = Tabs.Misc:AddKeybind("KeybindEmoteSpin", {
+        Title = "Emote Spin Keybind",
+        Mode = "Click", 
+        Default = "RightShift",
+        Callback = function(Key)
+            _ES.CurrentKey = toKeyCode(Key)
+        end,
+    })
+
+    EmoteSpinKeybind:OnChanged(function()
+        if EmoteSpinKeybind.Value then
+            _ES.CurrentKey = toKeyCode(EmoteSpinKeybind.Value)
+        end
+    end)
+    
+    Tabs.Misc:AddInput("EmoteSpinSpeedInput", {
+        Title = "Emote Spin Speed",
+        Default = tostring(_ES.Speed),
+        Numeric = true,
+        Finished = true,
+        Callback = function(Value)
+            _ES.Speed = tonumber(Value) or 200
+        end
+    })
+
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if not _ES.CurrentKey or input.KeyCode ~= _ES.CurrentKey then return end
+
+        ToggleEmoteSpin(not _ES.Active)
+    end)
+end
+
 
 -- Exploits
     
