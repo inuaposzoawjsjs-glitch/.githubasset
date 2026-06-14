@@ -5903,7 +5903,7 @@ end
 
 Tabs.Misc:AddParagraph({
     Title = "Use only Emote",
-    Content = "Beta"
+    Content = "Beta! use only 200-100 speed"
 })
 
 do
@@ -6905,8 +6905,27 @@ do
     local RunService = game:GetService("RunService")
     local LocalPlayer = Players.LocalPlayer
 
-    local selectedColor = Color3.fromRGB(255, 255, 255)
+    DConfiguration = DConfiguration or {}
+    DConfiguration.Visual = DConfiguration.Visual or {}
+    DConfiguration.Visual.ModifyCosmetics = DConfiguration.Visual.ModifyCosmetics or {}
+    
+    if DConfiguration.Visual.ModifyCosmetics.SelectedColor == nil then
+        DConfiguration.Visual.ModifyCosmetics.SelectedColor = Color3.fromRGB(0, 255, 120)
+    end
+    if DConfiguration.Visual.ModifyCosmetics.Thickness == nil then
+        DConfiguration.Visual.ModifyCosmetics.Thickness = 1
+    end
+    if DConfiguration.Visual.ModifyCosmetics.Brightness == nil then
+        DConfiguration.Visual.ModifyCosmetics.Brightness = 1
+    end
+    if DConfiguration.Visual.ModifyCosmetics.BrightnessEnabled == nil then
+        DConfiguration.Visual.ModifyCosmetics.BrightnessEnabled = false
+    end
+
     local originalColors = {}
+    local originalSizes = {}
+    local originalGlow = {}
+    local affectedObjects = {}
     local rainbowConnection = nil
     local rainbowSpeed = 1
     local hue = 0
@@ -6915,100 +6934,298 @@ do
         return object:IsA("ParticleEmitter") or object:IsA("Trail") or object:IsA("Beam") or object:IsA("Light") or object:IsA("SelectionBox")
     end
 
-    local function saveAndApplyColor(character, newColor, isRainbow)
-        if not character then return end
-        for _, object in ipairs(character:GetDescendants()) do
-            if isVisualEffect(object) or object:IsA("BasePart") then
-                -- Игнорируем стандартные части тела игрока, красим только кастомные элементы эффектов
-                if not object:IsA("BasePart") or (object:IsA("BasePart") and not object.Parent:IsA("Model") and object.Name ~= "HumanoidRootPart") then
-                    
-                    if not originalColors[object] then
-                        originalColors[object] = object.Color
-                    end
-
-                    if object:IsA("ParticleEmitter") or object:IsA("Trail") or object:IsA("Beam") then
-                        object.Color = ColorSequence.new(newColor)
-                    else
-                        object.Color = newColor
-                    end
-                end
-            end
-        end
+    local function createRainbowSequence()
+        return ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromHSV(0, 1, 1)),
+            ColorSequenceKeypoint.new(0.2, Color3.fromHSV(0.2, 1, 1)),
+            ColorSequenceKeypoint.new(0.4, Color3.fromHSV(0.4, 1, 1)),
+            ColorSequenceKeypoint.new(0.6, Color3.fromHSV(0.6, 1, 1)),
+            ColorSequenceKeypoint.new(0.8, Color3.fromHSV(0.8, 1, 1)),
+            ColorSequenceKeypoint.new(1, Color3.fromHSV(1, 1, 1))
+        })
     end
 
-    local function restoreColors()
-        for object, color in pairs(originalColors) do
-            if object and object.Parent then
+    local function applyGlowProps(object)
+        if DConfiguration.Visual.ModifyCosmetics.BrightnessEnabled then
+            local targetGlow = DConfiguration.Visual.ModifyCosmetics.Brightness
+            pcall(function()
                 if object:IsA("ParticleEmitter") or object:IsA("Trail") or object:IsA("Beam") then
-                    object.Color = color
+                    if not originalGlow[object] then
+                        originalGlow[object] = object.LightEmission
+                    end
+                    object.LightEmission = targetGlow
+                elseif object:IsA("Light") then
+                    if not originalGlow[object] then
+                        originalGlow[object] = object.Brightness
+                    end
+                    object.Brightness = targetGlow
+                end
+            end)
+        end
+    end
+
+    local function applyThickness(object, multiplier)
+        pcall(function()
+            if object:IsA("Trail") or object:IsA("Beam") then
+                if not originalSizes[object] then
+                    originalSizes[object] = {w0 = object.Width0, w1 = object.Width1}
+                end
+                object.Width0 = originalSizes[object].w0 * multiplier
+                object.Width1 = originalSizes[object].w1 * multiplier
+            elseif object:IsA("ParticleEmitter") then
+                if not originalSizes[object] then
+                    originalSizes[object] = {size = object.Size}
+                end
+                if typeof(originalSizes[object].size) == "NumberSequence" then
+                    local keypoints = {}
+                    table.foreachi(originalSizes[object].size.Keypoints, function(_, kp)
+                        table.insert(keypoints, NumberSequenceKeypoint.new(kp.Time, math.clamp(kp.Value * multiplier, 0, 100)))
+                    end)
+                    object.Size = NumberSequence.new(keypoints)
                 else
-                    object.Color = color
+                    object.Size = originalSizes[object].size * multiplier
+                end
+            end
+        end)
+    end
+
+    local function applySingleDynamic(newColor, sequence, _, object)
+        if object and object.Parent then
+            pcall(function()
+                if object:IsA("ParticleEmitter") or object:IsA("Trail") or object:IsA("Beam") then
+                    object.Color = sequence
+                else
+                    object.Color = newColor
+                end
+            end)
+            applyThickness(object, DConfiguration.Visual.ModifyCosmetics.Thickness)
+            applyGlowProps(object)
+        end
+    end
+
+    local function applyDynamicRainbow(newColor)
+        local sequence = ColorSequence.new(newColor)
+        table.foreachi(affectedObjects, function(index, object)
+            applySingleDynamic(newColor, sequence, index, object)
+        end)
+    end
+
+    local function checkAndApplyStatic(object)
+        if isVisualEffect(object) or object:IsA("BasePart") then
+            if not object:IsA("BasePart") or (object:IsA("BasePart") and not object.Parent:IsA("Model") and object.Name ~= "HumanoidRootPart") then
+                table.insert(affectedObjects, object)
+                if not originalColors[object] then
+                    originalColors[object] = object.Color
+                end
+
+                pcall(function()
+                    if object:IsA("ParticleEmitter") or object:IsA("Trail") or object:IsA("Beam") then
+                        object.Color = createRainbowSequence()
+                    else
+                        object.Color = Color3.fromHSV(tick() % 5 / 5, 1, 1)
+                    end
+                end)
+                applyThickness(object, DConfiguration.Visual.ModifyCosmetics.Thickness)
+                applyGlowProps(object)
+            end
+        end
+    end
+
+    local function checkAndApplyNormal(object)
+        if isVisualEffect(object) or object:IsA("BasePart") then
+            if not object:IsA("BasePart") or (object:IsA("BasePart") and not object.Parent:IsA("Model") and object.Name ~= "HumanoidRootPart") then
+                table.insert(affectedObjects, object)
+                if not originalColors[object] then
+                    originalColors[object] = object.Color
+                end
+
+                pcall(function()
+                    if object:IsA("ParticleEmitter") or object:IsA("Trail") or object:IsA("Beam") then
+                        object.Color = ColorSequence.new(DConfiguration.Visual.ModifyCosmetics.SelectedColor)
+                    else
+                        object.Color = DConfiguration.Visual.ModifyCosmetics.SelectedColor
+                    end
+                end)
+                applyThickness(object, DConfiguration.Visual.ModifyCosmetics.Thickness)
+                applyGlowProps(object)
+            end
+        end
+    end
+
+    local function cacheOnly(object)
+        if isVisualEffect(object) or object:IsA("BasePart") then
+            if not object:IsA("BasePart") or (object:IsA("BasePart") and not object.Parent:IsA("Model") and object.Name ~= "HumanoidRootPart") then
+                table.insert(affectedObjects, object)
+                if not originalColors[object] then
+                    originalColors[object] = object.Color
                 end
             end
         end
-        table.clear(originalColors)
     end
 
-    local function stopRainbow()
+    local function updateObjectsWithAction(character, actionFunc)
+        table.clear(affectedObjects)
+        if not character then return end
+        table.foreachi(character:GetDescendants(), function(_, obj) actionFunc(obj) end)
+    end
+
+    local function stopDynamicRainbow()
         if rainbowConnection then
             rainbowConnection:Disconnect()
             rainbowConnection = nil
         end
     end
 
-    local function startRainbow()
-        stopRainbow()
+    local function startDynamicRainbow()
+        stopDynamicRainbow()
+        updateObjectsWithAction(LocalPlayer.Character, cacheOnly)
+        
         rainbowConnection = RunService.Heartbeat:Connect(function(deltaTime)
-            if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled and DConfiguration.Visual.ModifyCosmetics.RainbowEnabled then
+            if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled and DConfiguration.Visual.ModifyCosmetics.DynamicRainbowEnabled then
                 hue = (hue + deltaTime * (rainbowSpeed * 0.1)) % 1
-                local rainbowColor = Color3.fromHSV(hue, 1, 1)
-                saveAndApplyColor(LocalPlayer.Character, rainbowColor, true)
+                applyDynamicRainbow(Color3.fromHSV(hue, 1, 1))
             end
         end)
     end
+
+    local function refreshVisuals()
+        stopDynamicRainbow()
+        if not DConfiguration.Visual.ModifyCosmetics.ToggleEnabled then
+            table.foreach(originalColors, function(obj, col) 
+                pcall(function() if obj and obj.Parent then obj.Color = col end end) 
+            end)
+            table.foreach(originalSizes, function(obj, sizeData)
+                pcall(function()
+                    if obj and obj.Parent then
+                        if obj:IsA("Trail") or obj:IsA("Beam") then
+                            obj.Width0 = sizeData.w0
+                            obj.Width1 = sizeData.w1
+                        elseif obj:IsA("ParticleEmitter") then
+                            obj.Size = sizeData.size
+                        end
+                    end
+                end)
+            end)
+            table.foreach(originalGlow, function(obj, glowVal)
+                pcall(function()
+                    if obj and obj.Parent then
+                        if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") then
+                            obj.LightEmission = glowVal
+                        elseif obj:IsA("Light") then
+                            obj.Brightness = glowVal
+                        end
+                    end
+                end)
+            end)
+            table.clear(originalColors)
+            table.clear(originalSizes)
+            table.clear(originalGlow)
+            table.clear(affectedObjects)
+            return
+        end
+
+        if DConfiguration.Visual.ModifyCosmetics.DynamicRainbowEnabled then
+            startDynamicRainbow()
+        elseif DConfiguration.Visual.ModifyCosmetics.StaticRainbowEnabled then
+            updateObjectsWithAction(LocalPlayer.Character, checkAndApplyStatic)
+        else
+            updateObjectsWithAction(LocalPlayer.Character, checkAndApplyNormal)
+        end
+    end
+
+    LocalPlayer.CharacterAdded:Connect(function(character)
+        if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled then
+            task.wait(0.5)
+            refreshVisuals()
+        end
+    end)
 
     Tabs.Visual:AddToggle("CosmeticsToggle", {
         Title = "Enable Custom Color",
         Default = false,
         Callback = function(Value)
             DConfiguration.Visual.ModifyCosmetics.ToggleEnabled = Value
-            if Value then
-                if DConfiguration.Visual.ModifyCosmetics.RainbowEnabled then
-                    startRainbow()
-                else
-                    saveAndApplyColor(LocalPlayer.Character, selectedColor, false)
-                end
-            else
-                stopRainbow()
-                restoreColors()
-            end
+            refreshVisuals()
         end
     })
 
     Tabs.Visual:AddColorpicker("EffectColor", {
         Title = "Effect Color",
-        Default = Color3.fromRGB(0, 255, 120),
+        Default = DConfiguration.Visual.ModifyCosmetics.SelectedColor,
         Callback = function(Value)
-            selectedColor = Value
-            if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled and not DConfiguration.Visual.ModifyCosmetics.RainbowEnabled then
-                saveAndApplyColor(LocalPlayer.Character, selectedColor, false)
+            DConfiguration.Visual.ModifyCosmetics.SelectedColor = Value
+            if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled and not DConfiguration.Visual.ModifyCosmetics.StaticRainbowEnabled and not DConfiguration.Visual.ModifyCosmetics.DynamicRainbowEnabled then
+                refreshVisuals()
             end
         end
     })
 
-    Tabs.Visual:AddToggle("RainbowToggle", {
-        Title = "Rainbow Effect",
-        Default = false,
+    Tabs.Visual:AddInput("ThicknessInput", {
+        Title = "Effects Thickness (Multiplier)",
+        Default = "1",
+        Placeholder = "1",
+        Numeric = true,
+        Finished = false,
         Callback = function(Value)
-            DConfiguration.Visual.ModifyCosmetics.RainbowEnabled = Value
-            if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled then
-                if Value then
-                    startRainbow()
-                else
-                    stopRainbow()
-                    saveAndApplyColor(LocalPlayer.Character, selectedColor, false)
+            local num = tonumber(Value)
+            if num then
+                DConfiguration.Visual.ModifyCosmetics.Thickness = num
+                if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled then
+                    refreshVisuals()
                 end
             end
+        end
+    })
+
+    Tabs.Visual:AddToggle("BrightnessToggle", {
+        Title = "Enable Glow Brightness",
+        Default = false,
+        Callback = function(Value)
+            DConfiguration.Visual.ModifyCosmetics.BrightnessEnabled = Value
+            if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled then
+                refreshVisuals()
+            end
+        end
+    })
+
+    Tabs.Visual:AddInput("GlowBrightnessInput", {
+        Title = "Glow Brightness",
+        Default = "1",
+        Placeholder = "1",
+        Numeric = true,
+        Finished = false,
+        Callback = function(Value)
+            local num = tonumber(Value)
+            if num then
+                DConfiguration.Visual.ModifyCosmetics.Brightness = num
+                if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled then
+                    refreshVisuals()
+                end
+            end
+        end
+    })
+
+    Tabs.Visual:AddToggle("StaticRainbowToggle", {
+        Title = "Static Rainbow (No Lag)",
+        Default = false,
+        Callback = function(Value)
+            DConfiguration.Visual.ModifyCosmetics.StaticRainbowEnabled = Value
+            if Value then
+                DConfiguration.Visual.ModifyCosmetics.DynamicRainbowEnabled = false
+            end
+            refreshVisuals()
+        end
+    })
+
+    Tabs.Visual:AddToggle("DynamicRainbowToggle", {
+        Title = "Dynamic Rainbow (Laggy)",
+        Default = false,
+        Callback = function(Value)
+            DConfiguration.Visual.ModifyCosmetics.DynamicRainbowEnabled = Value
+            if Value then
+                DConfiguration.Visual.ModifyCosmetics.StaticRainbowEnabled = false
+            end
+            refreshVisuals()
         end
     })
 
