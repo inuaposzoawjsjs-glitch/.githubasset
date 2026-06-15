@@ -32,7 +32,6 @@ local Tabs = {
     Misc = Window:AddTab({ Title = "Movement", Icon = "rbxassetid://7734068321" }),
     Exploits = Window:AddTab({ Title = "Exploits", Icon = "bomb" }),
     Visual = Window:AddTab({ Title = "Visuals", Icon = "rbxassetid://10709819149" }),
-    Anti = Window:AddTab({ Title = "Anti Special Round", Icon = "x" }),   
     Info = Window:AddTab({ Title = "Info", Icon = "rbxassetid://10723415903" }),
     Settings = Window:AddTab({ Title = "Configuration", Icon = "rbxassetid://7734052335" }),
     Extension = Window:AddTab({ Title = "Universal", Icon = "rbxassetid://10734930886" }),
@@ -1175,7 +1174,7 @@ function DFunctions.DisableVignette()
 	end
 end
 
--- Auto farm logiv
+-- Auto farm logic
 
 function DFunctions.GetDownedPlayer()
     for i,v in pairs(Workspace.Game.Players:GetChildren()) do
@@ -3530,7 +3529,7 @@ Tabs.Misc:AddInput("PlayerSpeed", {
     Title = "Player Speed",
     Description = "",
     Default = "1500",
-    Placeholder = "Speed Number",
+    Placeholder = "Number",
     Numeric = false,
     Finished = false,
     Callback = function(Value)
@@ -3543,7 +3542,7 @@ Tabs.Misc:AddInput("PlayerJump", {
     Title = "Player Jump",
     Description = "",
     Default = "3",
-    Placeholder = "Jump Number",
+    Placeholder = "Number",
     Numeric = false,
     Finished = false,
     Callback = function(Value)
@@ -3556,7 +3555,7 @@ Tabs.Misc:AddInput("PlayerJumpAcce", {
     Title = "Player Jump Acceleration",
     Description = "",
     Default = "1.5",
-    Placeholder = "",
+    Placeholder = "Number",
     Numeric = false,
     Finished = false,
     Callback = function(Value)
@@ -3569,7 +3568,7 @@ Tabs.Misc:AddInput("PlayerJumpCap", {
     Title = "Player Jump Cap",
     Description = "",
     Default = "1",
-    Placeholder = " ",
+    Placeholder = "Number",
     Numeric = false,
     Finished = false,
     Callback = function(Value)
@@ -3783,147 +3782,7 @@ Tabs.Misc:AddParagraph({
         Content = ""
     })
     
-local Toggle = Tabs.Misc:AddToggle("AdjustEdgeTrimp", {Title = "Modify Edge Trimp", Default = false })
-
-Toggle:OnChanged(function(State)
-    DConfiguration.Misc.Utilities.EdgeTrimpModification.Enabled = State
-     
-    while DConfiguration.Misc.Utilities.EdgeTrimpModification.Enabled and wait(0.1) do
-        spawn(DFunctions.ModifyEdgeTrimp)
-    end
-end)
-
-Tabs.Misc:AddInput("EdgeTrimpHeight", {
-        Title = "Height Multiplier",
-        Default = "1.5",
-        Placeholder = "Number",
-        Numeric = false, 
-        Finished = false, 
-        Callback = function(Value)
-            DConfiguration.Misc.Utilities.EdgeTrimpModification.HeightMultiplier = tonumber(Value) or 1.5
-        end
-    })
-    
-Tabs.Misc:AddInput("DownThreshold", {
-        Title = "Falling Threshold",
-        Default = "4.5",
-        Placeholder = "Number",
-        Numeric = false, 
-        Finished = false, 
-        Callback = function(Value)
-            DConfiguration.Misc.Utilities.EdgeTrimpModification.DownThreshold = tonumber(Value) or 4.5
-        end
-    })
-    
-   Tabs.Misc:AddParagraph({
-        Title = " ",
-        Content = ""
-    })
-
-do
-    local PlatData = {
-        Enabled = false,
-        Size = 10,
-        Transparency = 0.1,
-        List = {}
-    }
-
-    local function ClearPlates()
-        for _, p in pairs(PlatData.List) do
-            if p and p.Parent then p:Destroy() end
-        end
-        PlatData.List = {}
-    end
-
-    local function GetFolder()
-        local g = workspace:FindFirstChild("Game")
-        local m = g and g:FindFirstChild("Map")
-        local p = m and m:FindFirstChild("Parts")
-        return p and p:FindFirstChild("ImmovableProps")
-    end
-
-    local function CreatePlates()
-        ClearPlates()
-        if not PlatData.Enabled then return end
-        local folder = GetFolder()
-        if not folder then return end
-        
-        for _, obj in pairs(folder:GetChildren()) do
-            if obj.Name == "Cactus1" or obj.Name == "Cactus2" then
-                local pos, size
-                if obj:IsA("Model") then
-                    local cf, s = obj:GetBoundingBox()
-                    pos, size = cf.Position, s
-                elseif obj:IsA("BasePart") then
-                    pos, size = obj.Position, obj.Size
-                end
-
-                if pos and size then
-                    local p = Instance.new("Part")
-                    p.Name = "PhantomWyrm"
-                    p.Size = Vector3.new(PlatData.Size, 1, PlatData.Size)
-                    p.Anchored, p.CanCollide = true, true
-                    p.Material = Enum.Material.Neon
-                    p.Transparency = PlatData.Transparency
-                    p.Color = Color3.fromRGB(0, 255, 150)
-                    p.Position = pos + Vector3.new(0, (size.Y / 2) + 0.5, 0)
-                    p.Parent = workspace
-                    table.insert(PlatData.List, p)
-                end
-            end
-        end
-    end
-
-    Tabs.Misc:AddToggle("CactusToggle", {
-        Title = "Cactus Edge Platform",
-        Default = false,
-        Callback = function(Value)
-            PlatData.Enabled = Value
-            CreatePlates()
-        end
-    })
-
-    Tabs.Misc:AddInput("CactusTransInput", {
-        Title = "Platform Transparency (0-1)",
-        Description = "make platforms invisible 3-5",
-        Default = "0.5",
-        Numeric = true,
-        Finished = true,
-        Callback = function(Value)
-            local num = tonumber(Value) or 0.5
-            PlatData.Transparency = math.clamp(num, 0, 1)
-            for _, p in pairs(PlatData.List) do
-                if p and p.Parent then p.Transparency = PlatData.Transparency end
-            end
-        end
-    })
-
-    Tabs.Misc:AddInput("CactusSizeInput", {
-        Title = "Platform Size",
-        Default = "12",
-        Numeric = true,
-        Finished = true,
-        Callback = function(Value)
-            PlatData.Size = tonumber(Value) or 12
-            if PlatData.Enabled then CreatePlates() end
-        end
-    })
-
-    task.spawn(function()
-        while task.wait(3) do
-            if PlatData.Enabled and #PlatData.List == 0 then
-                CreatePlates()
-            end
-        end
-    end)
-end
-    
-    Tabs.Misc:AddParagraph({
-        Title = " ",
-        Content = ""
-    })
-
-local LP = game.Players.LocalPlayer
+ local LP = game.Players.LocalPlayer
 local RS = game:GetService("RunService")
 local Cam = workspace.CurrentCamera
 
@@ -4076,6 +3935,145 @@ Tabs.Misc:AddInput("EB_Extra", {
     end
 })
 
+Tabs.Misc:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
+    
+local Toggle = Tabs.Misc:AddToggle("AdjustEdgeTrimp", {Title = "Modify Edge Trimp", Default = false })
+
+Toggle:OnChanged(function(State)
+    DConfiguration.Misc.Utilities.EdgeTrimpModification.Enabled = State
+     
+    while DConfiguration.Misc.Utilities.EdgeTrimpModification.Enabled and wait(0.1) do
+        spawn(DFunctions.ModifyEdgeTrimp)
+    end
+end)
+
+Tabs.Misc:AddInput("EdgeTrimpHeight", {
+        Title = "Height Multiplier",
+        Default = "1.5",
+        Placeholder = "Number",
+        Numeric = false, 
+        Finished = false, 
+        Callback = function(Value)
+            DConfiguration.Misc.Utilities.EdgeTrimpModification.HeightMultiplier = tonumber(Value) or 1.5
+        end
+    })
+    
+Tabs.Misc:AddInput("DownThreshold", {
+        Title = "Falling Threshold",
+        Default = "4.5",
+        Placeholder = "Number",
+        Numeric = false, 
+        Finished = false, 
+        Callback = function(Value)
+            DConfiguration.Misc.Utilities.EdgeTrimpModification.DownThreshold = tonumber(Value) or 4.5
+        end
+    })
+    
+   Tabs.Misc:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
+
+do
+    local PlatData = {
+        Enabled = false,
+        Size = 10,
+        Transparency = 0.1,
+        List = {}
+    }
+
+    local function ClearPlates()
+        for _, p in pairs(PlatData.List) do
+            if p and p.Parent then p:Destroy() end
+        end
+        PlatData.List = {}
+    end
+
+    local function GetFolder()
+        local g = workspace:FindFirstChild("Game")
+        local m = g and g:FindFirstChild("Map")
+        local p = m and m:FindFirstChild("Parts")
+        return p and p:FindFirstChild("ImmovableProps")
+    end
+
+    local function CreatePlates()
+        ClearPlates()
+        if not PlatData.Enabled then return end
+        local folder = GetFolder()
+        if not folder then return end
+        
+        for _, obj in pairs(folder:GetChildren()) do
+            if obj.Name == "Cactus1" or obj.Name == "Cactus2" then
+                local pos, size
+                if obj:IsA("Model") then
+                    local cf, s = obj:GetBoundingBox()
+                    pos, size = cf.Position, s
+                elseif obj:IsA("BasePart") then
+                    pos, size = obj.Position, obj.Size
+                end
+
+                if pos and size then
+                    local p = Instance.new("Part")
+                    p.Name = "PhantomWyrm"
+                    p.Size = Vector3.new(PlatData.Size, 1, PlatData.Size)
+                    p.Anchored, p.CanCollide = true, true
+                    p.Material = Enum.Material.Neon
+                    p.Transparency = PlatData.Transparency
+                    p.Color = Color3.fromRGB(0, 255, 150)
+                    p.Position = pos + Vector3.new(0, (size.Y / 2) + 0.5, 0)
+                    p.Parent = workspace
+                    table.insert(PlatData.List, p)
+                end
+            end
+        end
+    end
+
+    Tabs.Misc:AddToggle("CactusToggle", {
+        Title = "Cactus Platform",
+        Default = false,
+        Callback = function(Value)
+            PlatData.Enabled = Value
+            CreatePlates()
+        end
+    })
+
+    Tabs.Misc:AddInput("CactusTransInput", {
+        Title = "Platform Transparency (0-1)",
+        Description = "make platforms invisible 3-5",
+        Default = "0.5",
+        Numeric = true,
+        Finished = true,
+        Callback = function(Value)
+            local num = tonumber(Value) or 0.5
+            PlatData.Transparency = math.clamp(num, 0, 1)
+            for _, p in pairs(PlatData.List) do
+                if p and p.Parent then p.Transparency = PlatData.Transparency end
+            end
+        end
+    })
+
+    Tabs.Misc:AddInput("CactusSizeInput", {
+        Title = "Platform Size",
+        Default = "12",
+        Numeric = true,
+        Finished = true,
+        Callback = function(Value)
+            PlatData.Size = tonumber(Value) or 12
+            if PlatData.Enabled then CreatePlates() end
+        end
+    })
+
+    task.spawn(function()
+        while task.wait(3) do
+            if PlatData.Enabled and #PlatData.List == 0 then
+                CreatePlates()
+            end
+        end
+    end)
+end
     
 Tabs.Misc:AddSection("Camera Adjustments")
 
@@ -4590,7 +4588,6 @@ Tabs.Misc:AddKeybind("KeybindBHOP2", {
         end
     end
 })
-
 
 local Dropdown = Tabs.Misc:AddDropdown("BHOPVersion", {
         Title = "Select BHOP Version",
@@ -6308,74 +6305,6 @@ Tabs.Visual:AddButton({
         DFunctions.ResetEmoteChanges() 
     end
 })
-
-    
--- Rounds
-
- do
-    local EvadeFixes = {
-        AntiFlip = false,
-        AntiInvert = false,
-        Camera = workspace.CurrentCamera,
-        LP = game:GetService("Players").LocalPlayer
-    }
-
-    Tabs.Anti:AddToggle("AntiCameraFlip", {Title = "Anti-Upside Down Camera", Default = false}):OnChanged(function(v)
-        EvadeFixes.AntiFlip = v
-    end)
-
-    Tabs.Anti:AddToggle("AntiInvertControls", {Title = "Anti-Invert Controls", Default = false}):OnChanged(function(v)
-        EvadeFixes.AntiInvert = v
-    end)
-
-    workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
-        EvadeFixes.Camera = workspace.CurrentCamera
-    end)
-
-    game:GetService("RunService").RenderStepped:Connect(function()
-        if EvadeFixes.Camera and EvadeFixes.AntiFlip then
-            local cf = EvadeFixes.Camera.CFrame
-            local _, _, z = cf:ToOrientation()
-            if math.abs(z) > 2.5 then 
-                EvadeFixes.Camera.CFrame = cf * CFrame.Angles(0, 0, -z)
-            end
-        end
-
-        if EvadeFixes.AntiInvert then
-            if EvadeFixes.LP.DevComputerMovementMode == Enum.DevComputerMovementMode.Scriptable then
-                EvadeFixes.LP.DevComputerMovementMode = Enum.DevComputerMovementMode.UserChoice
-            end
-            local scripts = EvadeFixes.LP:FindFirstChild("PlayerScripts")
-            local module = scripts and scripts:FindFirstChild("PlayerModule")
-            if module then
-                local controls = require(module):GetControls()
-                if controls.ControlToMoveDirection then
-                    controls:Enable(true)
-                end
-            end
-        end
-    end)
-end
- 
-local Toggle = Tabs.Anti:AddToggle("PlayerJumpPower", {Title = "Anti No Jump", Default = false })
-
-task.spawn(function()
-    while true do
-        if Toggle.Value then
-            local character = LocalPlayer.Character
-            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-            
-            if humanoid then
-           
-                if humanoid.JumpPower < 1 then
-                    humanoid.UseJumpPower = true
-                    humanoid.JumpPower = 50
-                end
-            end
-        end
-        task.wait(0.1)
-    end
-end)
     
 -- info
 
@@ -7355,7 +7284,7 @@ Window:SelectTab(1)
 -- Auto Load Configuration
 SaveManager:LoadAutoloadConfig()
 
--- Extension
+-- ⬇ ️Heart PhantomWyrmHub ⬇ ️
 
 local IsPCMode = false
 
@@ -7430,6 +7359,8 @@ if LocalPlayer.Character then
 end
 
 spawn(function()
+	local wasHolding = false
+
 	while task.wait(0.1) do
 		if #CurrentAdjustment > 0 then
 			DFunctions.setTSpeed(DConfiguration.Misc.PlayerAdjustment.Update.Speed)
@@ -7440,11 +7371,20 @@ spawn(function()
 			DFunctions.setTJumpAcceleration(DConfiguration.Misc.PlayerAdjustment.Update.JumpAcceleration)
 		end
 		
-		if DConfiguration.Misc.MovementModification.BHOP.Enabled or UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-			DFunctions.BHOPFunction()
+		if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+			wasHolding = true
+			DConfiguration.Misc.MovementModification.BHOP.Enabled = true
+			task.spawn(DFunctions.BHOPFunction)
+		else
+			if wasHolding then
+				wasHolding = false
+				DConfiguration.Misc.MovementModification.BHOP.Enabled = false
+				task.spawn(DFunctions.ResetBHOP)
+			end
 		end
 	end
 end)
+
 
 -- ========================================================================================================================
 --                                                  DISCORD WEBHOOK LOGGER                                                 
