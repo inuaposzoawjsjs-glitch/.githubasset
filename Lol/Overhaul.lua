@@ -31,7 +31,6 @@ local Tabs = {
     Misc = Window:AddTab({ Title = "Movement", Icon = "rbxassetid://7734068321" }),
     Exploits = Window:AddTab({ Title = "Exploits", Icon = "bomb" }),
     Visual = Window:AddTab({ Title = "Visuals", Icon = "rbxassetid://10709819149" }),
-    Anti = Window:AddTab({ Title = "Anti Special Round", Icon = "x" }),   
     Info = Window:AddTab({ Title = "Info", Icon = "rbxassetid://10723415903" }),
     Settings = Window:AddTab({ Title = "Configuration", Icon = "rbxassetid://7734052335" }),
     Extension = Window:AddTab({ Title = "Universal", Icon = "rbxassetid://10734930886" }),
@@ -4287,10 +4286,8 @@ Tabs.Misc:AddParagraph({
         Title = " ",
         Content = ""
     })
-    
-
-    
-local Toggle = Tabs.Misc:AddToggle("PlayerWalkspeed", {Title = "Walkspeed Toggle", Default = false })
+        
+ local Toggle = Tabs.Misc:AddToggle("PlayerWalkspeed", {Title = "Walkspeed Toggle", Default = false })
 
     Toggle:OnChanged(function(State)
         DConfiguration.Misc.Humanoids.WalkspeedCF = State
@@ -4318,7 +4315,8 @@ local Toggle = Tabs.Misc:AddToggle("PlayerWalkspeed", {Title = "Walkspeed Toggle
             DConfiguration.Misc.Humanoids.CF = tonumber(Value) or 5
         end
     })
-    
+       
+
 Tabs.Misc:AddSection("Utilities")
 
 local Toggle = Tabs.Misc:AddToggle("LagSwitch", {Title = "Lag Switch (Button)", Default = false})
@@ -7161,7 +7159,7 @@ do
     })
 
     Tabs.Visual:AddInput("ThicknessInput", {
-        Title = "Effects Size",
+        Title = "Effects Thickness (Multiplier)",
         Default = "1",
         Placeholder = "1",
         Numeric = true,
@@ -7170,6 +7168,34 @@ do
             local num = tonumber(Value)
             if num then
                 DConfiguration.Visual.ModifyCosmetics.Thickness = num
+                if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled then
+                    refreshVisuals()
+                end
+            end
+        end
+    })
+
+    Tabs.Visual:AddToggle("BrightnessToggle", {
+        Title = "Enable Glow Brightness",
+        Default = false,
+        Callback = function(Value)
+            DConfiguration.Visual.ModifyCosmetics.BrightnessEnabled = Value
+            if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled then
+                refreshVisuals()
+            end
+        end
+    })
+
+    Tabs.Visual:AddInput("GlowBrightnessInput", {
+        Title = "Glow Brightness",
+        Default = "1",
+        Placeholder = "1",
+        Numeric = true,
+        Finished = false,
+        Callback = function(Value)
+            local num = tonumber(Value)
+            if num then
+                DConfiguration.Visual.ModifyCosmetics.Brightness = num
                 if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled then
                     refreshVisuals()
                 end
@@ -7597,8 +7623,6 @@ task.spawn(function()
         task.wait(0.1)
     end
 end)
-
-
  
 -- info
 
