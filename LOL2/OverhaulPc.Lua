@@ -7028,7 +7028,10 @@ task.spawn(function()
     
     DFunctions.rbConn = nil
 
-    Tabs.Extension:AddToggle("RainbowAmbient", {
+        
+Tabs.Extension:AddSection("Ambient Extension")
+
+Tabs.Extension:AddToggle("RainbowAmbient", {
         Title = "Rainbow Ambient",
         Default = false,
         Callback = function(Value)
@@ -7046,9 +7049,6 @@ task.spawn(function()
         end
     })
 end)
-
-        
-Tabs.Extension:AddSection("Lightning Extension")
 
 do
     local Lighting = game:GetService("Lighting")
