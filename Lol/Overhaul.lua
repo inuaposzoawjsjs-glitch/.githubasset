@@ -8342,6 +8342,9 @@ task.spawn(function()
         end
     })
 
+
+Tabs.Extension:AddSection("Ambient Extension")
+
 Tabs.Extension:AddToggle("RainbowAmbient", {
         Title = "Rainbow Ambient",
         Default = false,
@@ -8362,7 +8365,6 @@ Tabs.Extension:AddToggle("RainbowAmbient", {
 end)
 
         
-Tabs.Extension:AddSection("Lightning Extension")
 
 do
     local Lighting = game:GetService("Lighting")
