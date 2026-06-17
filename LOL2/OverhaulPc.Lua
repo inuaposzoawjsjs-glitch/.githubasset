@@ -384,17 +384,10 @@ else
 end
 
 if game.Players then
-   print("Advance Api 🟢")
+   print("Advance Api")
 else
-   print("Common Api 🟢")
+   print("Common Api")
 end
-
-print("Executor 🟢")
-print("Script is Running!")
-
--- Announcement
-
--- loadstring(game:HttpGet("https://raw.githubusercontent.com/Vraigos/PhantomWyrm-Hub-X/refs/heads/main/Configurations/Announcement.lua"))()
 
 -- Scripts
 
@@ -3054,7 +3047,7 @@ local Toggle = Tabs.Main:AddToggle("AutoWhistle", {Title = "Auto Whistle", Defau
 	   	 ReplicatedStorage.Events.Character.Whistle:FireServer()
 		end
     end)
-
+    
 Tabs.Main:AddSection("Alternative Settings")
     
 local Toggle = Tabs.Main:AddToggle("AntiAfk", {Title = "Anti-AFK", Default = false })
@@ -3073,29 +3066,441 @@ local Toggle = Tabs.Main:AddToggle("AntiAfk", {Title = "Anti-AFK", Default = fal
  
  Options.AntiAfk:SetValue(true)
  
- local Toggle = Tabs.Main:AddToggle("ShowTimer", {Title = "Show Timer", Default = false })
+ local Toggle = Tabs.Main:AddToggle("ShowTimer", {Title = "Show Timer", Default = false})
 
 Toggle:OnChanged(function(State)
     DConfiguration.Main.ShowTimer = State
 
-    if DConfiguration.Main.ShowTimer then
-        if not LocalPlayer.PlayerGui:FindFirstChild("TimerGui") then
+    if State then
+        if not game:GetService("Players").LocalPlayer.PlayerGui:FindFirstChild("TimerGui") then
             DFunctions.CreateTimer()
         end
+
+        task.spawn(function()
+            while DConfiguration.Main.ShowTimer do
+                local gui = game:GetService("Players").LocalPlayer.PlayerGui:FindFirstChild("TimerGui")
+                local stats = workspace:FindFirstChild("Game") and workspace.Game:FindFirstChild("Stats")
+
+                if gui and stats then
+                    local seconds = stats:GetAttribute("Timer") or 0
+                    local minutes = math.floor(seconds / 60)
+                    local remainingSeconds = seconds % 60
+                    
+                    gui.TextLabel.Text = string.format("%d:%02d", minutes, remainingSeconds)
+                end
+                
+                task.wait(0.1)
+                
+                if not gui then break end 
+            end
+        end)
     else
         DFunctions.RemoveTimer()
     end
+end)
 
-    while DConfiguration.Main.ShowTimer and wait(0.1) do
-        if LocalPlayer.PlayerGui:FindFirstChild("TimerGui") then
-            local seconds = workspace.Game.Stats:GetAttribute("Timer")
-            local minutes = math.floor(seconds / 60)
-            local remainingSeconds = seconds % 60
+do
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local Players = game:GetService("Players")
+    local lp = Players.LocalPlayer
+    
+    local sg = Instance.new("ScreenGui")
+    sg.Name = "SpecialRoundGui"
+    sg.ResetOnSpawn = false
+    sg.Parent = lp:WaitForChild("PlayerGui")
 
-            LocalPlayer.PlayerGui.TimerGui.TextLabel.Text = string.format("%d:%02d", minutes, remainingSeconds)
+    local SpecialRoundFrame = Instance.new("Frame", sg)
+    SpecialRoundFrame.AnchorPoint = Vector2.new(0.5, 0)
+    SpecialRoundFrame.Position = UDim2.new(0.5, 0, 0.10, 0)
+    SpecialRoundFrame.Size = UDim2.new(0.2, 0, 0.04, 0)
+    SpecialRoundFrame.BackgroundColor3 = Color3.new(0, 0, 0)
+    SpecialRoundFrame.BackgroundTransparency = 0.5
+    SpecialRoundFrame.Visible = false
+    Instance.new("UICorner", SpecialRoundFrame).CornerRadius = UDim.new(0, 4)
+
+    local label = Instance.new("TextLabel", SpecialRoundFrame)
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = ""
+    label.TextColor3 = Color3.fromRGB(255, 208, 115)
+    label.Font = Enum.Font.GothamBold
+    label.TextScaled = true
+    Instance.new("UIStroke", label).Thickness = 2
+
+    local Connection = nil
+    local isEnabled = false
+
+    local function getTitle(name)
+        local success, title = pcall(function()
+            return require(ReplicatedStorage.Info.SpecialRounds[name]).Title
+        end)
+        return success and title or name
+    end
+
+    local function update()
+        if not isEnabled then 
+            SpecialRoundFrame.Visible = false 
+            return 
+        end
+
+        local stats = workspace:FindFirstChild("Game") and workspace.Game:FindFirstChild("Stats")
+        if stats then
+            local val = stats:GetAttribute("SpecialRound")
+            if val and val ~= "" then
+                label.Text = getTitle(tostring(val))
+                SpecialRoundFrame.Visible = true
+            else
+                SpecialRoundFrame.Visible = false
+            end
         end
     end
-end)
+
+    local function toggleSpecialRound(state)
+        isEnabled = state
+        
+        if Connection then 
+            Connection:Disconnect() 
+            Connection = nil 
+        end
+
+        if state then
+            local stats = workspace:WaitForChild("Game"):WaitForChild("Stats")
+            Connection = stats:GetAttributeChangedSignal("SpecialRound"):Connect(update)
+            update()
+        else
+            SpecialRoundFrame.Visible = false
+        end
+    end
+
+    Tabs.Main:AddToggle("SRToggle", {
+        Title = "Special Round Display",
+        Default = false,
+        Callback = toggleSpecialRound
+    })
+end
+
+
+
+do
+    local Players = game:GetService("Players")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local RunService = game:GetService("RunService")
+    local player = Players.LocalPlayer
+
+    local StateService = require(ReplicatedStorage.Modules.Shared.States.StateService)
+    local clientHandler = StateService.ClientHandler:Get(nil)
+
+    local PlayerStatsEnabled = false
+    local heartbeatConnection = nil
+    local textConnections = {}
+    local PlayerStats = nil
+    local textLabels = {}
+    local frontFrames = {}
+    local ExperienceCalculator = nil
+    
+    local leftColumn, levelText, expText, fill
+
+    function formatNumber(num)
+        local str = tostring(math.floor(num))
+        local formatted = ""
+        local length = #str
+        for i = 1, length do
+            formatted = formatted .. str:sub(i, i)
+            if (length - i) % 3 == 0 and i ~= length then
+                formatted = formatted .. ","
+            end
+        end
+        return formatted
+    end
+
+    function updateFrontFrameXSize(frame, textLabel)
+        if not frame or not textLabel then return end
+        local textBounds = textLabel.TextBounds
+        frame.Size = UDim2.new(0, textBounds.X + 20, 1, 0)
+    end
+
+    function createResourceRow(name, defaultValue, textColor, iconAssetId, iconColor, layoutOrder)
+        local container = Instance.new("Frame")
+        container.Name = name
+        container.BackgroundTransparency = 1
+        container.Size = UDim2.fromScale(1, 1)
+        container.LayoutOrder = layoutOrder
+        container.Parent = leftColumn
+
+        local background = Instance.new("ImageLabel")
+        background.Name = "Background"
+        background.BackgroundTransparency = 1
+        background.Image = "rbxassetid://196969716"
+        background.ImageColor3 = Color3.fromRGB(21, 21, 21)
+        background.ImageTransparency = 0.4
+        background.AnchorPoint = Vector2.new(0.5, 0.5)
+        background.Position = UDim2.fromScale(0.5, 0.5)
+        background.Size = UDim2.fromScale(1.25, 1.25)
+        background.ZIndex = 1
+        background.Parent = container
+
+        local bgCorner = Instance.new("UICorner")
+        bgCorner.CornerRadius = UDim.new(0, 4)
+        bgCorner.Parent = background
+
+        local icon = Instance.new("ImageLabel")
+        icon.BackgroundTransparency = 1
+        icon.Image = "rbxassetid://" .. iconAssetId
+        if iconColor then icon.ImageColor3 = iconColor end
+        icon.AnchorPoint = Vector2.new(0.5, 0.5)
+        icon.Position = UDim2.fromScale(0.5, 0.5)
+        icon.Size = UDim2.fromScale(0.8, 0.8)
+        icon.ZIndex = 3
+        icon.Parent = container
+
+        local iconAspect = Instance.new("UIAspectRatioConstraint")
+        iconAspect.Parent = icon
+
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Name = "Value"
+        textLabel.BackgroundTransparency = 1
+        textLabel.Font = Enum.Font.GothamBold
+        textLabel.Text = tostring(defaultValue)
+        textLabel.TextColor3 = textColor
+        textLabel.TextScaled = true
+        textLabel.TextSize = 14
+        textLabel.TextStrokeTransparency = 0.9
+        textLabel.TextWrapped = true
+        textLabel.TextXAlignment = Enum.TextXAlignment.Left
+        textLabel.AnchorPoint = Vector2.new(0, 0.5)
+        textLabel.Position = UDim2.new(1.3, 0, 0.5, 0)
+        textLabel.Size = UDim2.new(6, 0, 0.8, 0)
+        textLabel.ZIndex = 3
+        textLabel.Parent = container
+
+        textLabels[name] = textLabel
+
+        local stroke = Instance.new("UIStroke")
+        stroke.Thickness = 2
+        stroke.Transparency = 0.5
+        stroke.Parent = textLabel
+
+        local clipLeft = Instance.new("Frame")
+        clipLeft.BackgroundTransparency = 1
+        clipLeft.ClipsDescendants = true
+        clipLeft.Size = UDim2.fromScale(1, 1)
+        clipLeft.ZIndex = 2
+        clipLeft.Parent = container
+
+        local leftEffect = Instance.new("Frame")
+        leftEffect.BackgroundColor3 = Color3.new(0, 0, 0)
+        leftEffect.BackgroundTransparency = 0.45
+        leftEffect.Size = UDim2.new(2, 0, 1, 0)
+        leftEffect.ZIndex = 2
+        leftEffect.Parent = clipLeft
+
+        local leftCorner = Instance.new("UICorner")
+        leftCorner.CornerRadius = UDim.new(0, 4)
+        leftCorner.Parent = leftEffect
+
+        local clipFront = Instance.new("Frame")
+        clipFront.Name = "Front"
+        clipFront.BackgroundTransparency = 1
+        clipFront.ClipsDescendants = true
+        clipFront.Position = UDim2.new(1, 0, 0, 0)
+        clipFront.Size = UDim2.new(0.5, 33, 1, 0)
+        clipFront.ZIndex = 2
+        clipFront.Parent = container
+
+        local frontEffect = Instance.new("Frame")
+        frontEffect.BackgroundColor3 = Color3.new(0, 0, 0)
+        frontEffect.BackgroundTransparency = 0.9
+        frontEffect.Position = UDim2.new(-1, 0, 0, 0)
+        frontEffect.Size = UDim2.new(2, 0, 1, 0)
+        frontEffect.ZIndex = 2
+        frontEffect.Parent = clipFront
+
+        local frontCorner = Instance.new("UICorner")
+        frontCorner.CornerRadius = UDim.new(0, 4)
+        frontCorner.Parent = frontEffect
+
+        frontFrames[name] = {
+            frame = clipFront,
+            effect = frontEffect,
+            textLabel = textLabel
+        }
+
+        task.spawn(function()
+            task.wait()
+            updateFrontFrameXSize(clipFront, textLabel)
+        end)
+
+        return textLabel
+    end
+
+    function getIntStats()
+        local success, result = pcall(function()
+            local userData = clientHandler:Get("User/" .. player.UserId)
+            if userData and userData.Data and userData.Data.intStats then
+                return userData.Data.intStats
+            end
+            return nil
+        end)
+        if success and result then return result end
+        return nil
+    end
+
+    function updateStats()
+        if not PlayerStatsEnabled or not PlayerStats then return end
+        local intStats = getIntStats()
+        if intStats then
+            if textLabels["Tokens"] then textLabels["Tokens"].Text = formatNumber(intStats.Tokens or 0) end
+            if textLabels["Points"] then textLabels["Points"].Text = formatNumber(intStats.Points or 0) end
+            if textLabels["Survivals"] then textLabels["Survivals"].Text = formatNumber(intStats.Survivals or 0) end
+            if textLabels["Streak"] then textLabels["Streak"].Text = formatNumber(intStats.Streak or 0) end
+            if textLabels["Tickets"] then textLabels["Tickets"].Text = formatNumber(intStats.Tickets or 0) end
+
+            for _, data in pairs(frontFrames) do
+                if data.frame and data.textLabel then
+                    updateFrontFrameXSize(data.frame, data.textLabel)
+                end
+            end
+
+            local level = intStats.Level or 1
+            local exp = intStats.Experience or 0
+            levelText.Text = "LEVEL " .. level
+
+            local neededExp = ExperienceCalculator and ExperienceCalculator(level) or (level * 100)
+            expText.Text = formatNumber(exp) .. "/" .. formatNumber(neededExp)
+            fill.Size = UDim2.new(math.clamp(exp / neededExp, 0, 1), 0, 1, 0)
+        end
+    end
+
+    function DisableScanData()
+        PlayerStatsEnabled = false
+        if heartbeatConnection then heartbeatConnection:Disconnect() heartbeatConnection = nil end
+        for _, conn in pairs(textConnections) do if conn then conn:Disconnect() end end
+        textConnections = {}
+        if PlayerStats then PlayerStats:Destroy() PlayerStats = nil end
+        textLabels = {}
+        frontFrames = {}
+    end
+
+    function EnableScanData()
+        if PlayerStats then DisableScanData() end
+        PlayerStats = Instance.new("ScreenGui")
+        PlayerStats.Name = "PlayerStats"
+        PlayerStats.ResetOnSpawn = false
+        PlayerStats.DisplayOrder = 333
+        PlayerStats.Parent = player:WaitForChild("PlayerGui")
+
+        local views = Instance.new("Frame", PlayerStats)
+        views.Name = "Views"
+        views.BackgroundTransparency = 1
+        views.Size = UDim2.fromScale(1, 1)
+
+        local bottom = Instance.new("Frame", views)
+        bottom.Name = "Bottom"
+        bottom.BackgroundTransparency = 1
+        bottom.Position = UDim2.fromScale(0.01, 0.01)
+        bottom.Size = UDim2.fromScale(0.98, 0.98)
+
+        local aspectRatio = Instance.new("UIAspectRatioConstraint", bottom)
+        local sizeConstraint = Instance.new("UISizeConstraint", bottom)
+        sizeConstraint.MinSize = Vector2.new(450, 450)
+        sizeConstraint.MaxSize = Vector2.new(700, 700)
+
+        leftColumn = Instance.new("Frame", bottom)
+        leftColumn.Name = "Left"
+        leftColumn.BackgroundTransparency = 1
+        leftColumn.Position = UDim2.new(0.004, 0, 0.06, 0)
+        leftColumn.Size = UDim2.new(0.05, 0, 0.05, 0)
+
+        local listLayout = Instance.new("UIListLayout", leftColumn)
+        listLayout.Padding = UDim.new(0.175, 0)
+        listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+        createResourceRow("Tokens", "0", Color3.fromRGB(163, 255, 87), "7149239101", Color3.fromRGB(163, 255, 87), 1)
+        createResourceRow("Points", "0", Color3.new(1, 1, 1), "4648327306", nil, 2)
+        createResourceRow("Survivals", "0", Color3.fromRGB(255, 188, 110), "88681516628510", Color3.fromRGB(255, 201, 162), 3)
+        createResourceRow("Tickets", "0", Color3.fromRGB(255, 121, 121), "14478137255", Color3.fromRGB(255, 115, 115), 4)
+        createResourceRow("Streak", "0", Color3.fromRGB(255, 217, 78), "13518130183", Color3.fromRGB(255, 217, 78), 5)
+
+        local levelBar = Instance.new("Frame", bottom)
+        levelBar.Name = "Level"
+        levelBar.BackgroundColor3 = Color3.fromRGB(105, 138, 255)
+        levelBar.BackgroundTransparency = 0.9
+        levelBar.Position = UDim2.new(0, 4, 0, 4)
+        levelBar.Size = UDim2.new(0.7, 0, 0.016, 0)
+
+        Instance.new("UICorner", levelBar).CornerRadius = UDim.new(0.5, 0)
+        local levelStroke = Instance.new("UIStroke", levelBar)
+        levelStroke.Thickness = 2
+        levelStroke.Transparency = 0.5
+
+        local barContainer = Instance.new("Frame", levelBar)
+        barContainer.Name = "Bar"
+        barContainer.BackgroundTransparency = 1
+        barContainer.ClipsDescendants = true
+        barContainer.Size = UDim2.new(1, 0, 1, 0)
+
+        fill = Instance.new("Frame", barContainer)
+        fill.BackgroundColor3 = Color3.fromRGB(105, 138, 255)
+        fill.BackgroundTransparency = 0.2
+        fill.Size = UDim2.new(0, 0, 1, 0)
+        fill.ZIndex = 2
+        Instance.new("UICorner", fill).CornerRadius = UDim.new(0.5, 0)
+
+        local gradient = Instance.new("UIGradient", fill)
+        gradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+            ColorSequenceKeypoint.new(0.3149, Color3.fromRGB(241, 246, 249)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(168, 201, 222))
+        })
+        gradient.Rotation = 90
+
+        levelText = Instance.new("TextLabel", levelBar)
+        levelText.BackgroundTransparency = 1
+        levelText.Font = Enum.Font.GothamBold
+        levelText.Text = "LEVEL 1"
+        levelText.TextColor3 = Color3.fromRGB(105, 138, 255)
+        levelText.TextScaled = true
+        levelText.TextXAlignment = "Left"
+        levelText.Position = UDim2.new(0, 0, 1.25, 0)
+        levelText.Size = UDim2.new(0.5, 0, 1.5, 0)
+        Instance.new("UIStroke", levelText).Thickness = 2
+
+        expText = Instance.new("TextLabel", levelBar)
+        expText.BackgroundTransparency = 1
+        expText.Font = Enum.Font.GothamBold
+        expText.Text = "0/100"
+        expText.TextColor3 = Color3.fromRGB(105, 138, 255)
+        expText.TextScaled = true
+        expText.TextXAlignment = "Right"
+        expText.AnchorPoint = Vector2.new(1, 0)
+        expText.Position = UDim2.new(1, 0, 1.25, 0)
+        expText.Size = UDim2.new(0.5, 0, 1.25, 0)
+        Instance.new("UIStroke", expText).Thickness = 2
+
+        PlayerStatsEnabled = true
+        task.wait(1)
+        updateStats()
+
+        heartbeatConnection = RunService.Heartbeat:Connect(function()
+            if PlayerStatsEnabled and tick() % 0.5 < 0.05 then
+                updateStats()
+            end
+        end)
+    end
+
+    pcall(function()
+        ExperienceCalculator = require(ReplicatedStorage.Modules.Shared.TablesAndMethods.ExperienceCalculator)
+    end)
+
+    Tabs.Main:AddToggle("PlayerStatsToggle", {
+        Title = "Player Stats",
+        Default = false,
+        Callback = function(state)
+            if state then EnableScanData() else DisableScanData() end
+        end
+    })
+end
+
  
  local Toggle = Tabs.Main:AddToggle("DisableCameraShake", {Title = "Disable Camera Shake", Default = false })
 
@@ -3125,34 +3530,6 @@ Toggle:OnChanged(function(value)
        spawn(DFunctions.DisableVignette)
     end
 end)
-
-Tabs.Main:AddSection("Map Modification")
-    
-local Toggle = Tabs.Main:AddToggle("RemoveDamage", {Title = "Remove Damage Objects", Default = false })
-
-    Toggle:OnChanged(function(value)
-        DConfiguration.Removals.DamageParts = value
-        
-      while task.wait(1) and DConfiguration.Removals.DamageParts do
-			spawn(DFunctions.RemoveDamagePart)
-		end
-    end)
-
-local Toggle = Tabs.Main:AddToggle("RemoveReducingRewards", {Title = "Remove Invisible Walls", Default = false })
-
-    Toggle:OnChanged(function(value)
-        DConfiguration.Removals.InvisibleWalls = value
-        
-      while task.wait(1) and DConfiguration.Removals.InvisibleWalls do
-          spawn(function()
-				DFunctions.DisableInvisParts(false)
-			end)
-		end
-		
-		if not DConfiguration.Removals.InvisibleWalls then
-			DFunctions.DisableInvisParts(true)
-		end
-    end)
     
 Tabs.Main:AddSection("Battlepass Modification")
 
@@ -5871,8 +6248,27 @@ do
     local RunService = game:GetService("RunService")
     local LocalPlayer = Players.LocalPlayer
 
-    local selectedColor = Color3.fromRGB(255, 255, 255)
+    DConfiguration = DConfiguration or {}
+    DConfiguration.Visual = DConfiguration.Visual or {}
+    DConfiguration.Visual.ModifyCosmetics = DConfiguration.Visual.ModifyCosmetics or {}
+    
+    if DConfiguration.Visual.ModifyCosmetics.SelectedColor == nil then
+        DConfiguration.Visual.ModifyCosmetics.SelectedColor = Color3.fromRGB(0, 255, 120)
+    end
+    if DConfiguration.Visual.ModifyCosmetics.Thickness == nil then
+        DConfiguration.Visual.ModifyCosmetics.Thickness = 1
+    end
+    if DConfiguration.Visual.ModifyCosmetics.Brightness == nil then
+        DConfiguration.Visual.ModifyCosmetics.Brightness = 1
+    end
+    if DConfiguration.Visual.ModifyCosmetics.BrightnessEnabled == nil then
+        DConfiguration.Visual.ModifyCosmetics.BrightnessEnabled = false
+    end
+
     local originalColors = {}
+    local originalSizes = {}
+    local originalGlow = {}
+    local affectedObjects = {}
     local rainbowConnection = nil
     local rainbowSpeed = 1
     local hue = 0
@@ -5881,100 +6277,270 @@ do
         return object:IsA("ParticleEmitter") or object:IsA("Trail") or object:IsA("Beam") or object:IsA("Light") or object:IsA("SelectionBox")
     end
 
-    local function saveAndApplyColor(character, newColor, isRainbow)
-        if not character then return end
-        for _, object in ipairs(character:GetDescendants()) do
-            if isVisualEffect(object) or object:IsA("BasePart") then
-                -- Игнорируем стандартные части тела игрока, красим только кастомные элементы эффектов
-                if not object:IsA("BasePart") or (object:IsA("BasePart") and not object.Parent:IsA("Model") and object.Name ~= "HumanoidRootPart") then
-                    
-                    if not originalColors[object] then
-                        originalColors[object] = object.Color
-                    end
-
-                    if object:IsA("ParticleEmitter") or object:IsA("Trail") or object:IsA("Beam") then
-                        object.Color = ColorSequence.new(newColor)
-                    else
-                        object.Color = newColor
-                    end
-                end
-            end
-        end
+    local function createRainbowSequence()
+        return ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromHSV(0, 1, 1)),
+            ColorSequenceKeypoint.new(0.2, Color3.fromHSV(0.2, 1, 1)),
+            ColorSequenceKeypoint.new(0.4, Color3.fromHSV(0.4, 1, 1)),
+            ColorSequenceKeypoint.new(0.6, Color3.fromHSV(0.6, 1, 1)),
+            ColorSequenceKeypoint.new(0.8, Color3.fromHSV(0.8, 1, 1)),
+            ColorSequenceKeypoint.new(1, Color3.fromHSV(1, 1, 1))
+        })
     end
 
-    local function restoreColors()
-        for object, color in pairs(originalColors) do
-            if object and object.Parent then
+    local function applyGlowProps(object)
+        if DConfiguration.Visual.ModifyCosmetics.BrightnessEnabled then
+            local targetGlow = DConfiguration.Visual.ModifyCosmetics.Brightness
+            pcall(function()
                 if object:IsA("ParticleEmitter") or object:IsA("Trail") or object:IsA("Beam") then
-                    object.Color = color
+                    if not originalGlow[object] then
+                        originalGlow[object] = object.LightEmission
+                    end
+                    object.LightEmission = targetGlow
+                elseif object:IsA("Light") then
+                    if not originalGlow[object] then
+                        originalGlow[object] = object.Brightness
+                    end
+                    object.Brightness = targetGlow
+                end
+            end)
+        end
+    end
+
+    local function applyThickness(object, multiplier)
+        pcall(function()
+            if object:IsA("Trail") or object:IsA("Beam") then
+                if not originalSizes[object] then
+                    originalSizes[object] = {w0 = object.Width0, w1 = object.Width1}
+                end
+                object.Width0 = originalSizes[object].w0 * multiplier
+                object.Width1 = originalSizes[object].w1 * multiplier
+            elseif object:IsA("ParticleEmitter") then
+                if not originalSizes[object] then
+                    originalSizes[object] = {size = object.Size}
+                end
+                if typeof(originalSizes[object].size) == "NumberSequence" then
+                    local keypoints = {}
+                    table.foreachi(originalSizes[object].size.Keypoints, function(_, kp)
+                        table.insert(keypoints, NumberSequenceKeypoint.new(kp.Time, math.clamp(kp.Value * multiplier, 0, 100)))
+                    end)
+                    object.Size = NumberSequence.new(keypoints)
                 else
-                    object.Color = color
+                    object.Size = originalSizes[object].size * multiplier
+                end
+            end
+        end)
+    end
+
+    local function applySingleDynamic(newColor, sequence, _, object)
+        if object and object.Parent then
+            pcall(function()
+                if object:IsA("ParticleEmitter") or object:IsA("Trail") or object:IsA("Beam") then
+                    object.Color = sequence
+                else
+                    object.Color = newColor
+                end
+            end)
+            applyThickness(object, DConfiguration.Visual.ModifyCosmetics.Thickness)
+            applyGlowProps(object)
+        end
+    end
+
+    local function applyDynamicRainbow(newColor)
+        local sequence = ColorSequence.new(newColor)
+        table.foreachi(affectedObjects, function(index, object)
+            applySingleDynamic(newColor, sequence, index, object)
+        end)
+    end
+
+    local function checkAndApplyStatic(object)
+        if isVisualEffect(object) or object:IsA("BasePart") then
+            if not object:IsA("BasePart") or (object:IsA("BasePart") and not object.Parent:IsA("Model") and object.Name ~= "HumanoidRootPart") then
+                table.insert(affectedObjects, object)
+                if not originalColors[object] then
+                    originalColors[object] = object.Color
+                end
+
+                pcall(function()
+                    if object:IsA("ParticleEmitter") or object:IsA("Trail") or object:IsA("Beam") then
+                        object.Color = createRainbowSequence()
+                    else
+                        object.Color = Color3.fromHSV(tick() % 5 / 5, 1, 1)
+                    end
+                end)
+                applyThickness(object, DConfiguration.Visual.ModifyCosmetics.Thickness)
+                applyGlowProps(object)
+            end
+        end
+    end
+
+    local function checkAndApplyNormal(object)
+        if isVisualEffect(object) or object:IsA("BasePart") then
+            if not object:IsA("BasePart") or (object:IsA("BasePart") and not object.Parent:IsA("Model") and object.Name ~= "HumanoidRootPart") then
+                table.insert(affectedObjects, object)
+                if not originalColors[object] then
+                    originalColors[object] = object.Color
+                end
+
+                pcall(function()
+                    if object:IsA("ParticleEmitter") or object:IsA("Trail") or object:IsA("Beam") then
+                        object.Color = ColorSequence.new(DConfiguration.Visual.ModifyCosmetics.SelectedColor)
+                    else
+                        object.Color = DConfiguration.Visual.ModifyCosmetics.SelectedColor
+                    end
+                end)
+                applyThickness(object, DConfiguration.Visual.ModifyCosmetics.Thickness)
+                applyGlowProps(object)
+            end
+        end
+    end
+
+    local function cacheOnly(object)
+        if isVisualEffect(object) or object:IsA("BasePart") then
+            if not object:IsA("BasePart") or (object:IsA("BasePart") and not object.Parent:IsA("Model") and object.Name ~= "HumanoidRootPart") then
+                table.insert(affectedObjects, object)
+                if not originalColors[object] then
+                    originalColors[object] = object.Color
                 end
             end
         end
-        table.clear(originalColors)
     end
 
-    local function stopRainbow()
+    local function updateObjectsWithAction(character, actionFunc)
+        table.clear(affectedObjects)
+        if not character then return end
+        table.foreachi(character:GetDescendants(), function(_, obj) actionFunc(obj) end)
+    end
+
+    local function stopDynamicRainbow()
         if rainbowConnection then
             rainbowConnection:Disconnect()
             rainbowConnection = nil
         end
     end
 
-    local function startRainbow()
-        stopRainbow()
+    local function startDynamicRainbow()
+        stopDynamicRainbow()
+        updateObjectsWithAction(LocalPlayer.Character, cacheOnly)
+        
         rainbowConnection = RunService.Heartbeat:Connect(function(deltaTime)
-            if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled and DConfiguration.Visual.ModifyCosmetics.RainbowEnabled then
+            if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled and DConfiguration.Visual.ModifyCosmetics.DynamicRainbowEnabled then
                 hue = (hue + deltaTime * (rainbowSpeed * 0.1)) % 1
-                local rainbowColor = Color3.fromHSV(hue, 1, 1)
-                saveAndApplyColor(LocalPlayer.Character, rainbowColor, true)
+                applyDynamicRainbow(Color3.fromHSV(hue, 1, 1))
             end
         end)
     end
+
+    local function refreshVisuals()
+        stopDynamicRainbow()
+        if not DConfiguration.Visual.ModifyCosmetics.ToggleEnabled then
+            table.foreach(originalColors, function(obj, col) 
+                pcall(function() if obj and obj.Parent then obj.Color = col end end) 
+            end)
+            table.foreach(originalSizes, function(obj, sizeData)
+                pcall(function()
+                    if obj and obj.Parent then
+                        if obj:IsA("Trail") or obj:IsA("Beam") then
+                            obj.Width0 = sizeData.w0
+                            obj.Width1 = sizeData.w1
+                        elseif obj:IsA("ParticleEmitter") then
+                            obj.Size = sizeData.size
+                        end
+                    end
+                end)
+            end)
+            table.foreach(originalGlow, function(obj, glowVal)
+                pcall(function()
+                    if obj and obj.Parent then
+                        if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") then
+                            obj.LightEmission = glowVal
+                        elseif obj:IsA("Light") then
+                            obj.Brightness = glowVal
+                        end
+                    end
+                end)
+            end)
+            table.clear(originalColors)
+            table.clear(originalSizes)
+            table.clear(originalGlow)
+            table.clear(affectedObjects)
+            return
+        end
+
+        if DConfiguration.Visual.ModifyCosmetics.DynamicRainbowEnabled then
+            startDynamicRainbow()
+        elseif DConfiguration.Visual.ModifyCosmetics.StaticRainbowEnabled then
+            updateObjectsWithAction(LocalPlayer.Character, checkAndApplyStatic)
+        else
+            updateObjectsWithAction(LocalPlayer.Character, checkAndApplyNormal)
+        end
+    end
+
+    LocalPlayer.CharacterAdded:Connect(function(character)
+        if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled then
+            task.wait(0.5)
+            refreshVisuals()
+        end
+    end)
 
     Tabs.Visual:AddToggle("CosmeticsToggle", {
         Title = "Enable Custom Color",
         Default = false,
         Callback = function(Value)
             DConfiguration.Visual.ModifyCosmetics.ToggleEnabled = Value
-            if Value then
-                if DConfiguration.Visual.ModifyCosmetics.RainbowEnabled then
-                    startRainbow()
-                else
-                    saveAndApplyColor(LocalPlayer.Character, selectedColor, false)
-                end
-            else
-                stopRainbow()
-                restoreColors()
-            end
+            refreshVisuals()
         end
     })
 
     Tabs.Visual:AddColorpicker("EffectColor", {
         Title = "Effect Color",
-        Default = Color3.fromRGB(0, 255, 120),
+        Default = DConfiguration.Visual.ModifyCosmetics.SelectedColor,
         Callback = function(Value)
-            selectedColor = Value
-            if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled and not DConfiguration.Visual.ModifyCosmetics.RainbowEnabled then
-                saveAndApplyColor(LocalPlayer.Character, selectedColor, false)
+            DConfiguration.Visual.ModifyCosmetics.SelectedColor = Value
+            if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled and not DConfiguration.Visual.ModifyCosmetics.StaticRainbowEnabled and not DConfiguration.Visual.ModifyCosmetics.DynamicRainbowEnabled then
+                refreshVisuals()
             end
         end
     })
 
-    Tabs.Visual:AddToggle("RainbowToggle", {
-        Title = "Rainbow Effect",
-        Default = false,
+    Tabs.Visual:AddInput("ThicknessInput", {
+        Title = "Effects Size",
+        Default = "1",
+        Placeholder = "1",
+        Numeric = true,
+        Finished = false,
         Callback = function(Value)
-            DConfiguration.Visual.ModifyCosmetics.RainbowEnabled = Value
-            if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled then
-                if Value then
-                    startRainbow()
-                else
-                    stopRainbow()
-                    saveAndApplyColor(LocalPlayer.Character, selectedColor, false)
+            local num = tonumber(Value)
+            if num then
+                DConfiguration.Visual.ModifyCosmetics.Thickness = num
+                if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled then
+                    refreshVisuals()
                 end
             end
+        end
+    })
+
+    Tabs.Visual:AddToggle("StaticRainbowToggle", {
+        Title = "Static Rainbow (No Lag)",
+        Default = false,
+        Callback = function(Value)
+            DConfiguration.Visual.ModifyCosmetics.StaticRainbowEnabled = Value
+            if Value then
+                DConfiguration.Visual.ModifyCosmetics.DynamicRainbowEnabled = false
+            end
+            refreshVisuals()
+        end
+    })
+
+    Tabs.Visual:AddToggle("DynamicRainbowToggle", {
+        Title = "Dynamic Rainbow (Laggy)",
+        Default = false,
+        Callback = function(Value)
+            DConfiguration.Visual.ModifyCosmetics.DynamicRainbowEnabled = Value
+            if Value then
+                DConfiguration.Visual.ModifyCosmetics.StaticRainbowEnabled = false
+            end
+            refreshVisuals()
         end
     })
 

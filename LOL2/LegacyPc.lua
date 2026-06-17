@@ -16,7 +16,7 @@ end
 _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
-    Title = "PhantomWyrm X - Evade Legacy│PC",
+    Title = "PhantomWyrm Hub X - Evade Legacy│PC",
     SubTitle = "v2.22.19 Made By Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
@@ -385,13 +385,10 @@ else
 end
 
 if game.Players then
-   print("Advance Api 🟢")
+   print("Advance Api")
 else
-   print("Common Api 🟢")
+   print("Common Api")
 end
-
-print("Executor 🟢")
-print("Script is Running!")
 
 -- Scripts
 
