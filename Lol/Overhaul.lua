@@ -397,13 +397,10 @@ else
 end
 
 if game.Players then
-   print("Advance Api 🟢")
+   print("Advance Api")
 else
-   print("Common Api 🟢")
+   print("Common Api")
 end
-
-print("Executor 🟢")
-print("Script is Running!")
 
 -- Scripts
 
@@ -7159,7 +7156,7 @@ do
     })
 
     Tabs.Visual:AddInput("ThicknessInput", {
-        Title = "Effects Thickness (Multiplier)",
+        Title = "Effects Size",
         Default = "1",
         Placeholder = "1",
         Numeric = true,
@@ -7168,34 +7165,6 @@ do
             local num = tonumber(Value)
             if num then
                 DConfiguration.Visual.ModifyCosmetics.Thickness = num
-                if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled then
-                    refreshVisuals()
-                end
-            end
-        end
-    })
-
-    Tabs.Visual:AddToggle("BrightnessToggle", {
-        Title = "Enable Glow Brightness",
-        Default = false,
-        Callback = function(Value)
-            DConfiguration.Visual.ModifyCosmetics.BrightnessEnabled = Value
-            if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled then
-                refreshVisuals()
-            end
-        end
-    })
-
-    Tabs.Visual:AddInput("GlowBrightnessInput", {
-        Title = "Glow Brightness",
-        Default = "1",
-        Placeholder = "1",
-        Numeric = true,
-        Finished = false,
-        Callback = function(Value)
-            local num = tonumber(Value)
-            if num then
-                DConfiguration.Visual.ModifyCosmetics.Brightness = num
                 if DConfiguration.Visual.ModifyCosmetics.ToggleEnabled then
                     refreshVisuals()
                 end

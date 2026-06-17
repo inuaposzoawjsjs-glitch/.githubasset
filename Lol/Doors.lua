@@ -22,7 +22,7 @@ end
 return end
 game:GetService("Players").LocalPlayer:SetAttribute("PhantomWyrmLoaded",true)
 
-local LibraryName = 'PhantomWyrm Hub X Doors'
+local LibraryName = 'PhantomWyrm Hub X - Doors'
 
 if game.PlaceId == 126509999114328 then 
 
