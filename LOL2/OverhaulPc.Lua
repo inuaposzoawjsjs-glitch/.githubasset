@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm Hub X - Evade Overhaul│PC",
-    SubTitle = "v3.38.19 Made Carey",
+    SubTitle = "v3.38.20 Made Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
     Acrylic = false,
@@ -5707,139 +5707,297 @@ Tabs.Exploits:AddToggle("Smoke Grenade Toggle", {
     end
 })
 
+do
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
 
-local FakeSection = Tabs.Exploits:AddSection("Cola")
-
-Tabs.Exploits:AddKeybind("ColaKey", {
-    Title = "Cola Keybind",
-    Mode = "Toggle",
-    Default = "C", 
+    local SpeedBoostEvent = ReplicatedStorage:WaitForChild("Events"):WaitForChild("Character"):WaitForChild("SpeedBoost")
+    local ColaTool = ReplicatedStorage:WaitForChild("Tools"):FindFirstChild("Cola")
     
-    Callback = function()
-        
-        task.spawn(function()
-            game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Character"):WaitForChild("ToolAction"):FireServer(0, 20)
-        end)
-    end,
-})
+    local ColaModule
+    pcall(function()
+        ColaModule = require(ReplicatedStorage:WaitForChild("Tools"):WaitForChild("Cola"))
+    end)
 
+    local ColaModuleTag = ColaTool and ColaTool:GetAttribute("Tag") or nil
 
-local player = game:GetService("Players").LocalPlayer
+    local ColaCheat = {
+        FixColaAnimation = true,
+        UnlimitedCola = false,
+        ModifyStats = true,
+        CustomSpeed = 1.4,
+        CustomDuration = 3.5
+    }
 
-local featureStates = {
-    AutoDrink = false,
-    DrinkDelay = 0.5
-}
-
-local AutoDrinkThread = nil
-
-local function toggleDrinkLogic(state)
-    featureStates.AutoDrink = state
-    
-    if AutoDrinkThread then 
-        task.cancel(AutoDrinkThread) 
-        AutoDrinkThread = nil 
+    local function GetCharacter()
+        return LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     end
 
-    if state then
-        AutoDrinkThread = task.spawn(function()
-            while featureStates.AutoDrink do
-                pcall(function()
-                    local ev = player.PlayerScripts.Events.temporary_events.UseKeybind
-                    ev:Fire({
-                        ["Forced"] = true,
-                        ["Key"] = "Cola",
-                        ["Down"] = true
-                    })
-                end)
-                task.wait(featureStates.DrinkDelay)
+    local function GetLPTagValue()
+        local char = GetCharacter()
+        if char then
+            return char:GetAttribute("Tag")
+        end
+        return nil
+    end
+
+    local function GetColaTagValue()
+        if ColaTool then
+            return ColaTool:GetAttribute("Tag")
+        end
+        return nil
+    end
+
+    local function GetDrinkDelay()
+        if not ColaModule then return nil end
+        local Tasks = ColaModule.Tasks
+        if Tasks and type(Tasks) == "table" then
+            for _, task in ipairs(Tasks) do
+                local AutomaticFunctions = task.AutomaticFunctions
+                if AutomaticFunctions and type(AutomaticFunctions) == "table" then
+                    for _, func in ipairs(AutomaticFunctions) do
+                        if func.Phrase == "StartDrinking" then
+                            local Methods = func.Methods
+                            if Methods and type(Methods) == "table" then
+                                for _, method in ipairs(Methods) do
+                                    local Info = method.Info
+                                    if Info and Info.Cooldown then
+                                        return Info.Cooldown
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
             end
-        end)
+        end
     end
+
+    local function GetSpeedBoostData()
+        if not ColaModule then return nil end
+        local Tasks = ColaModule.Tasks
+        if Tasks and type(Tasks) == "table" then
+            for _, task in ipairs(Tasks) do
+                local AutomaticFunctions = task.AutomaticFunctions
+                if AutomaticFunctions and type(AutomaticFunctions) == "table" then
+                    for _, func in ipairs(AutomaticFunctions) do
+                        if func.Phrase == "FinishDrink" then
+                            local Methods = func.Methods
+                            if Methods and type(Methods) == "table" then
+                                for _, method in ipairs(Methods) do
+                                    local Info = method.Info
+                                    if Info then
+                                        if ColaCheat.ModifyStats then
+                                            return ColaCheat.CustomSpeed, ColaCheat.CustomDuration, Info.Color
+                                        else
+                                            return Info.SpeedBoost, Info.Duration, Info.Color
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    local function fakecolaspeed()
+        local speed, duration, color = GetSpeedBoostData()
+        if speed and duration then
+            local args = {
+                [1] = "Drink",
+                [2] = speed,
+                [3] = duration,
+                [4] = color
+            }
+            firesignal(SpeedBoostEvent.OnClientEvent, unpack(args))
+        end
+    end
+
+    local UsePhrase = LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("Events"):FindFirstChild("UsePhrase")
+
+    if UsePhrase then
+        local parent = UsePhrase.Parent
+        local name = UsePhrase.Name
+
+        local newFunction = Instance.new("BindableFunction")
+        newFunction.Name = name
+        newFunction.Parent = parent
+
+        newFunction.OnInvoke = function(...)
+            local args = {...}
+            if args[1] and type(args[1]) == "table" and args[1].Phrase == "FinishDrink" then
+                if ColaCheat.UnlimitedCola then
+                    local tagValue = GetLPTagValue()
+                    if tagValue then
+                        fakecolaspeed()
+                        task.wait(2.25)
+                        firesignal(ReplicatedStorage.Events.Character.PassCharacterInfo.OnClientEvent, buffer.fromstring(string.char(tagValue) .. "\18"), { "Weaponless" })
+                    else
+                        print("No 'Tag' attribute found on character")
+                    end
+                    return nil
+                else
+                    if ColaCheat.ModifyStats then
+                        firesignal(ReplicatedStorage.Events.Character.SpeedBoost.OnClientEvent, 
+                            "Drink",
+                            ColaCheat.CustomSpeed,
+                            ColaCheat.CustomDuration,
+                            Color3.new(0.78039216995239, 0.55294120311737, 0.3647058904171)
+                        )
+                    end
+                    return UsePhrase:Invoke(...)
+                end
+            end
+            return UsePhrase:Invoke(...)
+        end
+
+        UsePhrase:Destroy()
+    else
+        warn("UsePhrase not found, skipping hook")
+    end
+
+    local UseKeybind = LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("Events"):WaitForChild("temporary_events"):FindFirstChild("UseKeybind")
+    if not UseKeybind then
+        warn("UseKeybind not found")
+    else
+        local connections = {}
+        for _, conn in ipairs(getconnections(UseKeybind.Event)) do
+            table.insert(connections, conn)
+        end
+
+        local function newKeyHandler(...)
+            local args = {...}
+            if ColaCheat.FixColaAnimation == true and args[1] and type(args[1]) == "table" and args[1].Key == "Cola" and args[1].Down == true then
+                local colaTag = GetColaTagValue()
+                if colaTag then
+                    ReplicatedStorage.Events.Character.ToolAction:FireServer(0, colaTag)
+                end
+                return 
+            end
+            for _, conn in ipairs(connections) do
+                conn.Function(...)
+            end
+        end
+
+        for _, conn in ipairs(connections) do
+            conn:Disconnect()
+        end
+        UseKeybind.Event:Connect(newKeyHandler)
+    end
+
+Tabs.Exploits:AddSection("Cola Adjustments")
+
+    Tabs.Exploits:AddKeybind("ColaKey", {
+        Title = "Cola Keybind",
+        Mode = "Toggle",
+        Default = "C", 
+        Callback = function()
+            task.spawn(function()
+                ReplicatedStorage:WaitForChild("Events"):WaitForChild("Character"):WaitForChild("ToolAction"):FireServer(0, 20)
+            end)
+        end,
+    })
+
+    local featureStates = {
+        AutoDrink = false,
+        DrinkDelay = 0.5
+    }
+
+    local AutoDrinkThread = nil
+
+    local function toggleDrinkLogic(state)
+        featureStates.AutoDrink = state
+        
+        if AutoDrinkThread then 
+            task.cancel(AutoDrinkThread) 
+            AutoDrinkThread = nil 
+        end
+
+        if state then
+            AutoDrinkThread = task.spawn(function()
+                while featureStates.AutoDrink do
+                    pcall(function()
+                        local ev = LocalPlayer.PlayerScripts.Events.temporary_events.UseKeybind
+                        ev:Fire({
+                            ["Forced"] = true,
+                            ["Key"] = "Cola",
+                            ["Down"] = true
+                        })
+                    end)
+                    task.wait(featureStates.DrinkDelay)
+                end
+            end)
+        end
+    end
+
+    Tabs.Exploits:AddToggle("AutoDrinkToggle", {
+        Title = "Auto Drink Cola",
+        Default = false,
+        Callback = function(state)
+            toggleDrinkLogic(state)
+        end
+    })
+
+    Tabs.Exploits:AddInput("DrinkDelayInput", {
+        Title = "Drink Delay (seconds)",
+        Default = "0.5",
+        Numeric = true,
+        Finished = false,
+        Callback = function(Value)
+            local num = tonumber(Value)
+            if num and num > 0 then
+                featureStates.DrinkDelay = num
+            end
+        end
+    })
+
+    Tabs.Exploits:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
+
+    Tabs.Exploits:AddToggle("UnlimitedColaToggle", {
+        Title = "Infinite Cola",
+        Description = "",
+        Default = false,
+        Callback = function(state)
+            ColaCheat.UnlimitedCola = state
+        end
+    })
+
+    Tabs.Exploits:AddInput("ColaSpeedInput", {
+        Title = "Speed Value",
+        Description = "",
+        Default = "1.4",
+        Placeholder = "1.4",
+        Numeric = true,
+        Callback = function(value)
+            local num = tonumber(value)
+            if num and num > 0 then
+                ColaCheat.CustomSpeed = num
+            end
+        end
+    })
+
+    Tabs.Exploits:AddInput("ColaDurationInput", {
+        Title = "Duration",
+        Description = "",
+        Default = "3.5",
+        Placeholder = "3.5",
+        Numeric = true,
+        Callback = function(value)
+            local num = tonumber(value)
+            if num and num > 0 then
+                ColaCheat.CustomDuration = num
+            end
+        end
+    })
 end
 
-Tabs.Exploits:AddToggle("AutoDrinkToggle", {
-    Title = "Auto Drink Cola",
-    Default = false,
-    Callback = function(state)
-        toggleDrinkLogic(state)
-    end
-})
 
-Tabs.Exploits:AddInput("DrinkDelayInput", {
-    Title = "Drink Delay (seconds)",
-    Default = "1",
-    Numeric = true,
-    Finished = false,
-    Callback = function(Value)
-        local num = tonumber(Value)
-        if num and num > 0 then
-            featureStates.DrinkDelay = num
-        end
-    end
-})
-
-player.CharacterAdded:Connect(function()
-    if featureStates.AutoDrink then
-        task.wait(1)
-        toggleDrinkLogic(true)
-    end
-end)
-
-local ColaSettings = {
-    Speed = 1.4,
-    Duration = 3.5
-}
-
-_G.InfColaEnabled = false
-
-Tabs.Exploits:AddToggle("InfColaToggle", {
-    Title = "Infinite Cola",
-    Description = "",
-    Default = false,
-    Callback = function(state)
-        _G.InfColaEnabled = state
-    end
-})
-
-Tabs.Exploits:AddInput("ColaSpeedInput", {
-    Title = "Speed Boost Cola",
-    Default = "1.4",
-    NumericOnly = true,
-    Callback = function(Value)
-        ColaSettings.Speed = tonumber(Value) or 1.4
-    end
-})
-
-Tabs.Exploits:AddInput("ColaDurationInput", {
-    Title = "Duration (seconds)",
-    Default = "3.5",
-    NumericOnly = true,
-    Callback = function(Value)
-        ColaSettings.Duration = tonumber(Value) or 3.5
-    end
-})
-
-local ToolAction = game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Character"):WaitForChild("ToolAction")
-local SpeedBoost = game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Character"):WaitForChild("SpeedBoost")
-
-local oldNamecall
-oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-    local method = getnamecallmethod()
-    local args = {...}
-
-    if _G.InfColaEnabled and not checkcaller() and method == "FireServer" and self == ToolAction then
-        if args[1] == 2 then
-            task.spawn(function()
-                task.wait(2.1)
-                firesignal(SpeedBoost.OnClientEvent, "Cola", ColaSettings.Speed, ColaSettings.Duration, Color3.fromRGB(199, 141, 93))
-            end)
-            return nil
-        end
-    end
-    
-    return oldNamecall(self, ...)
-end))
 
 -- Visuals
 
