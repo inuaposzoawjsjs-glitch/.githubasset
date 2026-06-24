@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm Hub X - Murder Mystery 2│Mobile",
-    SubTitle = "v2.22.27 Made By Carey",
+    SubTitle = "v2.22.29 Made By Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(540, 390),
     Acrylic = false,
@@ -30,7 +30,7 @@ Tabs = {
     AutoFarm = Window:AddTab({ Title = "Auto Farms", Icon = "rbxassetid://10709811110" }),
     Combat = Window:AddTab({ Title = "Combat", Icon = "rbxassetid://10734975692" }),
     Misc = Window:AddTab({ Title = "Misc", Icon = "rbxassetid://7734068321" }),
-    Visuals = Window:AddTab({ Title = "Visuals", Icon = "rbxassetid://10709819149" }),
+    Visual = Window:AddTab({ Title = "Visual", Icon = "rbxassetid://10709819149" }),
     Troll = Window:AddTab({ Title = "Trolling", Icon = "laugh" }),
     Exploits = Window:AddTab({ Title = "Exploits", Icon = "bomb" }),
     Info = Window:AddTab({ Title = "Info", Icon = "rbxassetid://10723415903" }),
@@ -3888,20 +3888,19 @@ do
         Distance = 20
     }
 
+    local function isCoinCollected(coin) return coin:GetAttribute("Collected") == true end
+
     local function startCoinsAura()
         if CoinsAura.Connection then task.cancel(CoinsAura.Connection) end
         
         CoinsAura.Connection = task.spawn(function()
             while CoinsAura.Enabled do
-                local Map = DFunctions.GetMap()
-                local CoinContainer = Map and (Map:FindFirstChild("CoinContainer") or Map:FindFirstChild("CoinsAreas"))
-                
-                if CoinContainer and localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    local hrp = localPlayer.Character.HumanoidRootPart
+                if rootPart and humanoid and humanoid.Health > 0 then
+                    local hrp = rootPart
                     local closest, minDistance = nil, CoinsAura.Distance
                     
-                    for _, coin in pairs(CoinContainer:GetChildren()) do
-                        if coin.Name == "Coin_Server" and coin:FindFirstChildWhichIsA("TouchTransmitter") and coin:FindFirstChild("CoinVisual") then
+                    for _, coin in pairs(coinsCache) do
+                        if coin and coin.Parent and not isCoinCollected(coin) and coin:FindFirstChildWhichIsA("TouchTransmitter") then
                             local dist = (hrp.Position - coin.Position).Magnitude
                             if dist < minDistance then
                                 closest = coin
@@ -3927,7 +3926,6 @@ do
     end
     coinsCache = CollectionService:GetTagged(COIN_TAG)
 
-    local function isCoinCollected(coin) return coin:GetAttribute("Collected") == true end
     local function isFullCoinBag() return currentCoins >= maxCoins and maxCoins > 0 end
     local function ResetCoinBag() currentCoins, maxCoins = 0, 0 end
 
@@ -5875,7 +5873,6 @@ local function toggleFly(player, toggleValue)
     end
 end
 
--- Your loop structure
 _G.loops = false
 
 local function flyLoop()
@@ -6377,9 +6374,9 @@ local function spawnWeapon(name)
     end
 end
 
-local VisualsSection = Tabs.Visuals:AddSection("Weapon Visuals")
+local VisualsSection = Tabs.Visual:AddSection("Weapon Visuals")
 
-Tabs.Visuals:AddSlider("MinSlider", {
+Tabs.Visual:AddSlider("MinSlider", {
     Title = "Min Count",
     Description = "Minimum random items",
     Default = 1,
@@ -6391,7 +6388,7 @@ Tabs.Visuals:AddSlider("MinSlider", {
     end
 })
 
-Tabs.Visuals:AddSlider("MaxSlider", {
+Tabs.Visual:AddSlider("MaxSlider", {
     Title = "Max Count",
     Description = "Maximum random items",
     Default = 150,
@@ -6403,7 +6400,7 @@ Tabs.Visuals:AddSlider("MaxSlider", {
     end
 })
 
-Tabs.Visuals:AddButton({
+Tabs.Visual:AddButton({
     Title = "Spawn Random Godlys",
     Description = "",
     Callback = function()
@@ -6427,7 +6424,7 @@ Tabs.Visuals:AddButton({
     end
 })
 
-local FakeSection = Tabs.Visuals:AddSection("Visuals Effects")
+local FakeSection = Tabs.Visual:AddSection("Visuals Effects")
  
  do
     local RingConfig = {
@@ -6475,12 +6472,12 @@ local FakeSection = Tabs.Visuals:AddSection("Visuals Effects")
         end)
     end
 
-    Tabs.Visuals:AddParagraph({
+    Tabs.Visual:AddParagraph({
         Title = "Jump Effects",
         Content = "Visual rings when jumping"
     })
 
-    Tabs.Visuals:AddToggle("RingToggle", {
+    Tabs.Visual:AddToggle("RingToggle", {
         Title = "Enable Jump Rings",
         Default = false,
         Callback = function(Value)
@@ -6488,7 +6485,7 @@ local FakeSection = Tabs.Visuals:AddSection("Visuals Effects")
         end
     })
 
-    Tabs.Visuals:AddInput("DurationInput", {
+    Tabs.Visual:AddInput("DurationInput", {
         Title = "Effect Duration (Seconds)",
         Default = RingConfig.Duration,
         Placeholder = "Enter seconds...",
@@ -6521,7 +6518,7 @@ local FakeSection = Tabs.Visuals:AddSection("Visuals Effects")
     end)
 end
 
-Tabs.Visuals:AddSection("Crosshair")
+Tabs.Visual:AddSection("Crosshair")
 
 local CrosshairObject = nil
 local CrosshairTextures = {
@@ -6534,7 +6531,7 @@ local CrosshairTextures = {
     ["Crosshair2"] = "rbxassetid://5098352958",
 }
 
-local SpectateDropdown = Tabs.Visuals:AddDropdown("CrosshairTexture", {
+local SpectateDropdown = Tabs.Visual:AddDropdown("CrosshairTexture", {
     Title = "Select Crosshair Texture",
     Values = {"Moon", "Anime2", "Anime", "Star2", "Star", "Crosshair", "Crosshair2"},
     Multi = false,
@@ -6550,13 +6547,11 @@ local SpectateDropdown = Tabs.Visuals:AddDropdown("CrosshairTexture", {
     end
 })
 
-Tabs.Visuals:AddSection("Crosshair Size")
-
 local CrosshairSizeEnabled = false
 local CrosshairBaseSize = 30
 local CrosshairObject = nil
 
-Tabs.Visuals:AddToggle("EnableCrosshairSize", {
+Tabs.Visual:AddToggle("EnableCrosshairSize", {
     Title = "Enable Custom Size",
     Default = false,
     Callback = function(Value)
@@ -6577,7 +6572,7 @@ Tabs.Visuals:AddToggle("EnableCrosshairSize", {
     end
 })
 
-Tabs.Visuals:AddSlider("CrosshairSize", {
+Tabs.Visual:AddSlider("CrosshairSize", {
     Title = "Crosshair Size",
     Min = 10,
     Max = 200,
@@ -6601,12 +6596,10 @@ Tabs.Visuals:AddSlider("CrosshairSize", {
     end
 })
 
-Tabs.Visuals:AddSection("Crosshair Pulse")
-
 local pulseEnabled = false
 local pulseSpeed = 2
 
-Tabs.Visuals:AddToggle("PulseCrosshair", {
+Tabs.Visual:AddToggle("PulseCrosshair", {
     Title = "Pulse Crosshair",
     Default = false,
     Callback = function(Value)
@@ -6622,7 +6615,7 @@ Tabs.Visuals:AddToggle("PulseCrosshair", {
     end
 })
 
-Tabs.Visuals:AddSlider("PulseSpeed", {
+Tabs.Visual:AddSlider("PulseSpeed", {
     Title = "Pulse Speed",
     Default = 2,
     Min = 1,
@@ -6646,9 +6639,6 @@ game:GetService("RunService").RenderStepped:Connect(function()
     end
 end)
 
-
-Tabs.Visuals:AddSection("Crosshair Spin")
-
 local RunService = game:GetService("RunService")
 local CrosshairRotate = false
 local RotationSpeed = 100
@@ -6660,7 +6650,7 @@ RunService.RenderStepped:Connect(function(dt)
     end
 end)
 
-Tabs.Visuals:AddToggle("RotateCrosshair", {
+Tabs.Visual:AddToggle("RotateCrosshair", {
     Title = "Rotate Crosshair",
     Default = false,
     Callback = function(Value)
@@ -6676,7 +6666,7 @@ Tabs.Visuals:AddToggle("RotateCrosshair", {
     end
 })
 
-Tabs.Visuals:AddSlider("RotationSpeed", {
+Tabs.Visual:AddSlider("RotationSpeed", {
     Title = "Rotation Speed",
     Min = 0,
     Max = 1000,
@@ -6687,9 +6677,6 @@ Tabs.Visuals:AddSlider("RotationSpeed", {
     end
 })
 
-
-Tabs.Visuals:AddSection("Crosshair RGB")
-
 local RunService = game:GetService("RunService")
 local player = game.Players.LocalPlayer
 
@@ -6697,7 +6684,7 @@ local rgbConnection = nil
 local rgbSpeed = 1
 local rgbSaturation = 1
 
-Tabs.Visuals:AddToggle("RGBCrosshair", {
+Tabs.Visual:AddToggle("RGBCrosshair", {
     Title = "RGB Crosshair",
     Default = false,
     Callback = function(Value)
@@ -6722,7 +6709,7 @@ Tabs.Visuals:AddToggle("RGBCrosshair", {
     end
 })
 
-Tabs.Visuals:AddSlider("RGBSpeed", {
+Tabs.Visual:AddSlider("RGBSpeed", {
     Title = "RGB Speed",
     Description = "",
     Default = 1,
@@ -6734,7 +6721,7 @@ Tabs.Visuals:AddSlider("RGBSpeed", {
     end
 })
 
-Tabs.Visuals:AddSlider("RGBSaturation", {
+Tabs.Visual:AddSlider("RGBSaturation", {
     Title = "RGB Saturation",
     Description = "",
     Default = 1,
@@ -6746,11 +6733,11 @@ Tabs.Visuals:AddSlider("RGBSaturation", {
     end
 })
 
-Tabs.Visuals:AddSection("Gun")
+Tabs.Visual:AddSection("Gun")
 
 local CollectionService = game:GetService("CollectionService")
 
-Tabs.Visuals:AddToggle("DualWieldToggle", {
+Tabs.Visual:AddToggle("DualWieldToggle", {
     Title = "Dual Weapons (Visual)",
     Default = false,
     Callback = function(Value)
@@ -6846,128 +6833,8 @@ Tabs.Visuals:AddToggle("DualWieldToggle", {
     end
 })
 
-Tabs.Visuals:AddSection("AvatarChanger")
+-- Troll
 
-Tabs.Visuals:AddInput("AssetID", {
-    Title = "Custom Accessory ID",
-    Default = "",
-    Numeric = true,
-    Callback = function(Value)
-        _G.SavedID = tonumber(Value)
-    end
-})
-
-Tabs.Visuals:AddButton({
-    Title = "Apply Accessory",
-    Callback = function()
-        if _G.SavedID then
-            local success, code = pcall(game.HttpGet, game, "https://raw.githubusercontent.com/twinkilya0-jpg/Fluent-Modded/refs/heads/master/SkinExtensions/SkinChanger.lua")
-            if success then
-                local func = loadstring(code)
-                if func then
-                    func()
-                end
-            end
-        end
-    end
-})
-
-
-Tabs.Visuals:AddButton({
-    Title = "No Accessories",
-    Callback = function()
-        local char = game.Players.LocalPlayer.Character
-        if char then
-            for _, obj in ipairs(char:GetChildren()) do
-                if obj:IsA("Accessory") then
-                    obj:Destroy()
-                end
-            end
-        end
-    end
-})
-
-Tabs.Visuals:AddToggle("DeleteHats", {
-    Title = "Remove Accessories",
-    Description = "",
-    Default = false,
-    Callback = function(Value)
-        if Value then
-            local char = lp.Character
-            if char then
-                for _, v in next, char:GetDescendants() do
-                    if v:IsA("Accessory") then
-                        for _, p in next, v:GetDescendants() do
-                            if p:IsA("Weld") or p:IsA("ManualWeld") then
-                                p:Destroy()
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-})
-
---  Exploits 
-
-Tabs.Exploits:AddDropdown("EmoteDropdown", {
-    Title = "Select Emote",
-    Values = {"Zen", "Dab", "Sit", "Headless", "Ninja", "Zombie", "Floss"},
-    Multi = false,
-    Default = "Zen",
-    Callback = function(Value)
-	    DConfiguration.Misc.AlternativeFeatures.EmoteSelected = Value
-    end
-})
-
-Tabs.Exploits:AddButton({
-        Title = "Play Emote",
-        Description = "",
-        Callback = function()
-           Remotes.Misc.PlayEmote:Fire(string.lower(DConfiguration.Misc.AlternativeFeatures.EmoteSelected))
-    end
-})
-
--- Settings
-
-Tabs.Settings:AddParagraph({
-        Title = "Configuration",
-        Content = " "
-    })
-
-Tabs.Settings:AddToggle("FPSCounterToggle", {
-    Title = "FPS & Ping Counter",
-    Default = true,
-    Callback = function(Value)
-        ToggleFPSCounter(Value)
-    end
-})
-
--- Save Managers
-
-SaveManager:SetLibrary(Fluent)
-InterfaceManager:SetLibrary(Fluent)
-FBM:SetLibrary(Fluent)
-
-SaveManager:SetIgnoreIndexes({})
-
--- Save Folder
-InterfaceManager:SetFolder("PhantomWyrmXUniversal")
-FBM:SetFolder("PhantomWyrmXUniversal/MM2/FBM")
-SaveManager:SetFolder("PhantomWyrmXUniversal/MM2")
-
-InterfaceManager:BuildInterfaceSection(Tabs.Settings)
-FBM:BuildConfigSection(Tabs.Settings)
-SaveManager:BuildConfigSection(Tabs.Settings)
-
-Window:SelectTab(1)
-
--- Auto Load Configuration
-SaveManager:LoadAutoloadConfig()
-FBM:LoadAutoloadConfig()
-
--- Trolling
 
 Tabs.Troll:AddSection("Players")
 
@@ -7229,6 +7096,71 @@ Tabs.Troll:AddButton({
     }
 )
 
+--  Exploits 
+
+Tabs.Exploits:AddSection("Emotes")
+
+Tabs.Exploits:AddDropdown("EmoteDropdown", {
+    Title = "Select Emote",
+    Values = {"Zen", "Dab", "Sit", "Headless", "Ninja", "Zombie", "Floss"},
+    Multi = false,
+    Default = "Zen",
+    Callback = function(Value)
+	    DConfiguration.Misc.AlternativeFeatures.EmoteSelected = Value
+    end
+})
+
+Tabs.Exploits:AddButton({
+        Title = "Play Emote",
+        Description = "",
+        Callback = function()
+           Remotes.Misc.PlayEmote:Fire(string.lower(DConfiguration.Misc.AlternativeFeatures.EmoteSelected))
+    end
+})
+
+Tabs.Exploits:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
+    
+Tabs.Exploits:AddToggle("ZenToggle", {Title = "Zen Button", Callback = function(v) if v then DFunctions.CreateButton("ZenButton", "Zen", 0.15 + (DConfiguration.Settings.GuiScale.Zen or 0), 0.1 + (DConfiguration.Settings.GuiScale.Zen or 0), function() Remotes.Misc.PlayEmote:Fire("zen") end, false) else DFunctions.DestroyButton("ZenButton") end end})
+Tabs.Exploits:AddInput("ZenSize", {Title = "Zen Size", Numeric = true, Callback = function(v) DConfiguration.Settings.GuiScale.Zen = (tonumber(v) or 0) * 0.01; DFunctions.UpdateButton("ZenButton", 0.15 + DConfiguration.Settings.GuiScale.Zen, 0.1 + DConfiguration.Settings.GuiScale.Zen) end})
+
+Tabs.Exploits:AddToggle("DabToggle", {Title = "Dab Button", Callback = function(v) if v then DFunctions.CreateButton("DabButton", "Dab", 0.15 + (DConfiguration.Settings.GuiScale.Dab or 0), 0.1 + (DConfiguration.Settings.GuiScale.Dab or 0), function() Remotes.Misc.PlayEmote:Fire("dab") end, false) else DFunctions.DestroyButton("DabButton") end end})
+Tabs.Exploits:AddInput("DabSize", {Title = "Dab Size", Numeric = true, Callback = function(v) DConfiguration.Settings.GuiScale.Dab = (tonumber(v) or 0) * 0.01; DFunctions.UpdateButton("DabButton", 0.15 + DConfiguration.Settings.GuiScale.Dab, 0.1 + DConfiguration.Settings.GuiScale.Dab) end})
+
+Tabs.Exploits:AddToggle("SitToggle", {Title = "Sit Button", Callback = function(v) if v then DFunctions.CreateButton("SitButton", "Sit", 0.15 + (DConfiguration.Settings.GuiScale.Sit or 0), 0.1 + (DConfiguration.Settings.GuiScale.Sit or 0), function() Remotes.Misc.PlayEmote:Fire("sit") end, false) else DFunctions.DestroyButton("SitButton") end end})
+Tabs.Exploits:AddInput("SitSize", {Title = "Sit Size", Numeric = true, Callback = function(v) DConfiguration.Settings.GuiScale.Sit = (tonumber(v) or 0) * 0.01; DFunctions.UpdateButton("SitButton", 0.15 + DConfiguration.Settings.GuiScale.Sit, 0.1 + DConfiguration.Settings.GuiScale.Sit) end})
+
+Tabs.Exploits:AddToggle("HeadlessToggle", {Title = "Headless Button", Callback = function(v) if v then DFunctions.CreateButton("HeadlessButton", "Headless", 0.15 + (DConfiguration.Settings.GuiScale.Headless or 0), 0.1 + (DConfiguration.Settings.GuiScale.Headless or 0), function() Remotes.Misc.PlayEmote:Fire("headless") end, false) else DFunctions.DestroyButton("HeadlessButton") end end})
+Tabs.Exploits:AddInput("HeadlessSize", {Title = "Headless Size", Numeric = true, Callback = function(v) DConfiguration.Settings.GuiScale.Headless = (tonumber(v) or 0) * 0.01; DFunctions.UpdateButton("HeadlessButton", 0.15 + DConfiguration.Settings.GuiScale.Headless, 0.1 + DConfiguration.Settings.GuiScale.Headless) end})
+
+Tabs.Exploits:AddToggle("NinjaToggle", {Title = "Ninja Button", Callback = function(v) if v then DFunctions.CreateButton("NinjaButton", "Ninja", 0.15 + (DConfiguration.Settings.GuiScale.Ninja or 0), 0.1 + (DConfiguration.Settings.GuiScale.Ninja or 0), function() Remotes.Misc.PlayEmote:Fire("ninja") end, false) else DFunctions.DestroyButton("NinjaButton") end end})
+Tabs.Exploits:AddInput("NinjaSize", {Title = "Ninja Size", Numeric = true, Callback = function(v) DConfiguration.Settings.GuiScale.Ninja = (tonumber(v) or 0) * 0.01; DFunctions.UpdateButton("NinjaButton", 0.15 + DConfiguration.Settings.GuiScale.Ninja, 0.1 + DConfiguration.Settings.GuiScale.Ninja) end})
+
+Tabs.Exploits:AddToggle("ZombieToggle", {Title = "Zombie Button", Callback = function(v) if v then DFunctions.CreateButton("ZombieButton", "Zombie", 0.15 + (DConfiguration.Settings.GuiScale.Zombie or 0), 0.1 + (DConfiguration.Settings.GuiScale.Zombie or 0), function() Remotes.Misc.PlayEmote:Fire("zombie") end, false) else DFunctions.DestroyButton("ZombieButton") end end})
+Tabs.Exploits:AddInput("ZombieSize", {Title = "Zombie Size", Numeric = true, Callback = function(v) DConfiguration.Settings.GuiScale.Zombie = (tonumber(v) or 0) * 0.01; DFunctions.UpdateButton("ZombieButton", 0.15 + DConfiguration.Settings.GuiScale.Zombie, 0.1 + DConfiguration.Settings.GuiScale.Zombie) end})
+
+Tabs.Exploits:AddToggle("FlossToggle", {Title = "Floss Button", Callback = function(v) if v then DFunctions.CreateButton("FlossButton", "Floss", 0.15 + (DConfiguration.Settings.GuiScale.Floss or 0), 0.1 + (DConfiguration.Settings.GuiScale.Floss or 0), function() Remotes.Misc.PlayEmote:Fire("floss") end, false) else DFunctions.DestroyButton("FlossButton") end end})
+Tabs.Exploits:AddInput("FlossSize", {Title = "Floss Size", Numeric = true, Callback = function(v) DConfiguration.Settings.GuiScale.Floss = (tonumber(v) or 0) * 0.01; DFunctions.UpdateButton("FlossButton", 0.15 + DConfiguration.Settings.GuiScale.Floss, 0.1 + DConfiguration.Settings.GuiScale.Floss) end})
+
+
+
+-- Settings
+
+Tabs.Settings:AddParagraph({
+        Title = "Configuration",
+        Content = " "
+    })
+
+Tabs.Settings:AddToggle("FPSCounterToggle", {
+    Title = "FPS & Ping Counter",
+    Default = true,
+    Callback = function(Value)
+        ToggleFPSCounter(Value)
+    end
+})
+
 -- Info
 
 Tabs.Info:AddParagraph({
@@ -7250,7 +7182,7 @@ Tabs.Info:AddButton({
     Title = "Discord Server",
     Description = "Click to copy link",
     Callback = function()
-        setclipboard("https://discord.gg/NZneWgcckM")
+        setclipboard("https://discord.gg/DzgZSV8gk5")
     end
 })
     
@@ -8097,6 +8029,8 @@ task.spawn(function()
 end)
 
 
+Tabs.Extension:AddSection("Ambient Extension")
+
 local RunService = game:GetService("RunService")
 local rainbowConnection = nil
 local hue = 0
@@ -8134,8 +8068,6 @@ Tabs.Extension:AddSlider("RainbowSpeed", {
     Rounding = 1,
     Callback = function() end
 })
-
-Tabs.Extension:AddSection("Lightning Extension")
 
 local Lighting = game:GetService("Lighting")
 
@@ -8461,6 +8393,31 @@ Tabs.Extension:AddButton({
         end
     end
 })
+
+-- Save Managers
+
+SaveManager:SetLibrary(Fluent)
+InterfaceManager:SetLibrary(Fluent)
+FBM:SetLibrary(Fluent)
+
+SaveManager:SetIgnoreIndexes({})
+
+-- Save Folder
+InterfaceManager:SetFolder("PhantomWyrmXUniversal")
+FBM:SetFolder("PhantomWyrmXUniversal/MM2/FBM")
+SaveManager:SetFolder("PhantomWyrmXUniversal/MM2")
+
+InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+FBM:BuildConfigSection(Tabs.Settings)
+SaveManager:BuildConfigSection(Tabs.Settings)
+
+Window:SelectTab(1)
+
+-- Auto Load Configuration
+SaveManager:LoadAutoloadConfig()
+FBM:LoadAutoloadConfig()
+
+-- cycle
 
 Workspace.DescendantAdded:Connect(function(v)
 	if DConfiguration.ESP.Objects.ThrowingKnife then
