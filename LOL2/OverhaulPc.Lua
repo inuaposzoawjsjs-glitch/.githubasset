@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm Hub X - Evade Overhaul│PC",
-    SubTitle = "v3.38.20 Made Carey",
+    SubTitle = "v3.38.21 Made Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
     Acrylic = false,
@@ -28,7 +28,7 @@ local Window = Fluent:CreateWindow({
 local Tabs = {
     Main = Window:AddTab({ Title = "Main", Icon = "rbxassetid://7733960981" }),
     AutoFarm = Window:AddTab({ Title = "Auto Farm", Icon = "rbxassetid://10709811110" }),
-    Nexbots = Window:AddTab({ Title = "Anti Nexbots", Icon = "shield" }),
+    Nextbots = Window:AddTab({ Title = "Anti Nextbots", Icon = "shield" }),
     Misc = Window:AddTab({ Title = "Movement", Icon = "rbxassetid://7734068321" }),
     Exploits = Window:AddTab({ Title = "Exploits", Icon = "bomb" }),
     Visual = Window:AddTab({ Title = "Visuals", Icon = "rbxassetid://10709819149" }),
@@ -653,7 +653,7 @@ local DConfiguration = {
         },
     },
 
-    Nexbots = {
+    Nextbots = {
         AntiNextbot = false,
         AntiNextbotRange = 15,
         AntiNextbotType = "Spawn",
@@ -1371,7 +1371,7 @@ end
 DFunctions.GetEmotesName()
 DFunctions.GetLoadoutName()
 
--- Nexbots logic
+-- Nextbots logic
 
 function DFunctions.AntiNextbot()
     if Workspace:FindFirstChild("Game") and game.Workspace.Game:FindFirstChild("Players") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
@@ -1391,12 +1391,12 @@ function DFunctions.AntiNextbot()
                     
                     local distance = (LocalPlayer.Character.HumanoidRootPart.Position - humanoidRootPart.Position).Magnitude
                     
-                    if distance < DConfiguration.Nexbots.AntiNextbotRange then
-                        if DConfiguration.Nexbots.AntiNextbotType == "Spawn" then
+                    if distance < DConfiguration.Nextbots.AntiNextbotRange then
+                        if DConfiguration.Nextbots.AntiNextbotType == "Spawn" then
                             local parts = workspace.Game.Map.ItemSpawns:GetChildren()
                             local randomPart = parts[math.random(1, #parts)]
                             LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(randomPart.Position)
-                        elseif DConfiguration.Nexbots.AntiNextbotType == "Players" then
+                        elseif DConfiguration.Nextbots.AntiNextbotType == "Players" then
                             local randomPlayer = Players:GetPlayers()[math.random(1, #game.Players:GetPlayers())]
                             if randomPlayer then
                               LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(randomPlayer.Character.Head.Position.X, randomPlayer.Character.Head.Position.Y, randomPlayer.Character.Head.Position.Z)
@@ -2191,53 +2191,69 @@ function DFunctions.CrouchFunction()
     local HumanoidRootPart = Character:FindFirstChild("HumanoidRootPart")
     if not Humanoid or not HumanoidRootPart then return end
 
-    if not DConfiguration or not DConfiguration.Misc or not DConfiguration.Misc.MovementModification or not DConfiguration.Misc.MovementModification.Crouch then 
-        return 
-    end
-
     local Config = DConfiguration.Misc.MovementModification.Crouch
     local Type = Config.Type or "Normal"
-    local debounceDelay = Config.debounce or 0.1
-
-    Config.isHolding = Config.isHolding or false
-    Config.lastTick = Config.lastTick or 0
-    Config.lastReleaseTick = Config.lastReleaseTick or 0
-
     local now = tick()
 
-    local function tapCrouch()
-        if not Config.isHolding and (now - Config.lastTick) >= debounceDelay then
+    if Type == "Rapid" then
+        Config.isHolding = Config.isHolding or false
+        Config.lastTick = Config.lastTick or 0
+
+        if (now - Config.lastTick) >= Config.debounce then
+            Config.isHolding = not Config.isHolding
             LocalPlayer.PlayerScripts.Events.temporary_events.UseKeybind:Fire({
                 Key = "Crouch",
-                Down = true
+                Down = Config.isHolding
             })
-            Config.isHolding = true
             Config.lastTick = now
-        elseif Config.isHolding and (now - Config.lastTick) >= debounceDelay then
-            LocalPlayer.PlayerScripts.Events.temporary_events.UseKeybind:Fire({
-                Key = "Crouch",
-                Down = false
-            })
-            Config.isHolding = false
-            Config.lastReleaseTick = now
         end
+        return
     end
 
     local isOnGround = Humanoid.FloorMaterial ~= Enum.Material.Air
-    local VelocityY = HumanoidRootPart.Velocity.Y
 
-    if Type == "Rapid" then
-        tapCrouch()
-    elseif Type == "Ground" or Type == "Normal" then
-        if isOnGround or VelocityY < -1 then
-            tapCrouch()
-        end
-    elseif Type == "Air" then
+    if Type == "Air" then
+        if Config.isHolding == nil then Config.isHolding = false end
+
         if not isOnGround then
-            tapCrouch()
+            if not Config.isHolding then
+                Config.isHolding = true
+                LocalPlayer.PlayerScripts.Events.temporary_events.UseKeybind:Fire({ Key = "Crouch", Down = true })
+            end
+        else
+            if Config.isHolding then
+                Config.isHolding = false
+                LocalPlayer.PlayerScripts.Events.temporary_events.UseKeybind:Fire({ Key = "Crouch", Down = false })
+            end
+        end
+        return
+    end
+
+    local shouldHold = false
+
+    if Type == "Ground" then
+        if isOnGround then
+            shouldHold = true
+        end
+    elseif Type == "Normal" then
+        shouldHold = true
+    end
+
+    if Config.isHolding == nil then Config.isHolding = false end
+
+    if shouldHold then
+        if not Config.isHolding then
+            Config.isHolding = true
+            LocalPlayer.PlayerScripts.Events.temporary_events.UseKeybind:Fire({ Key = "Crouch", Down = true })
+        end
+    else
+        if Config.isHolding then
+            Config.isHolding = false
+            LocalPlayer.PlayerScripts.Events.temporary_events.UseKeybind:Fire({ Key = "Crouch", Down = false })
         end
     end
 end
+
 
 
 local Folder = Instance.new("Folder", ReplicatedStorage.Items)
@@ -3501,6 +3517,10 @@ do
     })
 end
 
+Tabs.Main:AddParagraph({
+        Title = " ",
+        Content = ""
+    })
  
  local Toggle = Tabs.Main:AddToggle("DisableCameraShake", {Title = "Disable Camera Shake", Default = false })
 
@@ -3813,16 +3833,6 @@ local Toggle = Tabs.AutoFarm:AddToggle("AutoSetSpecialRound", {Title = "Auto Set
        end
     end)
     
-local Toggle = Tabs.AutoFarm:AddToggle("AutoSetSpecialRound", {Title = "Auto Set Timer", Default = false })
-
-    Toggle:OnChanged(function(State)
-      DConfiguration.AutoFarm.VIPAutomations.AutoTimer = State
-      
-      if DConfiguration.AutoFarm.VIPAutomations.AutoTimer then
-         DFunctions.SetVIPCommands(nil, nil, DConfiguration.AutoFarm.VIPAutomations.TimerInput)
-       end
-    end)
-    
 local Toggle = Tabs.AutoFarm:AddToggle("AutoSetMap", {Title = "Auto Set Gamemode to Pro (RECOMMENDED)", Default = false })
 
     Toggle:OnChanged(function(State)
@@ -3860,21 +3870,21 @@ Tabs.AutoFarm:AddInput("SpecialRoundInput", {
 
 wait(Duration)
 
--- Nexbots
+-- Nextbots
 
-Tabs.Nexbots:AddSection("Nextbot Modification")
+Tabs.Nextbots:AddSection("Nextbot Modification")
 
-local Toggle = Tabs.Nexbots:AddToggle("AntiNextbotToggle", {Title = "Anti Nextbot Toggle", Default = false })
+local Toggle = Tabs.Nextbots:AddToggle("AntiNextbotToggle", {Title = "Anti Nextbot Toggle", Default = false })
 
     Toggle:OnChanged(function(value)
-    DConfiguration.Nexbots.AntiNextbot = value
+    DConfiguration.Nextbots.AntiNextbot = value
         
-    while DConfiguration.Nexbots.AntiNextbot and wait(0.1) do
+    while DConfiguration.Nextbots.AntiNextbot and wait(0.1) do
           spawn(DFunctions.AntiNextbot)
        end
     end)
 
-local Dropdown = Tabs.Nexbots:AddDropdown("AntiBotTeleport", {
+local Dropdown = Tabs.Nextbots:AddDropdown("AntiBotTeleport", {
         Title = "Anti Nextbot Teleport Type",
         Values = {"Spawn", "Players"},
         Multi = false,
@@ -3882,17 +3892,17 @@ local Dropdown = Tabs.Nexbots:AddDropdown("AntiBotTeleport", {
     })
 
     Dropdown:OnChanged(function(Value)
-        DConfiguration.Nexbots.AntiNextbotType = Value
+        DConfiguration.Nextbots.AntiNextbotType = Value
     end)
     
-  Tabs.Nexbots:AddInput("NextbotDistance", {
+  Tabs.Nextbots:AddInput("NextbotDistance", {
     Title = "Anti Nextbot Distance",
     Default = 15,
     Placeholder = "Number",
     Numeric = false, 
     Finished = false, 
     Callback = function(Value)
-        DConfiguration.Nexbots.AntiNextbotRange = tonumber(Value) or 15 
+        DConfiguration.Nextbots.AntiNextbotRange = tonumber(Value) or 15 
     end
 })
 
@@ -7051,7 +7061,7 @@ Tabs.Info:AddButton({
     Title = "Discord Server",
     Description = "Click to copy link",
     Callback = function()
-        setclipboard("https://discord.gg/NZneWgcckM")
+        setclipboard("https://discord.gg/DzgZSV8gk5")
     end
 })
     

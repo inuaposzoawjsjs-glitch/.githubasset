@@ -2516,7 +2516,7 @@ Tabs.Misc:AddParagraph({
     end
 
     Tabs.Misc:AddToggle("CactusToggle", {
-        Title = "Cactus Edge Platform",
+        Title = "Cactus Platform",
         Default = false,
         Callback = function(Value)
             PlatData.Enabled = Value
@@ -3146,7 +3146,7 @@ Tabs.Info:AddButton({
     Title = "Discord Server",
     Description = "Click to copy link",
     Callback = function()
-        setclipboard("https://discord.gg/NZneWgcckM")
+        setclipboard("https://discord.gg/DzgZSV8gk5")
     end
 })
     
