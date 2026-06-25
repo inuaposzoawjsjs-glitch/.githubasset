@@ -89,13 +89,13 @@ mainopens.Parent = mainopen
 
 local SizeBackMulti = 0.1
 local AssetsIcon = "rbxassetid://139104323768501"
-local AssetsBackground = "rbxassetid://105334838921663"
+local AssetsBackground = "rbxassetid://92810955494196"
 
 -- === ROTATING BACKGROUND IMAGE 
 local backgroundImage = Instance.new("ImageLabel")
 backgroundImage.Name = "RotatingBackground"
 backgroundImage.Parent = mainopen
-backgroundImage.Size = UDim2.new(2.3 + SizeBackMulti, 0, 2.3 + SizeBackMulti, 0)
+backgroundImage.Size = UDim2.new(2.5 + SizeBackMulti, 0, 2.5 + SizeBackMulti, 0)
 backgroundImage.Position = UDim2.new(0.5, 0, 0.5, 0)
 backgroundImage.AnchorPoint = Vector2.new(0.5, 0.5)
 backgroundImage.BackgroundTransparency = 1
