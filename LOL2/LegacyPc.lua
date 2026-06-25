@@ -28,7 +28,7 @@ local Window = Fluent:CreateWindow({
 
 local Tabs = {
     Main = Window:AddTab({ Title = "Main", Icon = "rbxassetid://7733960981" }),
-    Combat = Window:AddTab({ Title = "Combat", Icon = "rbxassetid://10734975692" }),
+    Nextbots = Window:AddTab({ Title = "Nextbots", Icon = "rbxassetid://10734975692" }),
     Misc = Window:AddTab({ Title = "Misc", Icon = "rbxassetid://7734068321" }),
     Visual = Window:AddTab({ Title = "Visual", Icon = "rbxassetid://10709819149" }),
     Info = Window:AddTab({ Title = "Info", Icon = "rbxassetid://10723415903" }),
@@ -617,7 +617,7 @@ local DConfiguration = {
         Noclip = false,
     },
 
-    Combat = {
+    Nextbots = {
         AntiNextbot = false,
         AntiNextbotRange = 15,
         AntiNextbotType = "Spawn",
@@ -1052,12 +1052,12 @@ function DFunctions.AntiNextbot()
                 if humanoidRootPart then
                     local distance = (LocalPlayer.Character.HumanoidRootPart.Position - humanoidRootPart.Position).Magnitude
                     
-                    if distance < DConfiguration.Combat.AntiNextbotRange then
-                        if DConfiguration.Combat.AntiNextbotType == "Spawn" then
+                    if distance < DConfiguration.Nextbots.AntiNextbotRange then
+                        if DConfiguration.Nextbots.AntiNextbotType == "Spawn" then
                             local parts = workspace.Game.Map.ItemSpawns:GetChildren()
                             local randomPart = parts[math.random(1, #parts)]
                             LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(randomPart.Position)
-                        elseif DConfiguration.Combat.AntiNextbotType == "Players" then
+                        elseif DConfiguration.Nextbots.AntiNextbotType == "Players" then
                             local randomPlayer = Players:GetPlayers()[math.random(1, #game.Players:GetPlayers())]
                             if randomPlayer then
                               LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(randomPlayer.Character.Head.Position.X, randomPlayer.Character.Head.Position.Y, randomPlayer.Character.Head.Position.Z)
@@ -2038,21 +2038,21 @@ spawn(flyLoop)
     
 wait(Duration)
 
--- Combat
+-- Nextbots
 
-Tabs.Combat:AddSection("Nextbot Modification")
+Tabs.Nextbots:AddSection("Nextbot Modification")
 
-local Toggle = Tabs.Combat:AddToggle("AntiNextbotToggle", {Title = "Anti Nextbot Toggle", Default = false })
+local Toggle = Tabs.Nextbots:AddToggle("AntiNextbotToggle", {Title = "Anti Nextbot Toggle", Default = false })
 
     Toggle:OnChanged(function(value)
-    DConfiguration.Combat.AntiNextbot = value
+    DConfiguration.Nextbots.AntiNextbot = value
         
-    while DConfiguration.Combat.AntiNextbot and wait(0.1) do
+    while DConfiguration.Nextbots.AntiNextbot and wait(0.1) do
           spawn(DFunctions.AntiNextbot)
        end
     end)
 
-local Dropdown = Tabs.Combat:AddDropdown("AntiBotTeleport", {
+local Dropdown = Tabs.Nextbots:AddDropdown("AntiBotTeleport", {
         Title = "Anti Nextbot Teleport Type",
         Values = {"Spawn", "Players"},
         Multi = false,
@@ -2060,17 +2060,17 @@ local Dropdown = Tabs.Combat:AddDropdown("AntiBotTeleport", {
     })
 
     Dropdown:OnChanged(function(Value)
-        DConfiguration.Combat.AntiNextbotType = Value
+        DConfiguration.Nextbots.AntiNextbotType = Value
     end)
     
-  Tabs.Combat:AddInput("NextbotDistance", {
+  Tabs.Nextbots:AddInput("NextbotDistance", {
     Title = "Anti Nextbot Distance",
     Default = 15,
     Placeholder = "Number",
     Numeric = false, 
     Finished = false, 
     Callback = function(Value)
-        DConfiguration.Combat.AntiNextbotRange = tonumber(Value) or 15 
+        DConfiguration.Nextbots.AntiNextbotRange = tonumber(Value) or 15 
     end
 })
 
