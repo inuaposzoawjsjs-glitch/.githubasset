@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm Hub X - Evade Legacy│PC",
-    SubTitle = "v2.22.19 Made By Carey",
+    SubTitle = "v2.22.21 Made By Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
     Acrylic = false,
@@ -2559,6 +2559,99 @@ Tabs.Misc:AddParagraph({
     end)
 end
 
+Tabs.Misc:AddSection("Camera Adjustment")
+
+if not _G.Phantom then
+    _G.Phantom = {}
+end
+_G.Phantom.ResolutionValue = 1
+local a = workspace.CurrentCamera
+if _G.PhantomCameraLoop == nil then
+    _G.PhantomCameraLoop =
+        game:GetService("RunService").RenderStepped:Connect(
+        function()
+            local b = _G.Phantom.ResolutionValue
+            if b and b ~= 1 then
+                a.CFrame = a.CFrame * CFrame.new(0, 0, 0, 1, 0, 0, 0, b, 0, 0, 0, 1)
+            end
+        end
+    )
+end
+
+Tabs.Misc:AddInput("PhantomFOV", {
+        Title = "Stretch",
+        Description = "write 0.8 or 0.1",
+        Default = "1",
+        Placeholder = "",
+        Numeric = false,
+        Finished = false,
+        Callback = function(c)
+            local d = tonumber(c)
+            if d and d > 0 then
+                _G.Phantom.ResolutionValue = d
+            else
+                _G.Phantom.ResolutionValue = 1
+            end
+        end
+    }
+)
+
+_G.FinalStrictFOV = 70
+
+if _G.StrictFovLoop then
+    _G.StrictFovLoop:Disconnect()
+    _G.StrictFovLoop = nil
+end
+
+if _G.FovChangedConnection then
+    _G.FovChangedConnection:Disconnect()
+    _G.FovChangedConnection = nil
+end
+
+local camera = workspace.CurrentCamera
+
+local function enforceFov()
+    if camera and camera.FieldOfView ~= _G.FinalStrictFOV then
+        camera.FieldOfView = _G.FinalStrictFOV
+    end
+end
+
+local mt = getrawmetatable(game)
+local oldNewIndex = mt.__newindex
+setreadonly(mt, false)
+
+mt.__newindex = newcclosure(function(self, property, value)
+    if self == workspace.CurrentCamera and property == "FieldOfView" then
+        return oldNewIndex(self, property, _G.FinalStrictFOV)
+    end
+    return oldNewIndex(self, property, value)
+end)
+
+setreadonly(mt, true)
+
+if camera then
+    camera.FieldOfView = _G.FinalStrictFOV
+    _G.FovChangedConnection = camera:GetPropertyChangedSignal("FieldOfView"):Connect(enforceFov)
+end
+
+Tabs.Misc:AddInput("PlayerFOV", {
+    Title = "Player FOV (Optimized Lock)",
+    Description = "Minimum 30 │ Max 120",
+    Default = "70",
+    Placeholder = "FOV Number",
+    Numeric = true,
+    Finished = false,
+    Callback = function(text)
+        local number = tonumber(text)
+        if number and number >= 30 and number <= 120 then
+            _G.FinalStrictFOV = number
+            if workspace.CurrentCamera then
+                workspace.CurrentCamera.FieldOfView = number
+            end
+        end
+    end
+})
+
 Tabs.Misc:AddSection("Game Automations")
 
 Tabs.Misc:AddKeybind("MacroKey1", {
@@ -3179,24 +3272,58 @@ _G.Headless_Enabled = false
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
-local function applyKorblox(side, meshId)
+local function revertChanges()
     local char = player.Character
     if not char then return end
     
-    local legName = (side == "Right") and (char:FindFirstChild("Right Leg") and "Right Leg" or "RightUpperLeg") or "Left Leg"
-    local leg = char:FindFirstChild(legName)
+    local head = char:FindFirstChild("Head")
+    if head then
+        head.Transparency = 0
+        local mesh = head:FindFirstChild("HeadlessMesh")
+        if mesh then mesh:Destroy() end
+    end
     
-    if leg then
-        for _, child in ipairs(leg:GetChildren()) do
-            if child:IsA("SpecialMesh") then child:Destroy() end
+    for _, partName in ipairs({"RightUpperLeg", "RightLowerLeg", "RightFoot", "LeftUpperLeg", "LeftLowerLeg", "LeftFoot", "Right Leg", "Left Leg"}) do
+        local part = char:FindFirstChild(partName)
+        if part and part:IsA("BasePart") then
+            part.Transparency = 0
+            local m = part:FindFirstChild("KorbloxMesh")
+            if m then m:Destroy() end
         end
+    end
+end
+
+local function applyKorblox(side)
+    local char = player.Character
+    if not char then return end
+    
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    local isR15 = humanoid and humanoid.RigType == Enum.HumanoidRigType.R15
+    
+    if isR15 then
+        local parts = (side == "Right") and {"RightUpperLeg", "RightLowerLeg", "RightFoot"} or {"LeftUpperLeg", "LeftLowerLeg", "LeftFoot"}
+        for _, partName in ipairs(parts) do
+            local part = char:FindFirstChild(partName)
+            if part then
+                part.Transparency = 1
+            end
+        end
+    else
+        local legName = (side == "Right") and "Right Leg" or "Left Leg"
+        local leg = char:FindFirstChild(legName)
+        local meshId = (side == "Right") and "rbxassetid://101851696" or "rbxassetid://101851582"
         
-        leg.Color = Color3.fromRGB(50, 50, 50)
-        local mesh = Instance.new("SpecialMesh")
-        mesh.Name = "KorbloxMesh"
-        mesh.MeshType = Enum.MeshType.FileMesh
-        mesh.MeshId = meshId
-        mesh.Parent = leg
+        if leg then
+            for _, child in ipairs(leg:GetChildren()) do
+                if child:IsA("SpecialMesh") then child:Destroy() end
+            end
+            leg.Color = Color3.fromRGB(50, 50, 50)
+            local mesh = Instance.new("SpecialMesh")
+            mesh.Name = "KorbloxMesh"
+            mesh.MeshType = Enum.MeshType.FileMesh
+            mesh.MeshId = meshId
+            mesh.Parent = leg
+        end
     end
 end
 
@@ -3218,44 +3345,22 @@ local function applyHeadless()
     end
 end
 
-local function revertChanges()
-    local char = player.Character
-    if not char then return end
-    
-    local head = char:FindFirstChild("Head")
-    if head then
-        head.Transparency = 0
-        local mesh = head:FindFirstChild("HeadlessMesh")
-        if mesh then mesh:Destroy() end
-    end
-    
-    for _, legName in pairs({"Right Leg", "RightUpperLeg", "Left Leg"}) do
-        local leg = char:FindFirstChild(legName)
-        if leg then
-            leg.Color = Color3.new(1, 1, 1)
-            local mesh = leg:FindFirstChild("KorbloxMesh")
-            if mesh then mesh:Destroy() end
-        end
-    end
+local function checkAndApplyAll()
+    revertChanges()
+    if _G.KorbloxR_Enabled then applyKorblox("Right") end
+    if _G.KorbloxL_Enabled then applyKorblox("Left") end
+    if _G.Headless_Enabled then applyHeadless() end
 end
-
-task.spawn(function()
-    while true do
-        if _G.KorbloxR_Enabled then applyKorblox("Right", "rbxassetid://101851696") end
-        if _G.KorbloxL_Enabled then applyKorblox("Left", "rbxassetid://101851582") end
-        if _G.Headless_Enabled then applyHeadless() end
-        
-        if not _G.KorbloxR_Enabled and not _G.KorbloxL_Enabled and not _G.Headless_Enabled then
-            revertChanges()
-        end
-        task.wait(0.1)
-    end
-end)
 
 player.CharacterAdded:Connect(function(char)
     char:WaitForChild("Humanoid")
-    revertChanges()
+    task.wait(0.5)
+    checkAndApplyAll()
 end)
+
+if player.Character then
+    checkAndApplyAll()
+end
 
 Tabs.Extension:AddToggle("KorbloxRToggle", {
     Title = "Korblox (Right)",
@@ -3263,7 +3368,7 @@ Tabs.Extension:AddToggle("KorbloxRToggle", {
     Default = false,
     Callback = function(Value)
         _G.KorbloxR_Enabled = Value
-        if not Value then revertChanges() end
+        checkAndApplyAll()
     end
 })
 
@@ -3273,7 +3378,7 @@ Tabs.Extension:AddToggle("KorbloxLToggle", {
     Default = false,
     Callback = function(Value)
         _G.KorbloxL_Enabled = Value
-        if not Value then revertChanges() end
+        checkAndApplyAll()
     end
 })
 
@@ -3283,7 +3388,7 @@ Tabs.Extension:AddToggle("HeadlessToggle", {
     Default = false,
     Callback = function(Value)
         _G.Headless_Enabled = Value
-        if not Value then revertChanges() end
+        checkAndApplyAll()
     end
 })
 
