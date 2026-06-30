@@ -17,7 +17,7 @@ _G.PhantomWyrmXIsAlreadyRunning = true
 
 local Window = Fluent:CreateWindow({
     Title = "PhantomWyrm Hub X - Evade Legacy│PC",
-    SubTitle = "v2.22.21 Made By Carey",
+    SubTitle = "v2.24.21 Made By Carey",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
     Acrylic = false,
@@ -28,12 +28,12 @@ local Window = Fluent:CreateWindow({
 
 local Tabs = {
     Main = Window:AddTab({ Title = "Main", Icon = "rbxassetid://7733960981" }),
-    Nextbots = Window:AddTab({ Title = "Nextbots", Icon = "rbxassetid://10734975692" }),
-    Misc = Window:AddTab({ Title = "Misc", Icon = "rbxassetid://7734068321" }),
+    Nextbots = Window:AddTab({ Title = "Anti Nextbots", Icon = "shield" }),
+    Misc = Window:AddTab({ Title = "Movement", Icon = "rbxassetid://7734068321" }),
     Visual = Window:AddTab({ Title = "Visual", Icon = "rbxassetid://10709819149" }),
     Info = Window:AddTab({ Title = "Info", Icon = "rbxassetid://10723415903" }),
     Settings = Window:AddTab({ Title = "Configuration", Icon = "rbxassetid://7734052335" }),
-    Extension = Window:AddTab({ Title = "Extension", Icon = "rbxassetid://10734930886" })
+    Extension = Window:AddTab({ Title = "Universal", Icon = "rbxassetid://10734930886" })
 }
 
 local Options = Fluent.Options
