@@ -25,14 +25,14 @@ local Window = Fluent:CreateWindow({
     MinimizeKey = Enum.KeyCode.LeftControl
 })
 
-local Tabs = {
+local Tabs = { 
     Main = Window:AddTab({ Title = "Main", Icon = "rbxassetid://7733960981" }),
-    Nexbots = Window:AddTab({ Title = "Anti Nexbots", Icon = "shield" }),
-    Misc = Window:AddTab({ Title = "Misc", Icon = "rbxassetid://7734068321" }),
+    Nextbots = Window:AddTab({ Title = "Anti Nextbots", Icon = "shield" }),
+    Misc = Window:AddTab({ Title = "Movement", Icon = "rbxassetid://7734068321" }),
     Visual = Window:AddTab({ Title = "Visual", Icon = "rbxassetid://10709819149" }),
     Info = Window:AddTab({ Title = "Info", Icon = "rbxassetid://10723415903" }),
     Settings = Window:AddTab({ Title = "Configuration", Icon = "rbxassetid://7734052335" }),
-    Extension = Window:AddTab({ Title = "Extension", Icon = "rbxassetid://10734930886" })
+    Extension = Window:AddTab({ Title = "Universal", Icon = "rbxassetid://10734930886" })
 }
 
 local Options = Fluent.Options
@@ -626,7 +626,7 @@ local DConfiguration = {
         Noclip = false,
     },
 
-    Nexbots = {
+    Nextbots = {
         AntiNextbot = false,
         AntiNextbotRange = 15,
         AntiNextbotType = "Spawn",
@@ -1060,12 +1060,12 @@ function DFunctions.AntiNextbot()
                 if humanoidRootPart then
                     local distance = (LocalPlayer.Character.HumanoidRootPart.Position - humanoidRootPart.Position).Magnitude
                     
-                    if distance < DConfiguration.Nexbots.AntiNextbotRange then
-                        if DConfiguration.Nexbots.AntiNextbotType == "Spawn" then
+                    if distance < DConfiguration.Nextbots.AntiNextbotRange then
+                        if DConfiguration.Nextbots.AntiNextbotType == "Spawn" then
                             local parts = workspace.Game.Map.ItemSpawns:GetChildren()
                             local randomPart = parts[math.random(1, #parts)]
                             LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(randomPart.Position)
-                        elseif DConfiguration.Nexbots.AntiNextbotType == "Players" then
+                        elseif DConfiguration.Nextbots.AntiNextbotType == "Players" then
                             local randomPlayer = Players:GetPlayers()[math.random(1, #game.Players:GetPlayers())]
                             if randomPlayer then
                               LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(randomPlayer.Character.Head.Position.X, randomPlayer.Character.Head.Position.Y, randomPlayer.Character.Head.Position.Z)
@@ -2312,19 +2312,19 @@ TasSec:AddInput("TASPlaySize", {
 
 -- Nexbot
 
-Tabs.Nexbots:AddSection("Nextbot Modification")
+Tabs.Nextbots:AddSection("Nextbot Modification")
 
-local Toggle = Tabs.Nexbots:AddToggle("AntiNextbotToggle", {Title = "Anti Nextbot Toggle", Default = false })
+local Toggle = Tabs.Nextbots:AddToggle("AntiNextbotToggle", {Title = "Anti Nextbot Toggle", Default = false })
 
     Toggle:OnChanged(function(value)
-    DConfiguration.Nexbots.AntiNextbot = value
+    DConfiguration.Nextbots.AntiNextbot = value
         
-    while DConfiguration.Nexbots.AntiNextbot and wait(0.1) do
+    while DConfiguration.Nextbots.AntiNextbot and wait(0.1) do
           spawn(DFunctions.AntiNextbot)
        end
     end)
 
-local Dropdown = Tabs.Nexbots:AddDropdown("AntiBotTeleport", {
+local Dropdown = Tabs.Nextbots:AddDropdown("AntiBotTeleport", {
         Title = "Anti Nextbot Teleport Type",
         Values = {"Spawn", "Players"},
         Multi = false,
@@ -2332,17 +2332,17 @@ local Dropdown = Tabs.Nexbots:AddDropdown("AntiBotTeleport", {
     })
 
     Dropdown:OnChanged(function(Value)
-        DConfiguration.Nexbots.AntiNextbotType = Value
+        DConfiguration.Nextbots.AntiNextbotType = Value
     end)
     
-  Tabs.Nexbots:AddInput("NextbotDistance", {
+  Tabs.Nextbots:AddInput("NextbotDistance", {
     Title = "Anti Nextbot Distance",
     Default = 15,
     Placeholder = "Number",
     Numeric = false, 
     Finished = false, 
     Callback = function(Value)
-        DConfiguration.Nexbots.AntiNextbotRange = tonumber(Value) or 15 
+        DConfiguration.Nextbots.AntiNextbotRange = tonumber(Value) or 15 
     end
 })
 
